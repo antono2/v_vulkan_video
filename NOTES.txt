@@ -1,0 +1,65 @@
+
+Added submodule at latest master
+git submodule add https://github.com/ocornut/imgui thirdparty/imgui
+
+   git submodule add -b some_branch git://some_repository.git some_repository
+
+v1.91.8
+https://github.com/ocornut/imgui/tree/dbb5eeaadffb6a3ba6a60de1290312e5802dba5a
+
+git submodule add -b dbb5eeaadffb6a3ba6a60de1290312e5802dba5a https://github.com/ocornut/imgui thirdparty/imgui
+git submodule foreach --recursive 'git fetch --tags'
+git submodule update --remote
+
+dbb5eeaadffb6a3ba6a60de1290312e5802dba5a
+v1.91.8
+
+fn C.vkGetEncodedVideoSessionParametersKHR(C.VkDevice,
+	&VideoEncodeSessionParametersGetInfoKHR,
+	&VideoEncodeSessionParametersFeedbackInfoKHR,
+	&usize,
+	voidptr) Result
+
+pub type PFN_vkGetEncodedVideoSessionParametersKHR = fn (C.VkDevice, &VideoEncodeSessionParametersGetInfoKHR, &VideoEncodeSessionParametersFeedbackInfoKHR, &usize, voidptr) Result
+
+@[inline]
+pub fn get_encoded_video_session_parameters_khr(device C.VkDevice,
+	p_video_session_parameters_info &VideoEncodeSessionParametersGetInfoKHR,
+	p_feedback_info &VideoEncodeSessionParametersFeedbackInfoKHR,
+	p_data_size &usize,
+	p_data voidptr) Result {
+	return C.vkGetEncodedVideoSessionParametersKHR(device, p_video_session_parameters_info,
+		p_feedback_info, p_data_size, p_data)
+}
+============================================================================================
+
+fn C.vkGetEncodedVideoSessionParametersKHR(voidptr,
+	voidptr,
+	voidptr,
+	voidptr,
+	voidptr) Result
+
+pub type PFN_vkGetEncodedVideoSessionParametersKHR = fn (voidptr, voidptr, voidptr, voidptr, voidptr) Result
+
+@[inline]
+pub fn get_encoded_video_session_parameters_khr(device C.VkDevice,
+	p_video_session_parameters_info &VideoEncodeSessionParametersGetInfoKHR,
+	p_feedback_info &VideoEncodeSessionParametersFeedbackInfoKHR,
+	p_data_size &usize,
+	p_data voidptr) Result {
+	return C.vkGetEncodedVideoSessionParametersKHR(device, p_video_session_parameters_info,
+		p_feedback_info, p_data_size, p_data)
+}
+
+============= TODO ===============
+fn C. params should be base type
+PFN_ params should NOT be base type
+C. function call params should be CAST base type
+
+C.Vk..  vars -> voidptr
+&C.Vk.. vars -> &voidptr
+
+Ticket
+fixed array len results in C appending_2 and changing to invalid parameter name
+TODO after ticket close
+	remove above basetype fix
