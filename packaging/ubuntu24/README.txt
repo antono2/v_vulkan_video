@@ -19,6 +19,10 @@ No compilation or V installation is required. The package includes an Ubuntu
 runtimes. All bundled libraries are resolved relative to this directory, so
 the archive can be extracted under any user name or path.
 
+The launcher deliberately does not set LD_LIBRARY_PATH. Relative RUNPATHs load
+the bundled application libraries without overriding dependencies used by the
+installed Vulkan driver.
+
 The test machine must have:
 
 * Ubuntu 24.04 LTS on x86_64

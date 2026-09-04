@@ -8,6 +8,7 @@ import imgui.impl_vulkan
 import imgui.impl_glfw
 import time
 import math
+import os
 
 // #flag -DCIMGUI_NO_EXPORT=no
 // #flag -DIMGUI_STATIC=yes
@@ -73,6 +74,17 @@ pub mut:
 pub struct VideoRenderTransform {
 pub mut:
 	values [12]f32
+}
+
+fn default_video_path() string {
+	// Release archives place the sample beside the executable. Prefer that
+	// relocatable path; @VMODROOT points at the build checkout and is only a
+	// source-tree fallback.
+	packaged_sample := os.join_path(os.dir(os.executable()), 'res', 'sample.mp4')
+	if os.is_file(packaged_sample) {
+		return packaged_sample
+	}
+	return '${v_modroot}/res/20240917_095400.mp4'
 }
 
 fn video_render_transform(metadata VideoMetadata, extent vk.Extent2D) VideoRenderTransform {
@@ -155,7 +167,7 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 	video_path := if app.video_path != '' {
 		app.video_path
 	} else {
-		'${v_modroot}/res/20240917_095400.mp4'
+		default_video_path()
 	}
 	println('Video input: ${video_path}')
 	app.video_player.prepare(video_path) or {

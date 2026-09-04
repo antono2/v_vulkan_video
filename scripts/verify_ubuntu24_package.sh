@@ -53,7 +53,11 @@ if [[ $imgui_rpath != '$ORIGIN' ]]; then
 	exit 1
 fi
 
-ldd_output=$(LD_LIBRARY_PATH="$package_dir/lib" ldd "$package_dir/v_vulkan_video")
+# Do not inject the package directory through LD_LIBRARY_PATH. Besides masking
+# broken RUNPATH metadata, that would also make vendor GPU drivers load bundled
+# transitive libraries such as libstdc++. The package's two $ORIGIN RUNPATHs
+# must be sufficient on their own.
+ldd_output=$(ldd "$package_dir/v_vulkan_video")
 if grep -q 'not found' <<<"$ldd_output"; then
 	echo 'Package has unresolved shared-library dependencies:' >&2
 	echo "$ldd_output" >&2
