@@ -22,6 +22,10 @@ actual H.264 profile.
 
 ## Build and packages
 
+For a first install, start with [QUICKSTART.md](QUICKSTART.md). It has short
+paths for Ubuntu/Debian, Fedora, and Windows, plus read-only prerequisite
+checks and an opt-in Ubuntu dependency installer.
+
 See [BUILDING.md](BUILDING.md) for shared/static ImGui choices, system or
 bundled GLFW selection, Ubuntu 24 binary packaging, and the Windows x64 source
 workflow.

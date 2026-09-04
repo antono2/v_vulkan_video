@@ -1,5 +1,8 @@
 # Building and packaging
 
+New users should start with [QUICKSTART.md](QUICKSTART.md). This document is
+the reference for build variants and release packaging.
+
 The application supports either a shared or static Dear ImGui binding. The
 shared configuration is the distribution default because it keeps C++ and
 Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
