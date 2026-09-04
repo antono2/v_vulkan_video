@@ -579,7 +579,9 @@ fn (mut vp VideoPlayer) create_output_image() {
 	} else {
 		unsafe { &u32(nil) }
 	}
-	image_ci := vk.ImageCreateInfo{
+	mut image_ci := vk.ImageCreateInfo{
+		pNext: unsafe { nil }
+		flags: 0
 		imageType: ._2d
 		format: vp.decoder.properties.format_props.format
 		extent: vk.Extent3D{
@@ -592,12 +594,18 @@ fn (mut vp VideoPlayer) create_output_image() {
 		samples: ._1
 		tiling: .optimal
 		usage: vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.transfer_dst) | u32(vk.ImageUsageFlagBits.sampled))
-		sharingMode: if queues_differ {
-			vk.SharingMode.concurrent} else {
-			vk.SharingMode.exclusive}
-		queueFamilyIndexCount: if queues_differ { u32(queue_families.len) } else { 0 }
-		pQueueFamilyIndices: queue_family_data
+		sharingMode: .exclusive
+		queueFamilyIndexCount: 0
+		pQueueFamilyIndices: unsafe { nil }
 		initialLayout: .undefined
+	}
+	if queues_differ {
+		image_ci.sharingMode = .concurrent
+		image_ci.queueFamilyIndexCount = u32(queue_families.len)
+		image_ci.pQueueFamilyIndices = queue_family_data
+		println('Display image queues: decode family ${queue_families[0]}, graphics family ${queue_families[1]} (concurrent)')
+	} else {
+		println('Display image queue family: ${queue_families[0]} (exclusive)')
 	}
 	mut res := dev_ctx.vma_allocator.create_image(&image_ci, .gpu, &vp.output_image.image, mut vp.output_image.allocation_info)
 	check_vk(res, 'Could not create sampled video output image')
@@ -623,6 +631,7 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 	mut dev_ctx := vp.app.device_context
 	image_ci := vk.ImageCreateInfo{
 		pNext: &vp.decoder.settings.profile_list_info
+		flags: 0
 		imageType: ._2d
 		format: vp.decoder.properties.format_props.format
 		extent: vk.Extent3D{
@@ -636,6 +645,8 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 		tiling: .optimal
 		usage: vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.transfer_src))
 		sharingMode: .exclusive
+		queueFamilyIndexCount: 0
+		pQueueFamilyIndices: unsafe { nil }
 		initialLayout: .undefined
 	}
 	mut result := dev_ctx.vma_allocator.create_image(&image_ci, .gpu, &vp.decode_output_image.image, mut vp.decode_output_image.allocation_info)
