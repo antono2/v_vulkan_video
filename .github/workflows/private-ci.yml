@@ -119,7 +119,7 @@ jobs:
           - compiler: stable
             v_version: latest
           - compiler: v3
-            v_version: master
+            v_version: weekly
     env:
       VMODULES: ${{ github.workspace }}\source\modules
     steps:
@@ -176,6 +176,7 @@ jobs:
           $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
           New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
           Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
       - name: Build Windows package
         shell: pwsh
         working-directory: source/v_vulkan_video
