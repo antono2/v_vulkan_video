@@ -1,2 +1,5 @@
-#!/bin/bash
-v -w -shared -cg -cc gcc run examples/video_decode_app/ 2>tmp.txt
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec v -d debug -cc gcc run "${project_dir}" -- "$@"

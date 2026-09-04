@@ -1,0 +1,17 @@
+# Local builds and runtime state
+/v_vulkan_video
+/imgui.ini
+/tmp.txt
+/NOTES.txt
+/res/contains-cat-gifs.*
+
+# Package/build output
+/build/
+/dist/
+/*.zip
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
