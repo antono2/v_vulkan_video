@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Write-Host "vkvideo Windows build script revision 5"
+Write-Host "vkvideo Windows build script revision 6"
 $ProjectDirectory = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $BundleDirectory = Split-Path -Parent $ProjectDirectory
 $ModulesDirectory = Join-Path $BundleDirectory "modules"

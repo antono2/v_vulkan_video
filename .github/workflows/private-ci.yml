@@ -29,6 +29,9 @@ jobs:
             linkage: shared
     env:
       VMODULES: ${{ github.workspace }}/source/modules
+      VULKAN_SDK: /usr
+      GLFW_INCLUDE: /usr/include
+      GLFW_LIB: /usr/lib/x86_64-linux-gnu
     steps:
       - uses: actions/checkout@v7
         with:
@@ -152,6 +155,7 @@ jobs:
           path: source/modules/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
+      - uses: ilammy/msvc-dev-cmd@v1
       - uses: NcStudios/VulkanCI@v1.2
         with:
           sdkVersion: 1.4.309.0
