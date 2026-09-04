@@ -249,7 +249,11 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 	if !impl_glfw.init_for_vulkan(app.window_p, true) {
 		panic('Could not initialize the ImGui GLFW backend')
 	}
-	impl_vulkan.load_functions(vk.api_version_1_3, loader_function_callback, &app)
+	// libvimgui uses its own no-prototypes dispatch table. Populate it after
+	// Volk has loaded the instance/device and before any impl_vulkan call.
+	if !impl_vulkan.load_functions(vk.api_version_1_3, loader_function_callback, &app) {
+		panic('Could not load ImGui Vulkan functions')
+	}
 	ds_layouts := [
 		vk.DescriptorSetLayoutBinding{
 			binding: 0
