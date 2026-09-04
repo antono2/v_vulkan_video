@@ -764,7 +764,7 @@ fn (mut d Decoder) initialize(app &VideoDecodeApp) {
 		queueFamilyIndexCount: 0
 		pQueueFamilyIndices: unsafe { nil }
 	}
-	res = dev_ctx.vma_allocator.create_buffer(&buffer_ci, .staging, mut d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
+	res = dev_ctx.vma_allocator.create_buffer(&buffer_ci, .staging, &d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
 	if res != vk.Result.success {
 		panic('Could not create the Vulkan Video bitstream buffer: ${res}')
 	}
