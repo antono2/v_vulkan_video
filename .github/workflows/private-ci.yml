@@ -117,6 +117,19 @@ jobs:
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
           retention-days: 7
           if-no-files-found: error
+      - name: Build diagnostic Ubuntu player
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: |
+          v -d debug -cc gcc -o v_vulkan_video .
+          ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64-debug.zip
+      - uses: actions/upload-artifact@v7
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        with:
+          name: vkvideo-ubuntu24-amd64-debug
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip
+          retention-days: 7
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: matrix.compiler == 'stable' && matrix.linkage == 'static'
         with:
