@@ -30,7 +30,7 @@ if [[ $mode == install ]]; then
 		ubuntu:*|debian:*|*:debian*) ;;
 		*) echo 'Automatic installation supports Debian and Ubuntu only; see QUICKSTART.md.' >&2; exit 1 ;;
 	esac
-	packages=(build-essential cmake git luajit libglfw3-dev libvulkan-dev vulkan-tools pkg-config)
+	packages=(build-essential cmake git luajit libglfw3-dev libvulkan-dev libvulkan-volk-dev vulkan-tools pkg-config)
 	printf 'Installing: %s\n' "${packages[*]}"
 	sudo apt-get update
 	sudo apt-get install -y "${packages[@]}"

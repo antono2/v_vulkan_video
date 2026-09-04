@@ -23,10 +23,13 @@ jobs:
         include:
           - compiler: stable
             linkage: shared
+            v_version: latest
           - compiler: stable
             linkage: static
+            v_version: latest
           - compiler: v3
             linkage: shared
+            v_version: master
     env:
       VMODULES: ${{ github.workspace }}/source/modules
       VULKAN_SDK: /usr
@@ -74,8 +77,10 @@ jobs:
           path: source/modules/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
+        with:
+          version: ${{ matrix.v_version }}
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev luajit pkg-config
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit pkg-config
       - name: Verify generated binding ownership
         working-directory: source/modules/imgui
         run: |
@@ -110,7 +115,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [stable, v3]
+        include:
+          - compiler: stable
+            v_version: latest
+          - compiler: v3
+            v_version: master
     env:
       VMODULES: ${{ github.workspace }}\source\modules
     steps:
@@ -155,10 +164,18 @@ jobs:
           path: source/modules/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
+        with:
+          version: ${{ matrix.v_version }}
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: NcStudios/VulkanCI@v1.2
         with:
           sdkVersion: 1.4.309.0
+      - name: Install Volk headers
+        shell: pwsh
+        run: |
+          $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
+          New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
       - name: Build Windows package
         shell: pwsh
         working-directory: source/v_vulkan_video

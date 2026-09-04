@@ -39,7 +39,7 @@ offers `--linkage static` and `--glfw bundled --glfw-version 3.4`; run it with
 ## Fedora
 
 Install `@development-tools`, `cmake`, `git`, `luajit`, `glfw-devel`,
-`vulkan-loader-devel`, `vulkan-headers`, and `vulkan-tools`, then use the same
+`vulkan-loader-devel`, `vulkan-headers`, `volk-devel`, and `vulkan-tools`, then use the same
 `v install`, ImGui build, and player build commands shown above. Package names
 can vary between Fedora releases, so `setup_linux.sh --install` currently
 limits automatic installation to Debian-family systems.
