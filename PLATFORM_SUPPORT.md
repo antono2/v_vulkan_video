@@ -11,6 +11,11 @@ A normal Vulkan graphics driver does not necessarily provide Vulkan Video.
 | Windows 10, x86-64 | Native build and unsupported-device startup tested | MSVC 19.50, Vulkan SDK 1.4.357, shared ImGui, and bundled GLFW 3.4 build successfully. Startup and clean capability rejection were tested on a GeForce GTX 765M; that Kepler GPU exposes no Vulkan Video extensions. Playback still requires validation on supported Windows hardware before publishing a general binary. |
 | macOS | Unsupported for video decode | The UI bindings can be built for macOS, but this application requires Vulkan Video H.264 decode. Do not treat a MoltenVK graphics-capable system as proof of Vulkan Video support. |
 
+Linux V3 compilation is tracked by CI as an experimental, non-release-gating
+job. V3 currently emits duplicate C type declarations when the complete ImGui,
+ImPlot, GLFW, and Vulkan module graph is compiled. Stable V remains the release
+compiler until that compiler/code-generation issue is resolved.
+
 ## TODO: Windows playback validation
 
 Further Windows testing is deferred until a machine with a Vulkan

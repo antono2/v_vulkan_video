@@ -32,9 +32,10 @@ Install the [V compiler](https://github.com/vlang/v), then from this checkout:
 ```
 
 Use `./scripts/build_linux.sh --compiler v3` to build the full player with V3.
-V3 is supported, but is still an opt-in V compiler mode. The wrapper also
-offers `--linkage static` and `--glfw bundled --glfw-version 3.4`; run it with
-`--help` for all choices.
+V3 is experimental and currently reports compiler/code-generation errors for
+the complete player, so use the stable compiler for a working build. The
+wrapper also offers `--linkage static` and `--glfw bundled --glfw-version 3.4`;
+run it with `--help` for all choices.
 
 ## Fedora
 
