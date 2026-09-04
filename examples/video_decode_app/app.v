@@ -366,7 +366,7 @@ pub fn (mut app VideoDecodeApp) run() {
 		// Record and submit the next Vulkan Video decode operation. The player
 		// signals its event once the decoded frame is ready for graphics work.
 		app.video_player.update(frame.command_buffer, time_elapsed_ns)
-		image_info := vk.DescriptorImageInfo{
+		mut image_info := vk.DescriptorImageInfo{
 			imageView: app.video_player.output_image.view
 			imageLayout: .shader_read_only_optimal
 		}
@@ -424,7 +424,7 @@ pub fn (mut app VideoDecodeApp) run() {
 		if res != vk.Result.success {
 			panic('Could not end graphics command buffer: ${res}')
 		}
-		wait_stage := vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
+		mut wait_stage := vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
 		submit_info := vk.SubmitInfo{
 			waitSemaphoreCount: 1
 			pWaitSemaphores: &app.sem_present_complete
@@ -613,7 +613,7 @@ fn (mut app VideoDecodeApp) initialize_render_pass() {
 	dev_ctx := app.device_context
 	vk_device := dev_ctx.vk_device
 
-	attachment := vk.AttachmentDescription{
+	mut attachment := vk.AttachmentDescription{
 		// flags: vk.AttachmentDescriptionFlags(vk.AttachmentDescriptionFlagBits.may_alias)
 		format: dev_ctx.swapchain.surface_format.format
 		samples: vk.SampleCountFlagBits._1
@@ -625,18 +625,18 @@ fn (mut app VideoDecodeApp) initialize_render_pass() {
 		finalLayout: vk.ImageLayout.present_src_khr
 	}
 
-	color_ref := vk.AttachmentReference{
+	mut color_ref := vk.AttachmentReference{
 		attachment: 0
 		layout: vk.ImageLayout.color_attachment_optimal
 	}
 
-	subpass := vk.SubpassDescription{
+	mut subpass := vk.SubpassDescription{
 		pipelineBindPoint: vk.PipelineBindPoint.graphics
 		colorAttachmentCount: 1
 		pColorAttachments: &color_ref
 	}
 
-	dependency := vk.SubpassDependency{
+	mut dependency := vk.SubpassDependency{
 		srcSubpass: vk.subpass_external
 		dstSubpass: 0
 		srcStageMask: vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
@@ -680,7 +680,7 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 	if isnil(app.ds_layout) {
 		panic('Please make sure to create app.ds_layout')
 	}
-	push_constant_range := vk.PushConstantRange{
+	mut push_constant_range := vk.PushConstantRange{
 		stageFlags: vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex)
 		size: u32(sizeof(VideoRenderTransform))
 	}

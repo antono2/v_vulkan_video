@@ -601,7 +601,7 @@ fn (mut vp VideoPlayer) create_output_image() {
 	}
 	mut res := dev_ctx.vma_allocator.create_image(&image_ci, .gpu, &vp.output_image.image, mut vp.output_image.allocation_info)
 	check_vk(res, 'Could not create sampled video output image')
-	conversion_info := vk.SamplerYcbcrConversionInfo{
+	mut conversion_info := vk.SamplerYcbcrConversionInfo{
 		conversion: dev_ctx.sampler_ycbcr_conversion
 	}
 	view_ci := vk.ImageViewCreateInfo{
@@ -657,7 +657,7 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 fn query_video_format(gpu vk.PhysicalDevice, profile_list &vk.VideoProfileListInfoKHR,
 	usage vk.ImageUsageFlags) ?vk.VideoFormatPropertiesKHR {
 	format_info := vk.PhysicalDeviceVideoFormatInfoKHR{
-		pNext: profile_list
+		pNext: unsafe { profile_list }
 		imageUsage: usage
 	}
 	mut count := u32(0)
@@ -1163,13 +1163,13 @@ pub fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		}
 	} // for d.video_data.sps_count
 
-	session_parameters_add_info := vk.VideoDecodeH264SessionParametersAddInfoKHR{
+	mut session_parameters_add_info := vk.VideoDecodeH264SessionParametersAddInfoKHR{
 		stdSPSCount: d.video_data.sps_count
 		pStdSPSs: video_sequence_parameter_set.data
 		stdPPSCount: d.video_data.pps_count
 		pStdPPSs: video_picture_parameter_sets.data
 	}
-	video_decode_session_parameters_ci := vk.VideoDecodeH264SessionParametersCreateInfoKHR{
+	mut video_decode_session_parameters_ci := vk.VideoDecodeH264SessionParametersCreateInfoKHR{
 		maxStdSPSCount: d.video_data.sps_count
 		maxStdPPSCount: d.video_data.pps_count
 		pParametersAddInfo: &session_parameters_add_info
@@ -1254,12 +1254,12 @@ pub fn remove_emulation_prevention_bytes(ebsp byteptr, size int) []u8 {
 	}
 	mut i := 0
 	for i < size {
-		if (i + 2) < size && ebsp[i] == 0 && ebsp[i + 1] == 0 && ebsp[i + 2] == 3 {
-			rbsp << ebsp[i]
-			rbsp << ebsp[i + 1]
+		if (i + 2) < size && unsafe { ebsp[i] == 0 && ebsp[i + 1] == 0 && ebsp[i + 2] == 3 } {
+			rbsp << unsafe { ebsp[i] }
+			rbsp << unsafe { ebsp[i + 1] }
 			i += 2
 		} else {
-			rbsp << ebsp[i]
+			rbsp << unsafe { ebsp[i] }
 		}
 		i++
 	}
