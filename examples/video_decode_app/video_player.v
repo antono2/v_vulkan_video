@@ -714,9 +714,14 @@ fn (mut d Decoder) initialize(app &VideoDecodeApp) {
 		panic('Vulkan device does not expose H.264 ${h264_profile_name(d.video_data.h264_profile_idc)} Profile decode capabilities: ${res}')
 	}
 
-	// Check video format
-	d.settings.profile_list_info.profileCount = 1
-	d.settings.profile_list_info.pProfiles = &d.settings.profile_info
+	// Construct the complete wrapper so its required Vulkan sType default is
+	// applied. Mutating fields of the zero-initialized embedded value leaves
+	// sType at zero with some V compiler/code-generation paths; NVIDIA's driver
+	// may then fault when this chain is passed to vkCreateImage.
+	d.settings.profile_list_info = vk.VideoProfileListInfoKHR{
+		profileCount: 1
+		pProfiles: &d.settings.profile_info
+	}
 
 	capability_flags := d.properties.decode_caps.flags
 	supports_coincide := (capability_flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0
