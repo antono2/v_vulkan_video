@@ -1,5 +1,7 @@
 param(
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [ValidateSet("stable", "v3")]
+    [string]$Compiler = "stable"
 )
 
 $ErrorActionPreference = "Stop"
@@ -76,7 +78,10 @@ $env:GLFW_LIB = $GlfwLibraryDirectory
 $Executable = Join-Path $OutputDirectory "v_vulkan_video.exe"
 Push-Location $ProjectDirectory
 try {
-    v -cc msvc -cflags /MT -o $Executable .
+    $VArguments = @()
+    if ($Compiler -eq "v3") { $VArguments += "-new-compiler" }
+    $VArguments += @("-cc", "msvc", "-cflags", "/MT", "-o", $Executable, ".")
+    & v @VArguments
     if ($LASTEXITCODE -ne 0) { throw "V application build failed." }
 } finally {
     Pop-Location
@@ -92,4 +97,4 @@ Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $OutputDi
 $ZipPath = "$OutputDirectory.zip"
 if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
 Compress-Archive -Path $OutputDirectory -DestinationPath $ZipPath
-Write-Host "Built Windows package: $ZipPath"
+Write-Host "Built Windows package with the $Compiler V compiler: $ZipPath"
