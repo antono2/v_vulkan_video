@@ -80,7 +80,7 @@ jobs:
         with:
           version: ${{ matrix.v_version }}
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit pkg-config
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
       - name: Verify generated binding ownership
         working-directory: source/modules/imgui
         run: |
@@ -106,10 +106,21 @@ jobs:
           if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
           if [[ '${{ matrix.compiler }}' == stable ]]; then v "${flags[@]}" test .; fi
           v "${flags[@]}" -cc gcc -o v_vulkan_video .
+      - name: Package Ubuntu 24.04 release
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64.zip
       - uses: actions/upload-artifact@v7
-        if: matrix.compiler == 'stable'
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
         with:
-          name: vkvideo-linux-${{ matrix.compiler }}-${{ matrix.linkage }}
+          name: vkvideo-ubuntu24-amd64
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: matrix.compiler == 'stable' && matrix.linkage == 'static'
+        with:
+          name: vkvideo-linux-ci-static
           path: source/v_vulkan_video/v_vulkan_video
           retention-days: 7
           if-no-files-found: error
