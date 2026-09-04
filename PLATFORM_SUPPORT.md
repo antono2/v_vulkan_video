@@ -16,6 +16,8 @@ A normal Vulkan graphics driver does not necessarily provide Vulkan Video.
 Further Windows testing is deferred until a machine with a Vulkan
 Video-capable GPU is available. The remaining Windows work is:
 
+- enable and validate a full-player V3 build once the published Windows V
+  toolchain supports this project's `-new-compiler` invocation;
 - validate H.264 playback and timing over multiple loops;
 - resize and minimize repeatedly during active decoding;
 - validate rotated and non-rotated video metadata;

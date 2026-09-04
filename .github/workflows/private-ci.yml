@@ -109,17 +109,9 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows / ${{ matrix.compiler }}
+    name: Windows / stable
     runs-on: windows-2022
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - compiler: stable
-            v_version: latest
-          - compiler: v3
-            v_version: weekly
     env:
       VMODULES: ${{ github.workspace }}\source\modules
     steps:
@@ -165,7 +157,7 @@ jobs:
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
         with:
-          version: ${{ matrix.v_version }}
+          version: latest
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: NcStudios/VulkanCI@v1.2
         with:
@@ -180,10 +172,10 @@ jobs:
       - name: Build Windows package
         shell: pwsh
         working-directory: source/v_vulkan_video
-        run: ./scripts/build_windows.ps1 -Compiler '${{ matrix.compiler }}'
+        run: ./scripts/build_windows.ps1 -Compiler stable
       - uses: actions/upload-artifact@v7
         with:
-          name: vkvideo-windows-${{ matrix.compiler }}
+          name: vkvideo-windows-stable
           path: source/v_vulkan_video/dist/vkvideo-windows-x64.zip
           retention-days: 7
           if-no-files-found: error

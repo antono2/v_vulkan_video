@@ -68,6 +68,11 @@ The build script produces `dist\vkvideo-windows-x64.zip`. Windows compilation
 and unsupported-device diagnostics are tested; playback validation on a
 Vulkan-Video-capable Windows GPU remains a release TODO.
 
+Use the stable V compiler for Windows builds. V3 builds are currently verified
+on Linux only; enabling and validating V3 on Windows remains a release TODO
+because the published Windows V toolchains do not currently accept the
+`-new-compiler` option used by this project.
+
 ## macOS
 
 The player is not currently supported. MoltenVK provides Vulkan graphics
