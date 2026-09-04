@@ -89,6 +89,10 @@ jobs:
             <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' imgui.v | sort -u) \
             <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' implot/implot.v | sort -u))
           test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
+      - name: Test Vulkan memory allocator
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/modules/vulkan_memory_allocator
+        run: v test .
       - name: Build native ImGui
         working-directory: source/modules/imgui
         run: ./build_vimgui.sh --linkage '${{ matrix.linkage }}' --glfw system
