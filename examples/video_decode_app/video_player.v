@@ -396,10 +396,10 @@ pub fn (vp &VideoPlayer) metadata() VideoMetadata {
 	}
 }
 
-pub fn (mut vp VideoPlayer) initialize(app &VideoDecodeApp) {
+pub fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 	vp.app = app
 	lock vp.decoder {
-		vp.decoder.initialize(app)
+		vp.decoder.initialize(mut app)
 		vp.video_frames = []VideoPlayerDecodeStreamFrame{len: vp.decoder.info.memory_frames.len}
 		for i, frame in vp.decoder.info.memory_frames {
 			vp.video_frames[i] = VideoPlayerDecodeStreamFrame{
@@ -530,6 +530,7 @@ pub fn (mut vp VideoPlayer) shutdown() {
 			vk.destroy_image(vk_device, vp.output_image.image, unsafe { nil })
 			vp.output_image.image = unsafe { nil }
 		}
+		_ = vp.app.device_context.vma_allocator.release(mut vp.output_image.allocation_info)
 		if !isnil(vp.decode_output_image.view) {
 			vk.destroy_image_view(vk_device, vp.decode_output_image.view, unsafe { nil })
 			vp.decode_output_image.view = unsafe { nil }
@@ -538,6 +539,7 @@ pub fn (mut vp VideoPlayer) shutdown() {
 			vk.destroy_image(vk_device, vp.decode_output_image.image, unsafe { nil })
 			vp.decode_output_image.image = unsafe { nil }
 		}
+		_ = vp.app.device_context.vma_allocator.release(mut vp.decode_output_image.allocation_info)
 		for mut dpb in vp.decoder.info.images_dpb {
 			if !isnil(dpb.view) {
 				vk.destroy_image_view(vk_device, dpb.view, unsafe { nil })
@@ -547,12 +549,14 @@ pub fn (mut vp VideoPlayer) shutdown() {
 				vk.destroy_image(vk_device, dpb.image, unsafe { nil })
 				dpb.image = unsafe { nil }
 			}
+			_ = vp.app.device_context.vma_allocator.release(mut dpb.allocation_info)
 		}
 		if !isnil(vp.decoder.gpu_bitstream_buffer) {
 			vp.app.device_context.vma_allocator.unmap(mut vp.decoder.gpu_bitstream_allocation)
 			vk.destroy_buffer(vk_device, vp.decoder.gpu_bitstream_buffer, unsafe { nil })
 			vp.decoder.gpu_bitstream_buffer = unsafe { nil }
 		}
+		_ = vp.app.device_context.vma_allocator.release(mut vp.decoder.gpu_bitstream_allocation)
 		if !isnil(vp.decoder.video_session_parameters) {
 			vk.destroy_video_session_parameters_khr(vk_device, vp.decoder.video_session_parameters, unsafe { nil })
 			vp.decoder.video_session_parameters = unsafe { nil }
@@ -607,7 +611,7 @@ fn (mut vp VideoPlayer) create_output_image() {
 	} else {
 		println('Display image queue family: ${queue_families[0]} (exclusive)')
 	}
-	mut res := dev_ctx.vma_allocator.create_image(&image_ci, .gpu, &vp.output_image.image, mut vp.output_image.allocation_info)
+	mut res := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &vp.output_image.image, mut vp.output_image.allocation_info)
 	check_vk(res, 'Could not create sampled video output image')
 	mut conversion_info := vk.SamplerYcbcrConversionInfo{
 		conversion: dev_ctx.sampler_ycbcr_conversion
@@ -649,7 +653,7 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 		pQueueFamilyIndices: unsafe { nil }
 		initialLayout: .undefined
 	}
-	mut result := dev_ctx.vma_allocator.create_image(&image_ci, .gpu, &vp.decode_output_image.image, mut vp.decode_output_image.allocation_info)
+	mut result := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &vp.decode_output_image.image, mut vp.decode_output_image.allocation_info)
 	check_vk(result, 'Could not create distinct video decode-output image')
 	view_ci := vk.ImageViewCreateInfo{
 		image: vp.decode_output_image.image
@@ -686,7 +690,7 @@ fn query_video_format(gpu vk.PhysicalDevice, profile_list &vk.VideoProfileListIn
 	return formats[0]
 }
 
-fn (mut d Decoder) initialize(app &VideoDecodeApp) {
+fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	mut dev_ctx := app.device_context
 	d.properties.decode_h264_caps = vk.VideoDecodeH264CapabilitiesKHR{}
 	d.properties.decode_caps = vk.VideoDecodeCapabilitiesKHR{
@@ -764,7 +768,7 @@ fn (mut d Decoder) initialize(app &VideoDecodeApp) {
 		queueFamilyIndexCount: 0
 		pQueueFamilyIndices: unsafe { nil }
 	}
-	res = dev_ctx.vma_allocator.create_buffer(&buffer_ci, .staging, &d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
+	res = app.device_context.vma_allocator.create_buffer(&buffer_ci, .staging, &d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
 	if res != vk.Result.success {
 		panic('Could not create the Vulkan Video bitstream buffer: ${res}')
 	}
@@ -869,7 +873,7 @@ fn (mut d Decoder) initialize(app &VideoDecodeApp) {
 		}
 	}
 
-	d.prepare_decoded_picture_buffer(dev_ctx.vk_device, mut dev_ctx.vma_allocator)
+	d.prepare_decoded_picture_buffer(dev_ctx.vk_device, mut app.device_context.vma_allocator)
 
 	d.info.memory_frames = []DecoderVideoMemoryFrameInfo{len: int(num_memory_frames), init: DecoderVideoMemoryFrameInfo{
 		data_frame_info: unsafe { nil }

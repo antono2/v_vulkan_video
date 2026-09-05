@@ -292,7 +292,7 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 	app.initialize_framebuffers()
 
 	app.initialize_imgui_vulkan_backend()
-	app.video_player.initialize(app)
+	app.video_player.initialize(mut app)
 
 	semaphore_ci := vk.SemaphoreCreateInfo{}
 	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_render_complete), 'Could not create render-complete semaphore')
