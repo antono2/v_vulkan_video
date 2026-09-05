@@ -1,15 +1,15 @@
-name: Private release-candidate CI
+name: Release candidate CI
 
 on:
   workflow_dispatch:
   push:
-    branches: [release/vkvideo-rc1]
+    branches: [master, release/vkvideo-rc1]
 
 permissions:
   contents: read
 
 concurrency:
-  group: vkvideo-rc1-${{ github.ref }}
+  group: vkvideo-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,39 +42,39 @@ jobs:
           path: source/v_vulkan_video
       - uses: actions/checkout@v7
         with:
-          repository: antono3/vulkan
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/vulkan
+          ref: ${{ github.ref_name }}
           path: source/modules/vulkan
           ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/vulkan_memory_allocator
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/vulkan_memory_allocator
+          ref: ${{ github.ref_name }}
           path: source/modules/vulkan_memory_allocator
           ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/imgui
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/imgui
+          ref: ${{ github.ref_name }}
           path: source/modules/imgui
           ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
-          repository: antono3/glfw
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/glfw
+          ref: ${{ github.ref_name }}
           path: source/modules/glfw
           ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/minimp4
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/minimp4
+          ref: ${{ github.ref_name }}
           path: source/modules/minimp4
           ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/h264
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/h264
+          ref: ${{ github.ref_name }}
           path: source/modules/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
@@ -150,39 +150,39 @@ jobs:
           path: source/v_vulkan_video
       - uses: actions/checkout@v7
         with:
-          repository: antono3/vulkan
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/vulkan
+          ref: ${{ github.ref_name }}
           path: source/modules/vulkan
           ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/vulkan_memory_allocator
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/vulkan_memory_allocator
+          ref: ${{ github.ref_name }}
           path: source/modules/vulkan_memory_allocator
           ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/imgui
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/imgui
+          ref: ${{ github.ref_name }}
           path: source/modules/imgui
           ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
-          repository: antono3/glfw
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/glfw
+          ref: ${{ github.ref_name }}
           path: source/modules/glfw
           ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/minimp4
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/minimp4
+          ref: ${{ github.ref_name }}
           path: source/modules/minimp4
           ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
-          repository: antono3/h264
-          ref: release/vkvideo-rc1
+          repository: ${{ github.repository_owner }}/h264
+          ref: ${{ github.ref_name }}
           path: source/modules/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
