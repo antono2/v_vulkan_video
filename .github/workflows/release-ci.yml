@@ -1,0 +1,211 @@
+name: Release candidate CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, release/vkvideo-rc1]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vkvideo-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux / ${{ matrix.compiler }} / ${{ matrix.linkage }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.compiler == 'v3' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: stable
+            linkage: shared
+            v_version: latest
+          - compiler: stable
+            linkage: static
+            v_version: latest
+          - compiler: v3
+            linkage: shared
+            v_version: master
+    env:
+      VMODULES: ${{ github.workspace }}/source/modules
+      VULKAN_SDK: /usr
+      GLFW_INCLUDE: /usr/include
+      GLFW_LIB: /usr/lib/x86_64-linux-gnu
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source/v_vulkan_video
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan
+          ref: ${{ github.ref_name }}
+          path: source/modules/vulkan
+          ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan_memory_allocator
+          ref: ${{ github.ref_name }}
+          path: source/modules/vulkan_memory_allocator
+          ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/imgui
+          ref: ${{ github.ref_name }}
+          path: source/modules/imgui
+          ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
+          submodules: recursive
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/glfw
+          ref: ${{ github.ref_name }}
+          path: source/modules/glfw
+          ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/minimp4
+          ref: ${{ github.ref_name }}
+          path: source/modules/minimp4
+          ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/h264
+          ref: ${{ github.ref_name }}
+          path: source/modules/h264
+          ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
+      - uses: prantlf/setup-v-action@v4
+        with:
+          version: ${{ matrix.v_version }}
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
+      - name: Verify generated binding ownership
+        working-directory: source/modules/imgui
+        run: |
+          set -euo pipefail
+          duplicates=$(comm -12 \
+            <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' imgui.v | sort -u) \
+            <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' implot/implot.v | sort -u))
+          test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
+      - name: Test Vulkan memory allocator
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/modules/vulkan_memory_allocator
+        run: v test .
+      - name: Build native ImGui
+        working-directory: source/modules/imgui
+        run: ./build_vimgui.sh --linkage '${{ matrix.linkage }}' --glfw system
+      - name: Test and build player
+        working-directory: source/v_vulkan_video
+        run: |
+          set -euo pipefail
+          flags=()
+          if [[ '${{ matrix.compiler }}' == v3 ]]; then flags+=(-new-compiler); fi
+          if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
+          if [[ '${{ matrix.compiler }}' == stable ]]; then v "${flags[@]}" test .; fi
+          v "${flags[@]}" -cc gcc -o v_vulkan_video .
+      - name: Package Ubuntu 24.04 release
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64.zip
+      - uses: actions/upload-artifact@v7
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        with:
+          name: vkvideo-ubuntu24-amd64
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
+          retention-days: 7
+          if-no-files-found: error
+      - name: Build diagnostic Ubuntu player
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: |
+          v -d debug -cc gcc -o v_vulkan_video .
+          ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64-debug.zip
+      - uses: actions/upload-artifact@v7
+        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        with:
+          name: vkvideo-ubuntu24-amd64-debug
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: matrix.compiler == 'stable' && matrix.linkage == 'static'
+        with:
+          name: vkvideo-linux-ci-static
+          path: source/v_vulkan_video/v_vulkan_video
+          retention-days: 7
+          if-no-files-found: error
+
+  windows:
+    name: Windows / stable
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      VMODULES: ${{ github.workspace }}\source\modules
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source/v_vulkan_video
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan
+          ref: ${{ github.ref_name }}
+          path: source/modules/vulkan
+          ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan_memory_allocator
+          ref: ${{ github.ref_name }}
+          path: source/modules/vulkan_memory_allocator
+          ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/imgui
+          ref: ${{ github.ref_name }}
+          path: source/modules/imgui
+          ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
+          submodules: recursive
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/glfw
+          ref: ${{ github.ref_name }}
+          path: source/modules/glfw
+          ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/minimp4
+          ref: ${{ github.ref_name }}
+          path: source/modules/minimp4
+          ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/h264
+          ref: ${{ github.ref_name }}
+          path: source/modules/h264
+          ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
+      - uses: prantlf/setup-v-action@v4
+        with:
+          version: latest
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: NcStudios/VulkanCI@v1.2
+        with:
+          sdkVersion: 1.4.309.0
+      - name: Install Volk headers
+        shell: pwsh
+        run: |
+          $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
+          New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
+      - name: Build Windows package
+        shell: pwsh
+        working-directory: source/v_vulkan_video
+        run: ./scripts/build_windows.ps1 -Compiler stable
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vkvideo-windows-stable
+          path: source/v_vulkan_video/dist/vkvideo-windows-x64.zip
+          retention-days: 7
+          if-no-files-found: error
