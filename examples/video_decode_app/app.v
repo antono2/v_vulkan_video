@@ -513,8 +513,7 @@ fn key_function_callback(window_p &glfw.Window, key int, _scancode int, action i
 }
 
 pub fn (mut app VideoDecodeApp) shutdown() {
-	mut dev_ctx := app.device_context
-	vk_device := dev_ctx.get_vk_device()
+	vk_device := app.device_context.get_vk_device()
 	vk.device_wait_idle(vk_device)
 	app.video_player.shutdown()
 	app.video_player.close_input()
@@ -558,7 +557,7 @@ pub fn (mut app VideoDecodeApp) shutdown() {
 	implot.destroy_context(implot.get_current_context())
 	imgui.destroy_context(imgui.get_current_context())
 
-	dev_ctx.shutdown()
+	app.device_context.shutdown()
 	if !isnil(app.window_p) {
 		glfw.destroy_window(app.window_p)
 		app.window_p = unsafe { nil }
