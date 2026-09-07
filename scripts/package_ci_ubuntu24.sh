@@ -3,6 +3,7 @@ set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 modules_dir=${VMODULES:?VMODULES must point to the checked-out V modules}
+imgui_dir="$modules_dir/antono2/imgui"
 output_zip=${1:-$project_dir/vkvideo-ubuntu24-amd64.zip}
 package_name=vkvideo-ubuntu24-amd64
 stage_dir=$(mktemp -d)
@@ -11,7 +12,7 @@ package_dir="$stage_dir/$package_name"
 
 for required in \
 	"$project_dir/v_vulkan_video" \
-	"$modules_dir/imgui/lib/libvimgui.so" \
+	"$imgui_dir/lib/libvimgui.so" \
 	/usr/lib/x86_64-linux-gnu/libglfw.so.3 \
 	/usr/lib/x86_64-linux-gnu/libstdc++.so.6 \
 	/lib/x86_64-linux-gnu/libgcc_s.so.1 \
@@ -21,7 +22,7 @@ done
 
 mkdir -p "$package_dir/lib" "$package_dir/res"
 install -m 0755 "$project_dir/v_vulkan_video" "$package_dir/v_vulkan_video"
-install -m 0755 "$modules_dir/imgui/lib/libvimgui.so" "$package_dir/lib/libvimgui.so"
+install -m 0755 "$imgui_dir/lib/libvimgui.so" "$package_dir/lib/libvimgui.so"
 install -m 0755 /usr/lib/x86_64-linux-gnu/libglfw.so.3 "$package_dir/lib/libglfw.so.3"
 install -m 0755 /usr/lib/x86_64-linux-gnu/libstdc++.so.6 "$package_dir/lib/libstdc++.so.6"
 install -m 0755 /lib/x86_64-linux-gnu/libgcc_s.so.1 "$package_dir/lib/libgcc_s.so.1"
