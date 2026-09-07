@@ -16,6 +16,15 @@ decode; an ordinary Vulkan graphics implementation is not sufficient.
 ./v_vulkan_video [--list-gpus] [--gpu INDEX] [video.mp4]
 ```
 
+To compile and run directly from a source checkout, target the repository root:
+
+```sh
+v run . [--list-gpus] [--gpu INDEX] [video.mp4]
+```
+
+`examples/video_decode_app` is the application's importable module rather than
+a standalone `main` package, so it is not a direct `v run` target.
+
 Without a video path, the bundled self-recorded and metadata-sanitized sample
 is used. `--list-gpus` reports compatibility against the selected video's
 actual H.264 profile.
