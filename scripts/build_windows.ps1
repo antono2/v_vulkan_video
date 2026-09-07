@@ -5,11 +5,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Write-Host "vkvideo Windows build script revision 6"
+Write-Host "vkvideo Windows build script revision 7"
 $ProjectDirectory = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $BundleDirectory = Split-Path -Parent $ProjectDirectory
 $ModulesDirectory = Join-Path $BundleDirectory "modules"
-if (-not (Test-Path (Join-Path $ModulesDirectory "imgui\CMakeLists.txt"))) {
+$Antono2ModulesDirectory = Join-Path $ModulesDirectory "antono2"
+if (-not (Test-Path (Join-Path $Antono2ModulesDirectory "imgui\CMakeLists.txt"))) {
     throw "Expected the bundled V modules at $ModulesDirectory"
 }
 if (-not $env:VULKAN_SDK -or -not (Test-Path (Join-Path $env:VULKAN_SDK "Include\vulkan\vulkan.h"))) {
@@ -26,9 +27,9 @@ if (-not $OutputDirectory) {
 }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 $BuildDirectory = Join-Path $ProjectDirectory ".build\windows-imgui"
-$ImguiDirectory = Join-Path $ModulesDirectory "imgui"
+$ImguiDirectory = Join-Path $Antono2ModulesDirectory "imgui"
 $ImguiLibraryDirectory = Join-Path $ImguiDirectory "lib"
-$GlfwLibraryDirectory = Join-Path $ModulesDirectory "glfw\lib"
+$GlfwLibraryDirectory = Join-Path $Antono2ModulesDirectory "glfw\lib"
 if (Test-Path $BuildDirectory) {
     # This directory contains generated CMake state only. Starting clean also
     # prevents a failed dependency download from poisoning the next run.
