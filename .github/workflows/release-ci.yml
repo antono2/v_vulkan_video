@@ -44,7 +44,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/vulkan
           ref: ${{ github.ref_name }}
-          path: source/modules/vulkan
+          path: source/modules/antono2/vulkan
           ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -56,14 +56,14 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/imgui
           ref: ${{ github.ref_name }}
-          path: source/modules/imgui
+          path: source/modules/antono2/imgui
           ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/glfw
           ref: ${{ github.ref_name }}
-          path: source/modules/glfw
+          path: source/modules/antono2/glfw
           ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -75,7 +75,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/h264
           ref: ${{ github.ref_name }}
-          path: source/modules/h264
+          path: source/modules/antono2/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
         with:
@@ -83,7 +83,7 @@ jobs:
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
       - name: Verify generated binding ownership
-        working-directory: source/modules/imgui
+        working-directory: source/modules/antono2/imgui
         run: |
           set -euo pipefail
           duplicates=$(comm -12 \
@@ -95,7 +95,7 @@ jobs:
         working-directory: source/modules/vulkan_memory_allocator
         run: v test .
       - name: Build native ImGui
-        working-directory: source/modules/imgui
+        working-directory: source/modules/antono2/imgui
         run: ./build_vimgui.sh --linkage '${{ matrix.linkage }}' --glfw system
       - name: Test and build player
         working-directory: source/v_vulkan_video
@@ -152,7 +152,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/vulkan
           ref: ${{ github.ref_name }}
-          path: source/modules/vulkan
+          path: source/modules/antono2/vulkan
           ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -164,14 +164,14 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/imgui
           ref: ${{ github.ref_name }}
-          path: source/modules/imgui
+          path: source/modules/antono2/imgui
           ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/glfw
           ref: ${{ github.ref_name }}
-          path: source/modules/glfw
+          path: source/modules/antono2/glfw
           ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -183,7 +183,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/h264
           ref: ${{ github.ref_name }}
-          path: source/modules/h264
+          path: source/modules/antono2/h264
           ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
         with:

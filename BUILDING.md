@@ -10,15 +10,14 @@ Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
 ## Shared Dear ImGui (default)
 
 ```sh
-~/.vmodules/imgui/build_vimgui.sh --linkage shared --glfw system
+./scripts/build_linux.sh --linkage shared --glfw system
 v -cc gcc -o v_vulkan_video .
 ```
 
 ## Static Dear ImGui
 
 ```sh
-~/.vmodules/imgui/build_vimgui.sh --linkage static --glfw system
-v -d imgui_static -cc gcc -o v_vulkan_video .
+./scripts/build_linux.sh --linkage static --glfw system
 ```
 
 `imgui_static` hides the executable's Volk dispatch variables from dynamic
@@ -34,13 +33,13 @@ platform runtime components.
 Use the distribution GLFW package:
 
 ```sh
-~/.vmodules/imgui/build_vimgui.sh --glfw system
+./scripts/build_linux.sh --glfw system
 ```
 
 Or build a selected upstream release:
 
 ```sh
-~/.vmodules/imgui/build_vimgui.sh --glfw bundled --glfw-version 3.4
+./scripts/build_linux.sh --glfw bundled --glfw-version 3.4
 ```
 
 The same `--glfw` and `--glfw-version` options work with either ImGui linkage.

@@ -2,7 +2,7 @@ module video_decode_app
 
 import minimp4
 import os
-import vulkan as vk
+import antono2.vulkan as vk
 
 fn test_dpb_acquire_uses_a_free_slot() {
 	mut dpb := DPB{

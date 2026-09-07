@@ -1,11 +1,11 @@
 module video_decode_app
 
-import vulkan as vk
+import antono2.vulkan as vk
 import os
 import math
 import vulkan_memory_allocator as vma
 import minimp4
-import h264
+import antono2.h264
 
 pub const max_texture_count = 64
 pub const slot_count = 17

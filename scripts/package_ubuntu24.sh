@@ -5,8 +5,12 @@ project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pw
 workspace_dir=$(cd -- "$project_dir/.." >/dev/null 2>&1 && pwd)
 v_bin=${V_BIN:-$workspace_dir/v/v}
 rootfs=${UBUNTU24_ROOTFS:-$workspace_dir/.buildroots/ubuntu-24.04}
-imgui_dir=${VIMGUI_DIR:-${HOME}/.vmodules/imgui}
-vmodules_dir=$(cd -- "$imgui_dir/.." >/dev/null 2>&1 && pwd)
+vmodules_dir=${VMODULES:-${HOME}/.vmodules}
+vmodules_dir=${vmodules_dir%%:*}
+imgui_dir=${VIMGUI_DIR:-$vmodules_dir/antono2/imgui}
+if [[ ! -f $imgui_dir/build_vimgui.sh && -z ${VIMGUI_DIR:-} ]]; then
+	imgui_dir=$vmodules_dir/imgui
+fi
 vulkan_sdk=${VULKAN_SDK:-$workspace_dir/1.4.341.1/x86_64}
 output_zip=${1:-$workspace_dir/vkvideo_ubuntu24_amd64.zip}
 package_name=vkvideo-ubuntu24-amd64

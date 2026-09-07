@@ -45,9 +45,13 @@ if ((install_modules)); then
 fi
 
 vmodules_dir=${VMODULES:-$HOME/.vmodules}
-imgui_dir=$vmodules_dir/imgui
+vmodules_dir=${vmodules_dir%%:*}
+imgui_dir=$vmodules_dir/antono2/imgui
+if [[ ! -f $imgui_dir/build_vimgui.sh ]]; then
+	imgui_dir=$vmodules_dir/imgui
+fi
 [[ -f $imgui_dir/build_vimgui.sh ]] || {
-	echo "ImGui module not found at $imgui_dir; check VMODULES or run v install." >&2
+	echo 'ImGui module not found; run: v install antono2.imgui' >&2
 	exit 1
 }
 git -C "$imgui_dir" submodule update --init --recursive

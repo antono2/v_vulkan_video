@@ -1,8 +1,8 @@
 module video_decode_app
 
-import vulkan as vk
+import antono2.vulkan as vk
 import math
-import glfw
+import antono2.glfw
 
 pub struct Swapchain {
 mut:

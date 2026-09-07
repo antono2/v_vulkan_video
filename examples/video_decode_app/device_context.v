@@ -1,8 +1,8 @@
 module video_decode_app
 
-import vulkan as vk
+import antono2.vulkan as vk
 import vulkan_memory_allocator as vma
-import glfw
+import antono2.glfw
 import math
 
 // import bindings.volk

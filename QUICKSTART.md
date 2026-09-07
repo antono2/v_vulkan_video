@@ -61,7 +61,8 @@ Open **x64 Native Tools Command Prompt for VS 2022**, ensure `v`, `cmake`, and
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\check_windows.ps1
 v install
-git -C "$env:USERPROFILE\.vmodules\imgui" submodule update --init --recursive
+$imgui = Join-Path ($env:VMODULES ?? "$env:USERPROFILE\.vmodules") 'antono2\imgui'
+git -C $imgui submodule update --init --recursive
 powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 ```
 
