@@ -50,7 +50,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
           ref: ${{ github.ref_name }}
-          path: source/modules/vulkan_memory_allocator
+          path: source/modules/antono2/vkmemalloc
           ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -69,7 +69,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/minimp4
           ref: ${{ github.ref_name }}
-          path: source/modules/minimp4
+          path: source/modules/antono2/minimp4
           ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -92,7 +92,7 @@ jobs:
           test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
       - name: Test Vulkan memory allocator
         if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
-        working-directory: source/modules/vulkan_memory_allocator
+        working-directory: source/modules/antono2/vkmemalloc
         run: v test .
       - name: Build native ImGui
         working-directory: source/modules/antono2/imgui
@@ -158,7 +158,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
           ref: ${{ github.ref_name }}
-          path: source/modules/vulkan_memory_allocator
+          path: source/modules/antono2/vkmemalloc
           ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
@@ -177,7 +177,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/minimp4
           ref: ${{ github.ref_name }}
-          path: source/modules/minimp4
+          path: source/modules/antono2/minimp4
           ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:

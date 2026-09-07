@@ -14,27 +14,18 @@ mkdir -p "$stage_dir/$bundle_name/v_vulkan_video" "$stage_dir/$bundle_name/modul
 rsync -a --exclude '.git' --exclude '.build' --exclude 'build' --exclude 'dist' \
 	--exclude 'v_vulkan_video' --exclude '*.o' --exclude '*.so' --exclude '*.a' \
 	"$project_dir/" "$stage_dir/$bundle_name/v_vulkan_video/"
-for module in glfw h264 imgui vulkan; do
+for module in glfw h264 imgui minimp4 vkmemalloc vulkan; do
 	module_path=antono2/$module
-	if [[ ! -d $modules_dir/$module_path ]]; then
+	if [[ ! -d $modules_dir/$module_path && $module != vkmemalloc ]]; then
 		module_path=$module
 	fi
 	if [[ ! -d $modules_dir/$module_path ]]; then
-		echo "Missing V module: antono2/$module (or legacy $module)" >&2
+		echo "Missing V module: antono2/$module" >&2
 		exit 1
 	fi
 	rsync -a --exclude '.git' --exclude '.build' --exclude 'build' --exclude 'lib' \
 		--exclude '*.o' --exclude '*.so' --exclude '*.a' \
 		"$modules_dir/$module_path/" "$stage_dir/$bundle_name/modules/antono2/$module/"
-done
-for module in minimp4 vulkan_memory_allocator; do
-	if [[ ! -d $modules_dir/$module ]]; then
-		echo "Missing V module: $module" >&2
-		exit 1
-	fi
-	rsync -a --exclude '.git' --exclude '.build' --exclude 'build' --exclude 'lib' \
-		--exclude '*.o' --exclude '*.so' --exclude '*.a' \
-		"$modules_dir/$module/" "$stage_dir/$bundle_name/modules/$module/"
 done
 
 (cd "$stage_dir" && zip -qr source.zip "$bundle_name")

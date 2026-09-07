@@ -3,8 +3,8 @@ module video_decode_app
 import antono2.vulkan as vk
 import os
 import math
-import vulkan_memory_allocator as vma
-import minimp4
+import antono2.vkmemalloc as vma
+import antono2.minimp4
 import antono2.h264
 
 pub const max_texture_count = 64

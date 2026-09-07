@@ -1,6 +1,6 @@
 module video_decode_app
 
-import minimp4
+import antono2.minimp4
 import os
 import antono2.vulkan as vk
 
