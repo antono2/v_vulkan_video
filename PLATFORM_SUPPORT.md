@@ -39,11 +39,12 @@ The application currently decodes H.264/AVC video carried in MP4. It supports
 reports a compatible Vulkan Video profile. Other codecs, chroma formats,
 bit depths, and interlaced streams are rejected with an explanatory error.
 
-B-frame picture-order parsing is covered by regression tests, but decoded
-pictures are not yet retained in a separate display-order output queue.
-Consequently, B-frame streams are not currently considered release-supported;
-the bundled default deliberately retains the source recording's no-B-frame
-structure until that queue is complete.
+B-frame streams are decoded in codec order and retained in a bounded image
+queue until they become next in presentation order. The queue size is derived
+from the parsed stream and includes extra images for in-flight swapchain work;
+retired images are not reused until the graphics submissions that sampled them
+have completed. The bundled Big Buck Bunny fixtures cover this path at 360p,
+720p, and 1080p.
 
 Unsupported media, missing Vulkan Video extensions, and incompatible GPU
 profiles produce orderly diagnostics and a non-zero exit status. Unexpected
