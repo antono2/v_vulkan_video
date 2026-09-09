@@ -13,6 +13,7 @@ Inspect or select Vulkan devices:
 
     ./run.sh --list-gpus
     ./run.sh --gpu 0 /absolute/path/to/video.mp4
+    ./run.sh --decode-output-mode coincident /absolute/path/to/video.mp4
 
 No compilation or V installation is required. The package includes an Ubuntu
 24.04-built Dear ImGui shared library plus the GLFW, libstdc++, and libgcc

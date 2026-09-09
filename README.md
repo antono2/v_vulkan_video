@@ -17,13 +17,13 @@ decode; an ordinary Vulkan graphics implementation is not sufficient.
 ## Run
 
 ```sh
-./v_vulkan_video [--list-gpus] [--gpu INDEX] [video.mp4]
+./v_vulkan_video [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]
 ```
 
 To compile and run directly from a source checkout, target the repository root:
 
 ```sh
-v run . [--list-gpus] [--gpu INDEX] [video.mp4]
+v run . [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]
 ```
 
 `examples/video_decode_app` is the application's importable module rather than
@@ -32,6 +32,11 @@ a standalone `main` package, so it is not a direct `v run` target.
 Without a video path, the bundled self-recorded and metadata-sanitized sample
 is used. `--list-gpus` reports compatibility against the selected video's
 actual H.264 profile.
+
+`--decode-output-mode auto|coincident|distinct` selects how decoded pictures
+are stored. `auto` prefers coincident DPB/output images and falls back to
+distinct images. The forced modes are useful for driver validation and fail
+with an explanatory error when the selected device does not advertise them.
 
 For a known-supported landscape example, use the bundled 720p Elephants Dream
 excerpt:

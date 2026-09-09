@@ -7,6 +7,7 @@ List or explicitly select Vulkan devices from Command Prompt:
 
     run.bat --list-gpus
     run.bat --gpu 0 C:\path\to\video.mp4
+    run.bat --decode-output-mode coincident C:\path\to\video.mp4
 
 The Vulkan loader and GPU driver are not bundled. The installed display driver
 must expose VK_KHR_video_queue, VK_KHR_video_decode_queue, and

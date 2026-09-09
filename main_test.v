@@ -1,9 +1,12 @@
 module main
 
+import examples.video_decode_app as vda
+
 fn test_parse_cli_defaults() {
 	options := parse_cli([]) or { panic(err) }
 	assert options.video_path == ''
 	assert options.gpu_index == -1
+	assert options.decode_output_mode == .automatic
 	assert !options.list_gpus
 }
 
@@ -12,6 +15,26 @@ fn test_parse_cli_gpu_and_list() {
 	assert options.list_gpus
 	assert options.gpu_index == 2
 	assert options.video_path.ends_with('movie.mp4')
+}
+
+fn test_parse_cli_decode_output_modes() {
+	for name, expected in {
+		'auto':       vda.DecodeOutputMode.automatic
+		'coincident': vda.DecodeOutputMode.coincident
+		'distinct':   vda.DecodeOutputMode.distinct
+	} {
+		options := parse_cli(['--decode-output-mode', name, 'movie.mp4']) or { panic(err) }
+		assert options.decode_output_mode == expected
+	}
+}
+
+fn test_parse_cli_rejects_invalid_or_missing_decode_output_mode() {
+	if _ := parse_cli(['--decode-output-mode', 'separate']) {
+		assert false, 'invalid decode output mode was accepted'
+	}
+	if _ := parse_cli(['--decode-output-mode']) {
+		assert false, 'missing decode output mode was accepted'
+	}
 }
 
 fn test_parse_cli_rejects_invalid_gpu() {
