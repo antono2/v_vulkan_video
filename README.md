@@ -1,6 +1,6 @@
 # v_vulkan_video
 
-[Project portfolio](https://oreskin.de/projects_en.php) · [Support independent development](https://oreskin.de/dono_en.php)
+[Project portfolio](https://oreskin.de/projects_en.php)
 
 An H.264/AVC MP4 video player written in V using Vulkan Video decode. It uses
 the video's display metadata for aspect ratio and rotation, selects a capable
