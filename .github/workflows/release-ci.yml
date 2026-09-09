@@ -19,7 +19,6 @@ jobs:
     name: Linux / ${{ matrix.compiler }} / ${{ matrix.linkage }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    continue-on-error: ${{ matrix.compiler == 'v3' }}
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +93,8 @@ jobs:
         working-directory: source/modules/antono2/imgui
         run: ./build_vimgui.sh --linkage '${{ matrix.linkage }}' --glfw system
       - name: Test and build player
+        id: build_player
+        continue-on-error: ${{ matrix.compiler == 'v3' }}
         working-directory: source/v_vulkan_video
         run: |
           set -euo pipefail
@@ -102,6 +103,9 @@ jobs:
           if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
           if [[ '${{ matrix.compiler }}' == stable ]]; then v "${flags[@]}" test .; fi
           v "${flags[@]}" -cc gcc -o v_vulkan_video .
+      - name: Report V3 compatibility warning
+        if: matrix.compiler == 'v3' && steps.build_player.outcome == 'failure'
+        run: echo '::warning::The experimental V3 player build failed; stable V remains authoritative.'
       - name: Package Ubuntu 24.04 release
         if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
