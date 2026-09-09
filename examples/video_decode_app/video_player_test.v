@@ -57,13 +57,32 @@ fn test_h264_profile_names() {
 	assert h264_profile_name(100) == 'High'
 }
 
-fn test_vui_colour_primaries_map_to_vulkan_ycbcr_models() {
-	assert ycbcr_model_from_colour_primaries(1) == vk.SamplerYcbcrModelConversion.ycbcr709
-	assert ycbcr_model_from_colour_primaries(5) == vk.SamplerYcbcrModelConversion.ycbcr601
-	assert ycbcr_model_from_colour_primaries(6) == vk.SamplerYcbcrModelConversion.ycbcr601
-	assert ycbcr_model_from_colour_primaries(9) == vk.SamplerYcbcrModelConversion.ycbcr2020
-	assert ycbcr_model_from_colour_primaries(2) == vk.SamplerYcbcrModelConversion.ycbcr_identity
+fn test_vui_matrix_coefficients_map_to_vulkan_ycbcr_models() {
+	mut metadata := VideoMetadata{
+		coded_height: 1080
+		colour_description_present: true
+	}
+	metadata.matrix_coefficients = 0
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr_identity
+	metadata.matrix_coefficients = 1
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr709
+	metadata.matrix_coefficients = 5
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr601
+	metadata.matrix_coefficients = 6
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr601
+	metadata.matrix_coefficients = 9
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr2020
+	metadata.matrix_coefficients = 10
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr2020
+	metadata.matrix_coefficients = 2
+	assert ycbcr_model_for_video(metadata) == vk.SamplerYcbcrModelConversion.ycbcr709
 	assert ycbcr_model_name(vk.SamplerYcbcrModelConversion.ycbcr709) == 'BT.709'
+}
+
+fn test_missing_colour_description_uses_resolution_fallback() {
+	assert ycbcr_model_for_video(VideoMetadata{ coded_height: 1080 }) == vk.SamplerYcbcrModelConversion.ycbcr709
+	assert ycbcr_model_for_video(VideoMetadata{ coded_height: 720 }) == vk.SamplerYcbcrModelConversion.ycbcr709
+	assert ycbcr_model_for_video(VideoMetadata{ coded_height: 576 }) == vk.SamplerYcbcrModelConversion.ycbcr601
 }
 
 fn test_minimp4_retains_track_rotation_matrix() {
@@ -125,6 +144,27 @@ fn test_parser_accepts_available_h264_resolution_and_rate_samples() {
 	}
 }
 
+fn test_parser_accepts_supported_elephants_dream_720p_sample() {
+	mut decoder := Decoder{}
+	decoder.parse_mp4_data('${v_modroot}/res/Elephants_Dream_720p30_8s_CC-BY.mp4') or {
+		panic(err)
+	}
+	defer {
+		decoder.video_data.file.close()
+	}
+	assert decoder.video_data.width == 1280
+	assert decoder.video_data.height == 720
+	assert decoder.video_data.h264_profile_idc == 100
+	assert decoder.video_data.frame_infos.len == 240
+	assert decoder.video_data.total_duration == 8_000_000_000
+	assert decoder.video_data.metadata.colour_description_present
+	assert decoder.video_data.metadata.matrix_coefficients == 1
+	assert ycbcr_model_for_video(decoder.video_data.metadata) == vk.SamplerYcbcrModelConversion.ycbcr709
+	for decode_index, frame in decoder.video_data.frame_infos {
+		assert frame.display_order == decode_index
+	}
+}
+
 fn test_parser_orders_type_zero_b_frames_within_their_gop() {
 	mut decoder := Decoder{}
 	decoder.parse_mp4_data('${v_modroot}/res/Big_Buck_Bunny_360_10s_1MB.mp4') or {
@@ -134,8 +174,7 @@ fn test_parser_orders_type_zero_b_frames_within_their_gop() {
 		decoder.video_data.file.close()
 	}
 	assert decoder.video_data.frame_infos.len == 300
-	assert decoder.video_data.frame_infos[..7].map(it.display_order) == [0, 6, 3, 1, 2,
-		4, 5]
+	assert decoder.video_data.frame_infos[..7].map(it.display_order) == [0, 6, 3, 1, 2, 4, 5]
 	for display_order, decode_index in decoder.video_data.frame_display_order {
 		assert decoder.video_data.frame_infos[decode_index].display_order == display_order
 	}

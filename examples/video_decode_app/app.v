@@ -43,13 +43,13 @@ mut:
 	render_pass          vk.RenderPass
 	sampler              vk.Sampler
 pub mut:
-	device_context  DeviceContext
-	video_path      string
+	device_context      DeviceContext
+	video_path          string
 	preferred_gpu_index int = -1
-	list_gpus      bool
-	window_p        &glfw.Window = unsafe { nil }
-	share_data      []string // some data to share between main() and glfw callback functions
-	descriptor_pool vk.DescriptorPool
+	list_gpus           bool
+	window_p            &glfw.Window = unsafe { nil }
+	share_data          []string // some data to share between main() and glfw callback functions
+	descriptor_pool     vk.DescriptorPool
 }
 
 fn check_vk(result vk.Result, operation string) {
@@ -201,13 +201,13 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 		gpu_index = u32(app.preferred_gpu_index)
 	} else {
 		gpu_index = app.device_context.find_h264_decode_gpu(h264_profile_idc) or {
-		eprintln('No Vulkan device provides presentation, graphics, and H.264 ${h264_profile_name(h264_profile_idc)} Profile decode support.')
-		for diagnostic in diagnostics {
-			eprintln('  ${diagnostic}')
-		}
-		eprintln('Required device extensions: VK_KHR_video_queue, VK_KHR_video_decode_queue, VK_KHR_video_decode_h264')
-		app.abort_initialization()
-		return false
+			eprintln('No Vulkan device provides presentation, graphics, and H.264 ${h264_profile_name(h264_profile_idc)} Profile decode support.')
+			for diagnostic in diagnostics {
+				eprintln('  ${diagnostic}')
+			}
+			eprintln('Required device extensions: VK_KHR_video_queue, VK_KHR_video_decode_queue, VK_KHR_video_decode_h264')
+			app.abort_initialization()
+			return false
 		}
 	}
 	app.device_context.initialize_device(gpu_index, h264_profile_idc, video_metadata)
@@ -293,10 +293,16 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 
 	app.initialize_imgui_vulkan_backend()
 	app.video_player.initialize(mut app)
+	$if debug {
+		eprintln('Video player resources initialized')
+	}
 
 	semaphore_ci := vk.SemaphoreCreateInfo{}
 	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_render_complete), 'Could not create render-complete semaphore')
 	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_present_complete), 'Could not create presentation semaphore')
+	$if debug {
+		eprintln('Application synchronization initialized')
+	}
 
 	return true
 }
@@ -341,6 +347,9 @@ pub fn loader_function_callback(function_name &char, user_data voidptr) voidptr 
 }
 
 pub fn (mut app VideoDecodeApp) run() {
+	$if debug {
+		eprintln('Entering playback loop')
+	}
 	app.reference_slots.ensure_cap(300)
 	for mut graph in app.dpb_slot_graph {
 		graph.ensure_cap(300)
@@ -381,18 +390,21 @@ pub fn (mut app VideoDecodeApp) run() {
 		// Record and submit the next Vulkan Video decode operation. The player
 		// signals its event once the decoded frame is ready for graphics work.
 		app.video_player.update(frame.command_buffer, time_elapsed_ns)
+		output_view := app.video_player.current_output_view()
 		mut image_info := vk.DescriptorImageInfo{
-			imageView: app.video_player.output_image.view
+			imageView: output_view
 			imageLayout: .shader_read_only_optimal
 		}
-		write_descriptor := vk.WriteDescriptorSet{
-			dstSet: frame.descriptor_set
-			dstBinding: 1
-			descriptorCount: 1
-			descriptorType: .combined_image_sampler
-			pImageInfo: &image_info
+		if !isnil(output_view) {
+			write_descriptor := vk.WriteDescriptorSet{
+				dstSet: frame.descriptor_set
+				dstBinding: 1
+				descriptorCount: 1
+				descriptorType: .combined_image_sampler
+				pImageInfo: &image_info
+			}
+			vk.update_descriptor_sets(app.device_context.vk_device, 1, &write_descriptor, 0, unsafe { nil })
 		}
-		vk.update_descriptor_sets(app.device_context.vk_device, 1, &write_descriptor, 0, unsafe { nil })
 
 		// Finish the Dear ImGui frame before starting the next one. The previous
 		// loop left every frame open, which triggers ImGui's frame-sanity assert.
@@ -412,26 +424,28 @@ pub fn (mut app VideoDecodeApp) run() {
 			pClearValues: &clear_value
 		}
 		vk.cmd_begin_render_pass(frame.command_buffer, &render_pass_begin, .inline)
-		vk.cmd_bind_pipeline(frame.command_buffer, .graphics, app.pipeline)
-		vk.cmd_bind_descriptor_sets(frame.command_buffer, .graphics, app.pipeline_layout, 0, 1, &frame.descriptor_set, 0, unsafe { nil })
 		extent := app.device_context.swapchain.extent_2d
 		mut metadata := VideoMetadata{}
 		rlock app.video_player.decoder {
 			metadata = app.video_player.decoder.video_data.metadata
 		}
 		mut video_transform := video_render_transform(metadata, extent)
-		vk.cmd_push_constants(frame.command_buffer, app.pipeline_layout, vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex), 0, u32(sizeof(VideoRenderTransform)), &video_transform)
-		viewport := vk.Viewport{
-			width: f32(extent.width)
-			height: f32(extent.height)
-			maxDepth: 1
+		if !isnil(output_view) {
+			vk.cmd_bind_pipeline(frame.command_buffer, .graphics, app.pipeline)
+			vk.cmd_bind_descriptor_sets(frame.command_buffer, .graphics, app.pipeline_layout, 0, 1, &frame.descriptor_set, 0, unsafe { nil })
+			vk.cmd_push_constants(frame.command_buffer, app.pipeline_layout, vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex), 0, u32(sizeof(VideoRenderTransform)), &video_transform)
+			viewport := vk.Viewport{
+				width: f32(extent.width)
+				height: f32(extent.height)
+				maxDepth: 1
+			}
+			scissor := vk.Rect2D{
+				extent: extent
+			}
+			vk.cmd_set_viewport(frame.command_buffer, 0, 1, &viewport)
+			vk.cmd_set_scissor(frame.command_buffer, 0, 1, &scissor)
+			vk.cmd_draw(frame.command_buffer, 4, 1, 0, 0)
 		}
-		scissor := vk.Rect2D{
-			extent: extent
-		}
-		vk.cmd_set_viewport(frame.command_buffer, 0, 1, &viewport)
-		vk.cmd_set_scissor(frame.command_buffer, 0, 1, &scissor)
-		vk.cmd_draw(frame.command_buffer, 4, 1, 0, 0)
 		impl_vulkan.render_draw_data(imgui.get_draw_data(), frame.command_buffer, unsafe { nil })
 		vk.cmd_end_render_pass(frame.command_buffer)
 

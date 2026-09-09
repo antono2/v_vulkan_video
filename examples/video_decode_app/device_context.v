@@ -336,7 +336,7 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 
 	mut sampler_ycbcr_conversion_ci := vk.SamplerYcbcrConversionCreateInfo{
 		format: decode_output_format.format
-		ycbcrModel: ycbcr_model_from_colour_primaries(metadata.colour_primaries)
+		ycbcrModel: ycbcr_model_for_video(metadata)
 		ycbcrRange: if metadata.video_full_range {
 			vk.SamplerYcbcrRange.itu_full} else {
 			vk.SamplerYcbcrRange.itu_narrow}
@@ -366,13 +366,28 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 	return true
 }
 
-fn ycbcr_model_from_colour_primaries(colour_primaries u8) vk.SamplerYcbcrModelConversion {
-	// Match the Vulkan-Video-Samples mapping from H.264 VUI colour primaries.
-	return match colour_primaries {
-		1 { vk.SamplerYcbcrModelConversion.ycbcr709 }
-		5, 6 { vk.SamplerYcbcrModelConversion.ycbcr601 }
-		9 { vk.SamplerYcbcrModelConversion.ycbcr2020 }
-		else { vk.SamplerYcbcrModelConversion.ycbcr_identity }
+fn ycbcr_model_for_video(metadata VideoMetadata) vk.SamplerYcbcrModelConversion {
+	// VkSamplerYcbcrConversionCreateInfo::ycbcrModel describes the conversion
+	// matrix, so use the H.264 VUI matrix_coefficients field rather than colour
+	// primaries. When the stream omits a colour description, use the common
+	// HD/SD convention instead of treating YCbCr planes as RGB components.
+	if metadata.colour_description_present {
+		return match metadata.matrix_coefficients {
+			0 { vk.SamplerYcbcrModelConversion.ycbcr_identity }
+			1 { vk.SamplerYcbcrModelConversion.ycbcr709 }
+			5, 6 { vk.SamplerYcbcrModelConversion.ycbcr601 }
+			9, 10 { vk.SamplerYcbcrModelConversion.ycbcr2020 }
+			else { inferred_ycbcr_model(metadata.coded_height) }
+		}
+	}
+	return inferred_ycbcr_model(metadata.coded_height)
+}
+
+fn inferred_ycbcr_model(coded_height u32) vk.SamplerYcbcrModelConversion {
+	return if coded_height >= 720 {
+		vk.SamplerYcbcrModelConversion.ycbcr709
+	} else {
+		vk.SamplerYcbcrModelConversion.ycbcr601
 	}
 }
 
@@ -723,7 +738,7 @@ pub fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 		panic('Could not create vkInstance')
 	}
 	C.volkLoadInstance(ctx.vk_instance)
-	$if debug? {
+	$if debug ? {
 		resdbg := vk.create_debug_utils_messenger_ext(ctx.vk_instance, &debug_utils_create_info, unsafe { nil }, &ctx.vk_debug_utils)
 		if resdbg != vk.Result.success {
 			panic('Could not create DebugUtilsMessengerEXT')

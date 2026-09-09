@@ -12,27 +12,30 @@ pub const slot_count = 17
 
 pub struct VideoPlayer {
 mut:
-	decode_operation      DecoderVideoDecodeOperation
-	output_textures_free  []OutputImage
-	output_textures_used  []OutputImage
-	video_cursor          VideoCursorInfo
-	is_prepared           bool
-	is_stopped            bool
-	is_looping            bool = true
-	dpb_slot_used         []int
-	dpb                   DPB
-	current_frame         int
-	flags                 u32
-	video_frames          []VideoPlayerDecodeStreamFrame
-	output_image          Image
-	decode_output_image   Image
-	output_image_layout   vk.ImageLayout
-	output_image_is_new   bool = true
-	decode_output_state   DPBResourceState
-	playback_timeline     PlaybackTimeline
-	current_upload_index  int
-	graphics_command_pool vk.CommandPool = unsafe { nil }
-	video_command_pool    vk.CommandPool = unsafe { nil }
+	decode_operation          DecoderVideoDecodeOperation
+	output_textures           []OutputImage
+	output_textures_free      []int
+	output_textures_ready     []int
+	output_textures_retired   []RetiredOutputImage
+	current_output_index      int = -1
+	next_display_order        int
+	presentation_buffer_count int = 1
+	decode_finished           bool
+	waiting_for_loop_start    bool
+	render_serial             u64
+	is_stopped                bool
+	is_looping                bool = true
+	dpb_slot_used             []int
+	dpb                       DPB
+	current_frame             int
+	flags                     u32
+	video_frames              []VideoPlayerDecodeStreamFrame
+	decode_output_image       Image
+	decode_output_state       DPBResourceState
+	playback_timeline         PlaybackTimeline
+	current_upload_index      int
+	graphics_command_pool     vk.CommandPool = unsafe { nil }
+	video_command_pool        vk.CommandPool = unsafe { nil }
 pub mut:
 	app                  &VideoDecodeApp = unsafe { nil }
 	decoder              shared Decoder
@@ -95,10 +98,10 @@ pub mut:
 }
 
 pub enum VideoPlayerFlags as u32 {
-	e_none                        = 0
-	e_playing                     = 1 << 1
-	e_decoder_reset               = 1 << 3
-	e_need_resolve                = 1 << 4
+	e_none          = 0
+	e_playing       = 1 << 1
+	e_decoder_reset = 1 << 3
+	e_need_resolve  = 1 << 4
 }
 
 pub struct DPB {
@@ -140,18 +143,14 @@ pub struct OutputImage {
 pub mut:
 	display_order int = -1
 	texture       Image
-	flags         u32
-	duration      i64
+	duration_ns   i64
+	layout        vk.ImageLayout
+	is_new        bool = true
 }
 
-pub enum OutputImageFlags {
-	e_init = 1
-}
-
-pub struct VideoCursorInfo {
-pub mut:
-	index_play  int // frame being played
-	index_frame int // decoded frame
+struct RetiredOutputImage {
+	index                 int
+	reusable_after_serial u64
 }
 
 pub struct Image {
@@ -217,6 +216,24 @@ fn compare_frame_display_order(a &DecoderVideoDataFrameInfo, b &DecoderVideoData
 	return 0
 }
 
+// presentation_buffer_size returns the number of decoded pictures which may
+// have to wait while an earlier display-order picture is still being decoded.
+// One additional slot is reserved for that missing picture itself.
+fn presentation_buffer_size(display_orders []int) int {
+	mut waiting := map[int]bool{}
+	mut next_display_order := 0
+	mut max_waiting := 0
+	for display_order in display_orders {
+		waiting[display_order] = true
+		for waiting[next_display_order] {
+			waiting.delete(next_display_order)
+			next_display_order++
+		}
+		max_waiting = math.max(max_waiting, waiting.len)
+	}
+	return max_waiting + 1
+}
+
 pub struct DecoderVideoFileProperties {
 pub mut:
 	file               os.File
@@ -246,18 +263,19 @@ pub mut:
 
 pub struct VideoMetadata {
 pub mut:
-	coded_width         u32
-	coded_height        u32
-	display_width       u32
-	display_height      u32
-	sar_width           u32 = 1
-	sar_height          u32 = 1
-	rotation_degrees    int
-	track_matrix        [9]i32
-	video_full_range    bool
-	colour_primaries    u8
-	transfer_function   u8
-	matrix_coefficients u8
+	coded_width                u32
+	coded_height               u32
+	display_width              u32
+	display_height             u32
+	sar_width                  u32 = 1
+	sar_height                 u32 = 1
+	rotation_degrees           int
+	track_matrix               [9]i32
+	video_full_range           bool
+	colour_description_present bool
+	colour_primaries           u8
+	transfer_function          u8
+	matrix_coefficients        u8
 }
 
 fn rotation_from_track_matrix(matrix [9]i32) int {
@@ -419,6 +437,7 @@ pub fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 				allocation_info: image.allocation_info
 			}
 		}
+		vp.presentation_buffer_count = presentation_buffer_size(vp.decoder.video_data.frame_infos.map(it.display_order))
 	}
 
 	vk_device := app.device_context.vk_device
@@ -458,7 +477,20 @@ pub fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 	event_ci := vk.EventCreateInfo{}
 	res = vk.create_event(vk_device, &event_ci, unsafe { nil }, &vp.event_video_player)
 	check_vk(res, 'Could not create video-player event')
-	vp.create_output_image()
+	output_texture_count := vp.presentation_buffer_count + vp.command_buffer_infos.len + 2
+	if output_texture_count > max_texture_count {
+		panic('Video requires ${output_texture_count} presentation images, but the player supports at most ${max_texture_count}')
+	}
+	decode_family := app.device_context.get_decoder_queue_family_index()
+	if decode_family != app.device_context.graphics_family {
+		println('Display image queues: decode family ${decode_family}, graphics family ${app.device_context.graphics_family} (concurrent)')
+	} else {
+		println('Display image queue family: ${decode_family} (exclusive)')
+	}
+	for _ in 0 .. output_texture_count {
+		vp.create_output_image()
+	}
+	println('Presentation queue: ${vp.presentation_buffer_count} reorder images, ${output_texture_count} images total')
 	if !vp.decoder.properties.dpb_and_output_coincide {
 		vp.create_decode_output_image()
 	}
@@ -492,6 +524,20 @@ pub fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 		result = vk.create_semaphore(vk_device, &vk.SemaphoreCreateInfo{}, unsafe { nil }, &info.sem_video_to_gfx)
 		check_vk(result, 'Could not recreate video-to-graphics semaphore')
 	}
+	// The caller waits for device idle before rebuilding the swapchain, so every
+	// retired presentation image can be reused immediately. Grow the pool if the
+	// replacement swapchain has more images than the old one.
+	for retired in vp.output_textures_retired {
+		vp.output_textures_free << retired.index
+	}
+	vp.output_textures_retired.clear()
+	required_output_count := vp.presentation_buffer_count + vp.command_buffer_infos.len + 2
+	if required_output_count > max_texture_count {
+		panic('Resized swapchain requires ${required_output_count} presentation images, but the player supports at most ${max_texture_count}')
+	}
+	for vp.output_textures.len < required_output_count {
+		vp.create_output_image()
+	}
 }
 
 pub fn (mut vp VideoPlayer) shutdown() {
@@ -522,15 +568,21 @@ pub fn (mut vp VideoPlayer) shutdown() {
 		}
 	}
 	lock vp.decoder {
-		if !isnil(vp.output_image.view) {
-			vk.destroy_image_view(vk_device, vp.output_image.view, unsafe { nil })
-			vp.output_image.view = unsafe { nil }
+		for mut output in vp.output_textures {
+			if !isnil(output.texture.view) {
+				vk.destroy_image_view(vk_device, output.texture.view, unsafe { nil })
+				output.texture.view = unsafe { nil }
+			}
+			if !isnil(output.texture.image) {
+				vk.destroy_image(vk_device, output.texture.image, unsafe { nil })
+				output.texture.image = unsafe { nil }
+			}
+			_ = vp.app.device_context.vma_allocator.release(mut output.texture.allocation_info)
 		}
-		if !isnil(vp.output_image.image) {
-			vk.destroy_image(vk_device, vp.output_image.image, unsafe { nil })
-			vp.output_image.image = unsafe { nil }
-		}
-		_ = vp.app.device_context.vma_allocator.release(mut vp.output_image.allocation_info)
+		vp.output_textures.clear()
+		vp.output_textures_free.clear()
+		vp.output_textures_ready.clear()
+		vp.output_textures_retired.clear()
 		if !isnil(vp.decode_output_image.view) {
 			vk.destroy_image_view(vk_device, vp.decode_output_image.view, unsafe { nil })
 			vp.decode_output_image.view = unsafe { nil }
@@ -576,6 +628,7 @@ pub fn (mut vp VideoPlayer) shutdown() {
 
 fn (mut vp VideoPlayer) create_output_image() {
 	mut dev_ctx := vp.app.device_context
+	mut output := OutputImage{}
 	queue_families := [dev_ctx.get_decoder_queue_family_index(), dev_ctx.graphics_family]
 	queues_differ := queue_families[0] != queue_families[1]
 	queue_family_data := if queues_differ {
@@ -607,18 +660,15 @@ fn (mut vp VideoPlayer) create_output_image() {
 		image_ci.sharingMode = .concurrent
 		image_ci.queueFamilyIndexCount = u32(queue_families.len)
 		image_ci.pQueueFamilyIndices = queue_family_data
-		println('Display image queues: decode family ${queue_families[0]}, graphics family ${queue_families[1]} (concurrent)')
-	} else {
-		println('Display image queue family: ${queue_families[0]} (exclusive)')
 	}
-	mut res := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &vp.output_image.image, mut vp.output_image.allocation_info)
+	mut res := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &output.texture.image, mut output.texture.allocation_info)
 	check_vk(res, 'Could not create sampled video output image')
 	mut conversion_info := vk.SamplerYcbcrConversionInfo{
 		conversion: dev_ctx.sampler_ycbcr_conversion
 	}
 	view_ci := vk.ImageViewCreateInfo{
 		pNext: &conversion_info
-		image: vp.output_image.image
+		image: output.texture.image
 		viewType: ._2d
 		format: image_ci.format
 		subresourceRange: vk.ImageSubresourceRange{
@@ -627,8 +677,10 @@ fn (mut vp VideoPlayer) create_output_image() {
 			layerCount: 1
 		}
 	}
-	res = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil }, &vp.output_image.view)
+	res = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil }, &output.texture.view)
 	check_vk(res, 'Could not create sampled video output image view')
+	vp.output_textures << output
+	vp.output_textures_free << vp.output_textures.len - 1
 }
 
 fn (mut vp VideoPlayer) create_decode_output_image() {
@@ -956,7 +1008,7 @@ pub fn (mut d Decoder) prepare_decoded_picture_buffer(device vk.Device, mut allo
 		// VK_EXT_debug_utils is enabled only for debug builds. Calling its
 		// device command unconditionally jumps through a null dispatch slot in
 		// release packages.
-		$if debug? {
+		$if debug ? {
 			name := 'myDPBImage${dpb_index}'
 			name_info := vk.DebugUtilsObjectNameInfoEXT{
 				objectType: vk.ObjectType.image
@@ -1413,6 +1465,8 @@ pub fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		if sps.vui_parameters_present_flag != 0 {
 			d.video_data.metadata.sar_width, d.video_data.metadata.sar_height = sample_aspect_ratio(sps.vui.aspect_ratio_idc, sps.vui.sar_width, sps.vui.sar_height)
 			d.video_data.metadata.video_full_range = sps.vui.video_full_range_flag != 0
+			d.video_data.metadata.colour_description_present = d.video_data.metadata.colour_description_present
+				|| sps.vui.color_description_present_flag != 0
 			d.video_data.metadata.colour_primaries = u8(sps.vui.colour_primaries)
 			d.video_data.metadata.transfer_function = u8(sps.vui.transfer_characteristics)
 			d.video_data.metadata.matrix_coefficients = u8(sps.vui.matrix_coefficients)
@@ -1739,25 +1793,134 @@ pub fn (sz U64) align_to(alignment usize) u64 {
 	return ((sz - 1) / alignment + 1) * alignment
 }
 
+fn (vp &VideoPlayer) ready_output_position(display_order int) ?int {
+	for position, output_index in vp.output_textures_ready {
+		if vp.output_textures[output_index].display_order == display_order {
+			return position
+		}
+	}
+	return none
+}
+
+fn (mut vp VideoPlayer) reclaim_output_textures() {
+	mut position := 0
+	for position < vp.output_textures_retired.len {
+		retired := vp.output_textures_retired[position]
+		if retired.reusable_after_serial > vp.render_serial {
+			position++
+			continue
+		}
+		vp.output_textures[retired.index].display_order = -1
+		vp.output_textures[retired.index].duration_ns = 0
+		vp.output_textures_free << retired.index
+		vp.output_textures_retired.delete(position)
+	}
+}
+
+fn (mut vp VideoPlayer) retire_current_output() {
+	if vp.current_output_index < 0 {
+		return
+	}
+	// The application has one fence per swapchain image. Once this many later
+	// render submissions have begun, the last submission sampling this image is
+	// guaranteed to have completed on the ordered graphics queue.
+	vp.output_textures_retired << RetiredOutputImage{
+		index: vp.current_output_index
+		reusable_after_serial: vp.render_serial + u64(vp.command_buffer_infos.len + 1)
+	}
+}
+
+fn (mut vp VideoPlayer) present_ready_output(display_order int) bool {
+	position := vp.ready_output_position(display_order) or { return false }
+	output_index := vp.output_textures_ready[position]
+	vp.output_textures_ready.delete(position)
+	vp.retire_current_output()
+	vp.current_output_index = output_index
+	vp.next_display_order = display_order + 1
+	vp.waiting_for_loop_start = false
+	vp.playback_timeline.present_frame(vp.output_textures[output_index].duration_ns)
+	$if debug {
+		if display_order % 100 == 0 {
+			eprintln('Presented frame ${display_order}')
+		}
+	}
+	return true
+}
+
+fn (mut vp VideoPlayer) restart_decode_cycle() {
+	$if debug {
+		println('Playback loop completed in display order')
+	}
+	vp.current_frame = 0
+	vp.next_display_order = 0
+	vp.decode_finished = false
+	vp.waiting_for_loop_start = true
+	vp.dpb.reference_usage.clear()
+	vp.flags |= u32(VideoPlayerFlags.e_decoder_reset)
+	vp.playback_timeline.reset()
+}
+
+fn (mut vp VideoPlayer) update_presentation() {
+	if vp.current_output_index < 0 || vp.waiting_for_loop_start {
+		// Prime enough codec-order pictures to absorb the stream's maximum
+		// reordering delay. No-B-frame streams have a target of one and still
+		// display their first decoded picture immediately.
+		if !vp.decode_finished && vp.output_textures_ready.len < vp.presentation_buffer_count {
+			return
+		}
+		vp.present_ready_output(vp.next_display_order)
+		return
+	}
+	if !vp.playback_timeline.frame_is_due() {
+		return
+	}
+	frame_count := vp.decoder.video_data.frame_infos.len
+	if vp.next_display_order < frame_count {
+		vp.present_ready_output(vp.next_display_order)
+		return
+	}
+	if !vp.decode_finished {
+		return
+	}
+	if vp.is_looping {
+		// Keep the last picture visible while the first pictures of the next loop
+		// are decoded and reordered.
+		vp.restart_decode_cycle()
+	} else {
+		vp.is_stopped = true
+	}
+}
+
+pub fn (vp &VideoPlayer) current_output_view() vk.ImageView {
+	if vp.current_output_index < 0 || vp.current_output_index >= vp.output_textures.len {
+		return unsafe { nil }
+	}
+	return vp.output_textures[vp.current_output_index].texture.view
+}
+
 pub fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_elapsed_ns i64) {
 	vp.decode_operation = DecoderVideoDecodeOperation{}
+	vp.render_serial++
+	$if debug {
+		if vp.render_serial <= 5 {
+			eprintln('Playback update ${vp.render_serial}: ready=${vp.output_textures_ready.len}, free=${vp.output_textures_free.len}')
+		}
+	}
+	vp.reclaim_output_textures()
+	if vp.current_output_index >= 0 && !vp.waiting_for_loop_start {
+		vp.playback_timeline.tick(time_elapsed_ns)
+	}
 
 	if vp.is_stopped {
 		vp.dpb_slot_used = []int{len: int(vp.decoder.video_data.max_reference_pictures), init: 0}
 		return
 	}
-	// The output image contains the last decoded frame. Hold it according to the
-	// MP4 time base before submitting the next decode.
-	if !vp.playback_timeline.decode_is_due(time_elapsed_ns) {
+	should_decode := !vp.decode_finished
+		&& vp.output_textures_ready.len < vp.presentation_buffer_count
+		&& vp.output_textures_free.len > 0
+	if !should_decode {
+		vp.update_presentation()
 		return
-	}
-	if max_texture_count <= vp.output_textures_used.len {
-		println('Skipped decoding for a frame')
-		return
-	}
-	if !vp.is_prepared && slot_count <= vp.output_textures_used.len {
-		// Once a minimum amount of data has been collected, the preparation is considered complete
-		vp.is_prepared = true
 	}
 
 	vp.update_decode_video() or {
@@ -1765,6 +1928,12 @@ pub fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_el
 		vp.is_stopped = true
 		return
 	}
+	$if debug {
+		if vp.render_serial <= 5 {
+			eprintln('Decoded access unit ${vp.current_frame}: ready=${vp.output_textures_ready.len}')
+		}
+	}
+	vp.update_presentation()
 
 	vk.cmd_wait_events(graphics_cmd_buffer, 1, &vp.event_video_player, vk.pipeline_stage_2_all_commands_bit, vk.pipeline_stage_2_all_commands_bit, 0, unsafe { nil }, 0, unsafe { nil }, 0, unsafe { nil })
 	vk.cmd_reset_event(graphics_cmd_buffer, vp.event_video_player, vk.pipeline_stage_2_bottom_of_pipe_bit)
@@ -1803,6 +1972,17 @@ pub fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_el
 
 pub fn (mut vp VideoPlayer) update_decode_video() ! {
 	dev_ctx := vp.app.device_context
+	if vp.output_textures_free.len == 0 {
+		return error('presentation queue has no reusable output image')
+	}
+	output_index := vp.output_textures_free[0]
+	vp.output_textures_free.delete(0)
+	mut output_queued := false
+	defer {
+		if !output_queued {
+			vp.output_textures_free << output_index
+		}
+	}
 	command_buffer_info := vp.command_buffer_infos[dev_ctx.swapchain.get_current_index()]
 	mut begin_command_buffer := vk.CommandBufferBeginInfo{}
 	vk.reset_command_buffer(command_buffer_info.graphics_command_buffer, 0)
@@ -1876,7 +2056,11 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 		// MP4 samples may contain only metadata/non-slice NAL units. They do not
 		// form a Vulkan decode operation and must not be submitted with range 0.
 		vk.end_command_buffer(video_command_buffer)
-		vp.current_frame = (vp.current_frame + 1) % vp.decoder.video_data.frame_infos.len
+		if vp.current_frame + 1 < vp.decoder.video_data.frame_infos.len {
+			vp.current_frame++
+		} else {
+			vp.decode_finished = true
+		}
 		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
 		return
 	}
@@ -1909,7 +2093,11 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 
 	vp.video_decode_pre_barrier(video_command_buffer)
 	vp.video_decode_core(&decode_ope, video_command_buffer)
-	vp.copy_decoded_frame_to_output(video_command_buffer)
+	vp.copy_decoded_frame_to_output(video_command_buffer, output_index)
+	vp.output_textures[output_index].display_order = frame_info.display_order
+	vp.output_textures[output_index].duration_ns = frame_info.duration_ns
+	vp.output_textures_ready << output_index
+	output_queued = true
 
 	if frame_info.reference_priority > 0 {
 		vp.dpb.reference_usage << vp.dpb.current_slot
@@ -1917,20 +2105,17 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 			vp.dpb.reference_usage.delete(0)
 		}
 	}
-	vp.playback_timeline.frame_decoded(frame_info.duration_ns)
 	vk.end_command_buffer(video_command_buffer)
 	mut frame_count := 0
 	rlock vp.decoder {
 		frame_count = vp.decoder.video_data.frame_infos.len
 	}
-	advance := advance_decoded_frame(vp.current_frame, frame_count, vp.is_looping)
-	vp.current_frame = advance.next_frame
-	vp.is_stopped = advance.stopped
-	if advance.decoder_reset {
-		// Hold the final frame for its normal duration. The next scheduled update
-		// begins again at the first access unit with fresh codec state.
-		vp.dpb.reference_usage.clear()
-		vp.flags |= u32(VideoPlayerFlags.e_decoder_reset)
+	if vp.current_frame + 1 < frame_count {
+		vp.current_frame++
+	} else {
+		// B-frame output may still be waiting in presentation order. Do not reset
+		// the codec or overwrite those images until the last picture was shown.
+		vp.decode_finished = true
 	}
 
 	// The graphics command buffer waits on the decode semaphore before this
@@ -1942,7 +2127,7 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 		dstAccessMask: vk.access_2_shader_read_bit
 		oldLayout: .transfer_dst_optimal
 		newLayout: .shader_read_only_optimal
-		image: vp.output_image.image
+		image: vp.output_textures[output_index].texture.image
 		subresourceRange: vk.ImageSubresourceRange{
 			aspectMask: vk.ImageAspectFlags(vk.ImageAspectFlagBits.color)
 			levelCount: 1
@@ -1954,14 +2139,15 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 		pImageMemoryBarriers: &output_barrier
 	}
 	vk.cmd_pipeline_barrier2(command_buffer_info.graphics_command_buffer, &output_dependency)
-	vp.output_image_layout = .shader_read_only_optimal
+	vp.output_textures[output_index].layout = .shader_read_only_optimal
 
 	// Signal the application command buffer after the decode queue completes.
 	vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
 }
 
-fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBuffer) {
+fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBuffer, output_index int) {
 	decode_family := vp.app.device_context.get_decoder_queue_family_index()
+	mut output := &vp.output_textures[output_index]
 	coincide := vp.decoder.properties.dpb_and_output_coincide
 	mut source_image := vp.dpb.image[vp.dpb.current_slot].image
 	mut source_state := &vp.dpb.resource_state[vp.dpb.current_slot]
@@ -1992,13 +2178,15 @@ fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBu
 			srcStageMask: vk.pipeline_stage_2_transfer_bit
 			dstStageMask: vk.pipeline_stage_2_transfer_bit
 			dstAccessMask: vk.access_2_transfer_write_bit
-			oldLayout: if vp.output_image_is_new {
-				vk.ImageLayout.undefined} else {
-				vp.output_image_layout}
+			oldLayout: if output.is_new {
+				vk.ImageLayout.undefined
+			} else {
+				output.layout
+			}
 			newLayout: .transfer_dst_optimal
 			srcQueueFamilyIndex: decode_family
 			dstQueueFamilyIndex: decode_family
-			image: vp.output_image.image
+			image: output.texture.image
 			subresourceRange: vk.ImageSubresourceRange{
 				aspectMask: vk.ImageAspectFlags(vk.ImageAspectFlagBits.color)
 				levelCount: 1
@@ -2049,14 +2237,14 @@ fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBu
 	copy_info := vk.CopyImageInfo2{
 		srcImage: source_image
 		srcImageLayout: .transfer_src_optimal
-		dstImage: vp.output_image.image
+		dstImage: output.texture.image
 		dstImageLayout: .transfer_dst_optimal
 		regionCount: u32(regions.len)
 		pRegions: regions.data
 	}
 	vk.cmd_copy_image2(command_buffer, &copy_info)
-	vp.output_image_layout = .transfer_dst_optimal
-	vp.output_image_is_new = false
+	output.layout = .transfer_dst_optimal
+	output.is_new = false
 
 	post_barrier := vk.ImageMemoryBarrier2{
 		srcStageMask: vk.pipeline_stage_2_transfer_bit
@@ -2392,82 +2580,6 @@ pub fn (mut f File) peek() !u8 {
 
 pub fn has_flag[T](lhs u32, rhs T) bool {
 	return (lhs & u32(rhs)) == u32(rhs)
-}
-
-// Find next frame
-pub fn (mut vp VideoPlayer) update_display_frame(time_elapsed i64) {
-	if !vp.is_prepared || vp.is_stopped {
-		return
-	}
-
-	mut frame_next, index_frame := vp.find_video_frame(vp.video_cursor.index_play)
-	assert frame_next != vp.output_textures_used.last()
-
-	// Process elapsed time
-	frame_next.duration -= time_elapsed
-	if frame_next.duration > 0 {
-		vp.video_cursor.index_frame = index_frame
-		return
-	}
-
-	// Fractional amounts are handled on the frame after
-	time_remaining := math.abs(frame_next.duration)
-
-	vp.video_cursor.index_play++
-	if vp.decoder.video_data.frame_infos.len <= vp.video_cursor.index_play {
-		// Not at the end yet
-		vp.video_cursor.index_play = vp.decoder.video_data.frame_infos.len - 1
-		vp.is_stopped = true
-	} else {
-		// Cleanup mark frames as unused
-		vp.output_textures_free << frame_next
-		vp.output_textures_used.delete(index_frame)
-	}
-	// TODO: Remove if not needed
-	frame_next, _ = vp.find_video_frame(vp.video_cursor.index_play)
-	assert frame_next != vp.output_textures_used.last()
-	frame_next.duration -= time_remaining
-	vp.video_cursor.index_frame = index_frame
-}
-
-@[direct_array_access]
-pub fn (arr []OutputImage) find_display_order(display_order int) ?OutputImage {
-	for a in arr {
-		if a.display_order == display_order {
-			return a
-		}
-	}
-	return none
-}
-
-// Find frame and its index in vp.output_textures_used
-fn (mut vp VideoPlayer) find_video_frame(index_play int) (OutputImage, int) {
-	mut frame_ret := vp.output_textures_used.find_display_order(index_play) or {
-		println('Could not find frame for index ${index_play}')
-		OutputImage{}
-	}
-
-	mut index_frame := -1
-	if frame_ret == vp.output_textures_used.last() {
-		// Find closest
-		mut index_abs := max_int
-		mut i := 0
-		for frame in vp.output_textures_used {
-			diff := math.abs(frame.display_order - vp.video_cursor.index_play)
-			if diff < index_abs {
-				index_frame = i
-				index_abs = diff
-			}
-			i++
-		}
-		assert index_frame != -1
-		frame_ret = vp.output_textures_used[index_frame]
-	}
-	return frame_ret, index_frame
-}
-
-pub fn (mut vp VideoPlayer) get_video_texture() OutputImage {
-	return vp.output_textures_used[vp.video_cursor.index_frame]
 }
 
 pub fn (d Decoder) get_slice_header() byteptr {
