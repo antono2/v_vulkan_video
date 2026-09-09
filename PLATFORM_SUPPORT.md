@@ -57,7 +57,10 @@ than being conflated with malformed-input handling.
 Hardware is selected by capability rather than vendor name: the device must
 provide graphics/presentation, the required Vulkan Video extensions, an H.264
 decode queue, and a supported decode output format. The decoded-picture-buffer
-and output-image mode is chosen from the modes reported by the driver.
+and output-image mode is chosen from the modes reported by the driver. Use
+`--decode-output-mode coincident` or `--decode-output-mode distinct` to force a
+specific advertised path during compatibility testing; `auto` remains the
+default.
 
 ## Software-only regression coverage
 

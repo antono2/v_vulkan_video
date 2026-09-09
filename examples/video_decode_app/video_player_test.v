@@ -20,6 +20,30 @@ fn test_dpb_acquire_expires_oldest_reference_when_full() {
 	assert dpb.reference_usage == [u8(0), 1]
 }
 
+fn test_decode_output_mode_selection_prefers_coincident_in_auto_mode() {
+	assert select_decode_output_mode(.automatic, true, true)! == .coincident
+	assert select_decode_output_mode(.automatic, false, true)! == .distinct
+}
+
+fn test_decode_output_mode_selection_honours_supported_forced_modes() {
+	assert select_decode_output_mode(.coincident, true, true)! == .coincident
+	assert select_decode_output_mode(.distinct, true, true)! == .distinct
+}
+
+fn test_decode_output_mode_selection_rejects_unsupported_modes() {
+	select_decode_output_mode(.coincident, false, true) or {
+		assert err.msg().contains('does not support forced coincident')
+		select_decode_output_mode(.distinct, true, false) or {
+			assert err.msg().contains('does not support forced distinct')
+			select_decode_output_mode(.automatic, false, false) or {
+				assert err.msg().contains('supports neither')
+				return
+			}
+		}
+	}
+	assert false, 'unsupported decode output modes were accepted'
+}
+
 fn test_rotation_from_common_mp4_track_matrices() {
 	assert rotation_from_track_matrix([i32(65536), 0, 0, 0, 65536, 0, 0, 0, 1073741824]!) == 0
 	assert rotation_from_track_matrix([i32(0), 65536, 0, -65536, 0, 0, 0, 0, 1073741824]!) == -90

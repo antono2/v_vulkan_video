@@ -46,6 +46,7 @@ pub mut:
 	device_context      DeviceContext
 	video_path          string
 	preferred_gpu_index int = -1
+	decode_output_mode  DecodeOutputMode
 	list_gpus           bool
 	window_p            &glfw.Window = unsafe { nil }
 	share_data          []string // some data to share between main() and glfw callback functions
@@ -177,7 +178,7 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 	}
 	h264_profile_idc := app.video_player.h264_profile_idc()
 	video_metadata := app.video_player.metadata()
-	diagnostics := app.device_context.h264_decode_gpu_diagnostics(h264_profile_idc)
+	diagnostics := app.device_context.h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc, app.decode_output_mode)
 	if app.list_gpus {
 		println('Vulkan devices for H.264 ${h264_profile_name(h264_profile_idc)} Profile:')
 		for index, diagnostic in diagnostics {
@@ -193,15 +194,20 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 			app.abort_initialization()
 			return false
 		}
-		if !app.device_context.is_h264_decode_gpu_compatible(app.preferred_gpu_index, h264_profile_idc) {
+		if !app.device_context.is_h264_decode_gpu_compatible_for_output_mode(app.preferred_gpu_index, h264_profile_idc, app.decode_output_mode) {
 			eprintln('GPU [${app.preferred_gpu_index}] cannot play this video: ${diagnostics[app.preferred_gpu_index]}')
 			app.abort_initialization()
 			return false
 		}
 		gpu_index = u32(app.preferred_gpu_index)
 	} else {
-		gpu_index = app.device_context.find_h264_decode_gpu(h264_profile_idc) or {
-			eprintln('No Vulkan device provides presentation, graphics, and H.264 ${h264_profile_name(h264_profile_idc)} Profile decode support.')
+		gpu_index = app.device_context.find_h264_decode_gpu_for_output_mode(h264_profile_idc, app.decode_output_mode) or {
+			mode_requirement := if app.decode_output_mode == .automatic {
+				'a supported DPB/output mode'
+			} else {
+				'the requested ${decode_output_mode_name(app.decode_output_mode)} DPB/output mode'
+			}
+			eprintln('No Vulkan device provides presentation, graphics, H.264 ${h264_profile_name(h264_profile_idc)} Profile decode, and ${mode_requirement}.')
 			for diagnostic in diagnostics {
 				eprintln('  ${diagnostic}')
 			}

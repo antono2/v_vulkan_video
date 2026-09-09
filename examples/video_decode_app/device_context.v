@@ -135,7 +135,7 @@ pub fn (mut ctx DeviceContext) shutdown_instance_resources() {
 		vk.destroy_surface_khr(ctx.vk_instance, ctx.swapchain.surface, unsafe { nil })
 		ctx.swapchain.surface = unsafe { nil }
 	}
-	$if debug? {
+	$if debug ? {
 		if !isnil(ctx.vk_debug_utils) {
 			vk.destroy_debug_utils_messenger_ext(ctx.vk_instance, ctx.vk_debug_utils, unsafe { nil })
 			ctx.vk_debug_utils = unsafe { nil }
@@ -338,8 +338,10 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 		format: decode_output_format.format
 		ycbcrModel: ycbcr_model_for_video(metadata)
 		ycbcrRange: if metadata.video_full_range {
-			vk.SamplerYcbcrRange.itu_full} else {
-			vk.SamplerYcbcrRange.itu_narrow}
+			vk.SamplerYcbcrRange.itu_full
+		} else {
+			vk.SamplerYcbcrRange.itu_narrow
+		}
 		components: vk.ComponentMapping{
 			r: vk.ComponentSwizzle.identity
 			g: vk.ComponentSwizzle.identity
@@ -434,6 +436,11 @@ fn missing_device_extensions(gpu vk.PhysicalDevice, required_extensions []&u8) [
 }
 
 pub fn (ctx DeviceContext) h264_decode_gpu_diagnostics(h264_profile_idc u32) []string {
+	return ctx.h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc, .automatic)
+}
+
+pub fn (ctx DeviceContext) h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc u32,
+	output_mode DecodeOutputMode) []string {
 	required_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
 		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
 	if ctx.gpus.len == 0 {
@@ -449,8 +456,10 @@ pub fn (ctx DeviceContext) h264_decode_gpu_diagnostics(h264_profile_idc u32) []s
 			diagnostics << '${name}: missing ${missing.join(', ')}'
 		} else if !gpu_supports_h264_profile(gpu, h264_profile_idc) {
 			diagnostics << '${name}: H.264 ${h264_profile_name(h264_profile_idc)} Profile, 8-bit 4:2:0 progressive decode is not supported'
+		} else if !gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode) {
+			diagnostics << '${name}: requested ${decode_output_mode_name(output_mode)} DPB/output mode is unavailable; supports ${gpu_h264_output_mode_names(gpu, h264_profile_idc)}'
 		} else if device_has_required_queues(ctx, gpu) {
-			diagnostics << '${name}: compatible'
+			diagnostics << '${name}: compatible (DPB/output: ${gpu_h264_output_mode_names(gpu, h264_profile_idc)})'
 		} else {
 			diagnostics << '${name}: required extensions/profile exist, but no compatible graphics, presentation, and decode queue combination was found'
 		}
@@ -463,6 +472,12 @@ pub fn (ctx DeviceContext) gpu_count() int {
 }
 
 pub fn (ctx DeviceContext) is_h264_decode_gpu_compatible(gpu_index int, h264_profile_idc u32) bool {
+	return ctx.is_h264_decode_gpu_compatible_for_output_mode(gpu_index, h264_profile_idc, .automatic)
+}
+
+pub fn (ctx DeviceContext) is_h264_decode_gpu_compatible_for_output_mode(gpu_index int,
+	h264_profile_idc u32,
+	output_mode DecodeOutputMode) bool {
 	if gpu_index < 0 || gpu_index >= ctx.gpus.len {
 		return false
 	}
@@ -472,6 +487,7 @@ pub fn (ctx DeviceContext) is_h264_decode_gpu_compatible(gpu_index int, h264_pro
 	return device_supports_extensions(gpu, required_extensions)
 		&& device_has_required_queues(ctx, gpu)
 		&& gpu_supports_h264_profile(gpu, h264_profile_idc)
+		&& gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode)
 }
 
 fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
@@ -489,7 +505,9 @@ fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 	mut has_h264_decode := false
 	for i in 0 .. family_count {
 		queue := family_props[i].queueFamilyProperties
-		if queue.queueCount == 0 { continue }
+		if queue.queueCount == 0 {
+			continue
+		}
 		mut supports_present := vk.Bool32(0)
 		vk.get_physical_device_surface_support_khr(gpu, u32(i), ctx.swapchain.surface, &supports_present)
 		has_graphics_and_present = has_graphics_and_present || ((queue.queueFlags & vk.QueueFlags(vk.QueueFlagBits.graphics)) != 0 && supports_present == vk._true)
@@ -499,12 +517,18 @@ fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 }
 
 pub fn (ctx DeviceContext) find_h264_decode_gpu(h264_profile_idc u32) ?u32 {
+	return ctx.find_h264_decode_gpu_for_output_mode(h264_profile_idc, .automatic)
+}
+
+pub fn (ctx DeviceContext) find_h264_decode_gpu_for_output_mode(h264_profile_idc u32,
+	output_mode DecodeOutputMode) ?u32 {
 	required_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
 		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
 	for gpu_index, gpu in ctx.gpus {
 		if device_supports_extensions(gpu, required_extensions)
 			&& device_has_required_queues(ctx, gpu)
-			&& gpu_supports_h264_profile(gpu, h264_profile_idc) {
+			&& gpu_supports_h264_profile(gpu, h264_profile_idc)
+			&& gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode) {
 			return u32(gpu_index)
 		}
 	}
@@ -512,6 +536,12 @@ pub fn (ctx DeviceContext) find_h264_decode_gpu(h264_profile_idc u32) ?u32 {
 }
 
 fn gpu_supports_h264_profile(gpu vk.PhysicalDevice, h264_profile_idc u32) bool {
+	_ := gpu_h264_decode_capability_flags(gpu, h264_profile_idc) or { return false }
+	return true
+}
+
+fn gpu_h264_decode_capability_flags(gpu vk.PhysicalDevice,
+	h264_profile_idc u32) ?vk.VideoDecodeCapabilityFlagsKHR {
 	mut h264_profile := vk.VideoDecodeH264ProfileInfoKHR{
 		stdProfileIdc: unsafe { vk.StdVideoH264ProfileIdc(h264_profile_idc) }
 		pictureLayout: vk.VideoDecodeH264PictureLayoutFlagBitsKHR.progressive
@@ -530,7 +560,39 @@ fn gpu_supports_h264_profile(gpu vk.PhysicalDevice, h264_profile_idc u32) bool {
 	mut caps := vk.VideoCapabilitiesKHR{
 		pNext: &decode_caps
 	}
-	return vk.get_physical_device_video_capabilities_khr(gpu, &profile, mut &caps) == .success
+	if vk.get_physical_device_video_capabilities_khr(gpu, &profile, mut &caps) != .success {
+		return none
+	}
+	return decode_caps.flags
+}
+
+fn decode_output_mode_name(mode DecodeOutputMode) string {
+	return match mode {
+		.automatic { 'automatic' }
+		.coincident { 'coincident' }
+		.distinct { 'distinct' }
+	}
+}
+
+fn gpu_supports_h264_output_mode(gpu vk.PhysicalDevice, h264_profile_idc u32,
+	requested DecodeOutputMode) bool {
+	flags := gpu_h264_decode_capability_flags(gpu, h264_profile_idc) or { return false }
+	supports_coincident := (flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0
+	supports_distinct := (flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_distinct)) != 0
+	select_decode_output_mode(requested, supports_coincident, supports_distinct) or { return false }
+	return true
+}
+
+fn gpu_h264_output_mode_names(gpu vk.PhysicalDevice, h264_profile_idc u32) string {
+	flags := gpu_h264_decode_capability_flags(gpu, h264_profile_idc) or { return 'none' }
+	mut modes := []string{}
+	if (flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0 {
+		modes << 'coincident'
+	}
+	if (flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_distinct)) != 0 {
+		modes << 'distinct'
+	}
+	return if modes.len == 0 { 'none' } else { modes.join(', ') }
 }
 
 pub fn (mut ctx DeviceContext) initialize_swapchain(window_p &glfw.Window, desired_format vk.Format) bool {
@@ -698,7 +760,7 @@ pub fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 		vk.khr_get_physical_device_properties_2_extension_name,
 		vk.khr_get_surface_capabilities_2_extension_name,
 	]
-	$if debug? {
+	$if debug ? {
 		instance_extensions_required << vk.ext_debug_utils_extension_name
 	}
 	for i in 0 .. instance_extensions_required.len {
@@ -706,7 +768,7 @@ pub fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	}
 
 	mut active_instance_layers := []&u8{}
-	$if debug? {
+	$if debug ? {
 		active_instance_layers = [c'VK_LAYER_KHRONOS_validation']
 	}
 
@@ -725,7 +787,7 @@ pub fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 		ppEnabledExtensionNames: &&u8(active_instance_extensions.data)
 	}
 	mut debug_utils_create_info := vk.DebugUtilsMessengerCreateInfoEXT{}
-	$if debug? {
+	$if debug ? {
 		debug_utils_create_info = vk.DebugUtilsMessengerCreateInfoEXT{
 			messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT(vk.DebugUtilsMessageSeverityFlagBitsEXT.error) | vk.DebugUtilsMessageSeverityFlagsEXT(vk.DebugUtilsMessageSeverityFlagBitsEXT.warning)
 			messageType: vk.DebugUtilsMessageTypeFlagsEXT(vk.DebugUtilsMessageTypeFlagBitsEXT.validation) | vk.DebugUtilsMessageTypeFlagsEXT(vk.DebugUtilsMessageTypeFlagBitsEXT.performance)

@@ -10,6 +10,39 @@ import antono2.h264
 pub const max_texture_count = 64
 pub const slot_count = 17
 
+pub enum DecodeOutputMode {
+	automatic
+	coincident
+	distinct
+}
+
+fn select_decode_output_mode(requested DecodeOutputMode, supports_coincident bool,
+	supports_distinct bool) !DecodeOutputMode {
+	return match requested {
+		.automatic {
+			if supports_coincident {
+				DecodeOutputMode.coincident
+			} else if supports_distinct {
+				DecodeOutputMode.distinct
+			} else {
+				return error('Vulkan Video device supports neither coincident nor distinct DPB/output images')
+			}
+		}
+		.coincident {
+			if !supports_coincident {
+				return error('Vulkan Video device does not support forced coincident DPB/output images')
+			}
+			DecodeOutputMode.coincident
+		}
+		.distinct {
+			if !supports_distinct {
+				return error('Vulkan Video device does not support forced distinct DPB/output images')
+			}
+			DecodeOutputMode.distinct
+		}
+	}
+}
+
 pub struct VideoPlayer {
 mut:
 	decode_operation          DecoderVideoDecodeOperation
@@ -782,11 +815,9 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	capability_flags := d.properties.decode_caps.flags
 	supports_coincide := (capability_flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0
 	supports_distinct := (capability_flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_distinct)) != 0
-	if !supports_coincide && !supports_distinct {
-		panic('Vulkan Video device supports neither coincident nor distinct DPB/output images')
-	}
-	d.properties.dpb_and_output_coincide = supports_coincide
-	println('Decode image mode: ${if supports_coincide {
+	selected_output_mode := select_decode_output_mode(app.decode_output_mode, supports_coincide, supports_distinct) or { panic(err) }
+	d.properties.dpb_and_output_coincide = selected_output_mode == .coincident
+	println('Decode image mode: ${if d.properties.dpb_and_output_coincide {
 		'coincident DPB/output'
 	} else {
 		'distinct DPB/output'
