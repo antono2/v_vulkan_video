@@ -3,7 +3,9 @@ name: Release candidate CI
 on:
   workflow_dispatch:
   push:
-    branches: [master, release/vkvideo-rc1]
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: read
@@ -43,40 +45,34 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/vulkan
-          ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/vkmemalloc
-          ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/imgui
-          ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/glfw
-          ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/minimp4
-          ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/h264
-          ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
         with:
           version: ${{ matrix.v_version }}
@@ -151,40 +147,34 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/vulkan
-          ssh-key: ${{ secrets.VULKAN_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/vkmemalloc
-          ssh-key: ${{ secrets.VULKAN_MEMORY_ALLOCATOR_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/imgui
-          ssh-key: ${{ secrets.IMGUI_DEPLOY_KEY }}
           submodules: recursive
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/glfw
-          ssh-key: ${{ secrets.GLFW_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/minimp4
-          ssh-key: ${{ secrets.MINIMP4_DEPLOY_KEY }}
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: ${{ github.ref_name }}
+          ref: master
           path: source/modules/antono2/h264
-          ssh-key: ${{ secrets.H264_DEPLOY_KEY }}
       - uses: prantlf/setup-v-action@v4
         with:
           version: latest

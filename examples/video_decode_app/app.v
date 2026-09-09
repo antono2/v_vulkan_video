@@ -330,15 +330,14 @@ fn (mut app VideoDecodeApp) initialize_imgui_vulkan_backend() {
 
 pub fn loader_function_callback(function_name &char, user_data voidptr) voidptr {
 	app := unsafe { &VideoDecodeApp(user_data) }
-	dev_func_addr := vk.get_device_proc_addr(app.device_context.vk_device, function_name)
-	if !isnil(dev_func_addr) {
-		return dev_func_addr
-	}
+	// ImGui requests both instance- and device-level commands through this one
+	// callback. Querying the instance first follows vkGetInstanceProcAddr's
+	// loader contract and avoids asking vkGetDeviceProcAddr for instance commands.
 	instance_func_addr := vk.get_instance_proc_addr(app.device_context.vk_instance, function_name)
 	if !isnil(instance_func_addr) {
 		return instance_func_addr
 	}
-	return unsafe { nil }
+	return vk.get_device_proc_addr(app.device_context.vk_device, function_name)
 }
 
 pub fn (mut app VideoDecodeApp) run() {
