@@ -53,8 +53,8 @@ jobs:
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.repository_owner }}/mem
-          ref: v1.0.3
+          repository: ${{ github.repository_owner }}/memory
+          ref: a3af31e2265dc02f8df483d80bf93d5e272d2107
           path: source/modules/antono2/mem
       - uses: actions/checkout@v7
         with:
@@ -165,8 +165,8 @@ jobs:
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.repository_owner }}/mem
-          ref: v1.0.3
+          repository: ${{ github.repository_owner }}/memory
+          ref: a3af31e2265dc02f8df483d80bf93d5e272d2107
           path: source/modules/antono2/mem
       - uses: actions/checkout@v7
         with:
