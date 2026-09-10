@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: 974b23529a5ae3ed324b8ace72b0e826ae6008f9
+          ref: v2.2.0
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@v7
         with:
@@ -161,7 +161,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: 974b23529a5ae3ed324b8ace72b0e826ae6008f9
+          ref: v2.2.0
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@v7
         with:
