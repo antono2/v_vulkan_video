@@ -857,7 +857,9 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	}
 	// Host visible
 	mut p_data := unsafe { nil }
-	res = dev_ctx.vma_allocator.map(mut d.gpu_bitstream_allocation, &p_data)
+	// Use the same live allocator instance that created the allocation. dev_ctx
+	// was copied before create_buffer() updated the allocator's block table.
+	res = app.device_context.vma_allocator.map(mut d.gpu_bitstream_allocation, &p_data)
 	if res != vk.Result.success {
 		panic('Could not map the Vulkan Video bitstream buffer: ${res}')
 	}
