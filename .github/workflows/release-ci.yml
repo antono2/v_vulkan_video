@@ -115,11 +115,12 @@ jobs:
         if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64.zip
-      - uses: actions/upload-artifact@v7
+      - name: Upload Ubuntu release package
+        uses: actions/upload-artifact@v7
         if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
         with:
-          name: vkvideo-ubuntu24-amd64
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
+          archive: false
           retention-days: 7
           if-no-files-found: error
       - name: Build diagnostic Ubuntu player
@@ -128,11 +129,12 @@ jobs:
         run: |
           v -d debug -cc gcc -o v_vulkan_video .
           ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64-debug.zip
-      - uses: actions/upload-artifact@v7
+      - name: Upload Ubuntu diagnostic package
+        uses: actions/upload-artifact@v7
         if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
         with:
-          name: vkvideo-ubuntu24-amd64-debug
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip
+          archive: false
           retention-days: 7
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
@@ -213,9 +215,10 @@ jobs:
           Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
           Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./scripts/build_windows.ps1 -Compiler stable
-      - uses: actions/upload-artifact@v7
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v7
         with:
-          name: vkvideo-windows-stable
           path: source/v_vulkan_video/dist/vkvideo-windows-x64.zip
+          archive: false
           retention-days: 7
           if-no-files-found: error
