@@ -137,11 +137,16 @@ jobs:
           archive: false
           retention-days: 7
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      - name: Package static Linux CI binary
+        if: matrix.compiler == 'stable' && matrix.linkage == 'static'
+        working-directory: source/v_vulkan_video
+        run: tar -czf vkvideo-linux-ci-static.tar.gz v_vulkan_video
+      - name: Upload static Linux CI binary
+        uses: actions/upload-artifact@v7
         if: matrix.compiler == 'stable' && matrix.linkage == 'static'
         with:
-          name: vkvideo-linux-ci-static
-          path: source/v_vulkan_video/v_vulkan_video
+          path: source/v_vulkan_video/vkvideo-linux-ci-static.tar.gz
+          archive: false
           retention-days: 7
           if-no-files-found: error
 
