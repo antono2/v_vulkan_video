@@ -694,7 +694,9 @@ fn (mut vp VideoPlayer) create_output_image() {
 		image_ci.queueFamilyIndexCount = u32(queue_families.len)
 		image_ci.pQueueFamilyIndices = queue_family_data
 	}
-	mut res := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &output.texture.image, mut output.texture.allocation_info)
+	mut res := vp.app.device_context.vma_allocator.create_image_with_options(&image_ci, vma.AllocationOptions{
+		usage: .gpu_only
+	}, &output.texture.image, mut output.texture.allocation_info)
 	check_vk(res, 'Could not create sampled video output image')
 	mut conversion_info := vk.SamplerYcbcrConversionInfo{
 		conversion: dev_ctx.sampler_ycbcr_conversion
@@ -738,7 +740,9 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 		pQueueFamilyIndices: unsafe { nil }
 		initialLayout: .undefined
 	}
-	mut result := vp.app.device_context.vma_allocator.create_image(&image_ci, .gpu, &vp.decode_output_image.image, mut vp.decode_output_image.allocation_info)
+	mut result := vp.app.device_context.vma_allocator.create_image_with_options(&image_ci, vma.AllocationOptions{
+		usage: .gpu_only
+	}, &vp.decode_output_image.image, mut vp.decode_output_image.allocation_info)
 	check_vk(result, 'Could not create distinct video decode-output image')
 	view_ci := vk.ImageViewCreateInfo{
 		image: vp.decode_output_image.image
@@ -851,7 +855,9 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 		queueFamilyIndexCount: 0
 		pQueueFamilyIndices: unsafe { nil }
 	}
-	res = app.device_context.vma_allocator.create_buffer(&buffer_ci, .staging, &d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
+	res = app.device_context.vma_allocator.create_buffer_with_options(&buffer_ci, vma.AllocationOptions{
+		usage: .upload
+	}, &d.gpu_bitstream_buffer, mut d.gpu_bitstream_allocation)
 	if res != vk.Result.success {
 		panic('Could not create the Vulkan Video bitstream buffer: ${res}')
 	}
@@ -1029,7 +1035,9 @@ pub fn (mut d Decoder) prepare_decoded_picture_buffer(device vk.Device, mut allo
 	mut dpb_index := 0
 	mut res := vk.Result.error_unknown
 	for mut dpb in d.info.images_dpb {
-		res = allocator.create_image(&image_ci, vma.MemType.gpu, &dpb.image, mut dpb.allocation_info)
+		res = allocator.create_image_with_options(&image_ci, vma.AllocationOptions{
+			usage: .gpu_only
+		}, &dpb.image, mut dpb.allocation_info)
 		if res != vk.Result.success {
 			panic('Could not create decoded-picture-buffer image ${dpb_index}: ${res}')
 		}
@@ -2097,6 +2105,11 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
 		return
 	}
+	mut flush_result := vk.Result.error_unknown
+	lock vp.decoder {
+		flush_result = vp.app.device_context.vma_allocator.flush_range(vp.decoder.gpu_bitstream_allocation, use_frame.gpu_bitstream_offset, use_frame.gpu_bitstream_size)
+	}
+	check_vk(flush_result, 'Could not flush the Vulkan Video bitstream buffer')
 
 	decode_ope.stream_offset = use_frame.gpu_bitstream_offset
 	decode_ope.stream_size = use_frame.gpu_bitstream_size

@@ -221,8 +221,12 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 		}
 	}
 
-	active_device_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
+	mut active_device_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
 		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
+	memory_budget_supported := vma.supports_memory_budget(gpu)
+	if memory_budget_supported {
+		active_device_extensions << vk.ext_memory_budget_extension_name
+	}
 
 	sampler_ycbcr_conversion_features := vk.PhysicalDeviceSamplerYcbcrConversionFeatures{
 		samplerYcbcrConversion: vk._true
@@ -322,6 +326,7 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 	allocator_create_info := vma.AllocatorCreateInfo{
 		physical_device: ctx.get_gpu_current()
 		device: ctx.get_vk_device()
+		memory_budget_enabled: memory_budget_supported
 	}
 
 	ctx.vma_allocator = vma.new(allocator_create_info)
