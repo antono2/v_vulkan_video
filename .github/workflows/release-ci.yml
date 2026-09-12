@@ -78,9 +78,23 @@ jobs:
           repository: ${{ github.repository_owner }}/h264
           ref: master
           path: source/modules/antono2/h264
-      - uses: prantlf/setup-v-action@v4
+      - name: Check out pinned V compiler for V3
+        if: matrix.compiler == 'v3'
+        uses: actions/checkout@v7
+        with:
+          repository: vlang/v
+          ref: ${{ matrix.v_version }}
+          path: source/v_compiler
+      - name: Set up released V compiler
+        if: matrix.compiler == 'stable'
+        uses: prantlf/setup-v-action@v4
         with:
           version: ${{ matrix.v_version }}
+      - name: Build pinned V compiler for V3
+        if: matrix.compiler == 'v3'
+        run: |
+          make -C source/v_compiler
+          printf '%s\n' '${{ github.workspace }}/source/v_compiler' >> "$GITHUB_PATH"
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
       - name: Verify generated binding ownership
