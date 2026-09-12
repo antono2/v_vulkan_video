@@ -212,8 +212,14 @@ fn test_parser_orders_type_zero_b_frames_within_their_gop() {
 }
 
 fn test_parser_rejects_non_mp4_input_as_an_error() {
+	temp_path := os.join_path(os.temp_dir(), 'vkvideo-not-an-mp4-${os.getpid()}.txt')
+	os.write_file(temp_path, 'This is deliberately not an MP4 file.') or { panic(err) }
+	defer {
+		os.rm(temp_path) or {}
+	}
+
 	mut decoder := Decoder{}
-	decoder.parse_mp4_data('${v_modroot}/NOTES.txt') or {
+	decoder.parse_mp4_data(temp_path) or {
 		assert err.msg().contains('not a readable MP4 file')
 		if decoder.video_data.file_open {
 			decoder.video_data.file.close()
