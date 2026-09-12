@@ -47,15 +47,15 @@ fi
 vmodules_dir=${VMODULES:-$HOME/.vmodules}
 vmodules_dir=${vmodules_dir%%:*}
 imgui_dir=$vmodules_dir/antono2/imgui
-if [[ ! -f $imgui_dir/build_vimgui.sh ]]; then
+if [[ ! -f $imgui_dir/build_vimgui.vsh ]]; then
 	imgui_dir=$vmodules_dir/imgui
 fi
-[[ -f $imgui_dir/build_vimgui.sh ]] || {
+[[ -f $imgui_dir/build_vimgui.vsh ]] || {
 	echo 'ImGui module not found; run: v install antono2.imgui' >&2
 	exit 1
 }
 git -C "$imgui_dir" submodule update --init --recursive
-"$imgui_dir/build_vimgui.sh" --linkage "$linkage" --glfw "$glfw_provider" --glfw-version "$glfw_version"
+"$v_bin" run "$imgui_dir/build_vimgui.vsh" --linkage "$linkage" --glfw "$glfw_provider" --glfw-version "$glfw_version"
 
 v_flags=()
 [[ $compiler == v3 ]] && v_flags+=(-new-compiler)

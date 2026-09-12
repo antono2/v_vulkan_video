@@ -8,14 +8,14 @@ rootfs=${UBUNTU24_ROOTFS:-$workspace_dir/.buildroots/ubuntu-24.04}
 vmodules_dir=${VMODULES:-${HOME}/.vmodules}
 vmodules_dir=${vmodules_dir%%:*}
 imgui_dir=${VIMGUI_DIR:-$vmodules_dir/antono2/imgui}
-if [[ ! -f $imgui_dir/build_vimgui.sh && -z ${VIMGUI_DIR:-} ]]; then
+if [[ ! -f $imgui_dir/build_vimgui.vsh && -z ${VIMGUI_DIR:-} ]]; then
 	imgui_dir=$vmodules_dir/imgui
 fi
 vulkan_sdk=${VULKAN_SDK:-$workspace_dir/1.4.341.1/x86_64}
 output_zip=${1:-$workspace_dir/vkvideo_ubuntu24_amd64.zip}
 package_name=vkvideo-ubuntu24-amd64
 
-for required in "$v_bin" "$rootfs/usr/bin/patchelf" "$imgui_dir/build_vimgui.sh" \
+for required in "$v_bin" "$rootfs/usr/bin/patchelf" "$imgui_dir/build_vimgui.vsh" \
 	"$project_dir/res/20240917_095400.mp4"; do
 	if [[ ! -e $required ]]; then
 		echo "Missing required build input: $required" >&2
@@ -36,7 +36,7 @@ bwrap --ro-bind "$rootfs" / --dev-bind /dev /dev --proc /proc --tmpfs /tmp \
 	env VULKAN_SDK="$vulkan_sdk" CMAKE_BUILD_TYPE="${VIMGUI_BUILD_TYPE:-Release}" \
 		CFLAGS="-ffile-prefix-map=$workspace_dir=/workspace -ffile-prefix-map=$vmodules_dir=/vmodules" \
 		CXXFLAGS="-ffile-prefix-map=$workspace_dir=/workspace -ffile-prefix-map=$vmodules_dir=/vmodules" \
-	./build_vimgui.sh --linkage shared \
+	"$v_bin" run ./build_vimgui.vsh --linkage shared \
 		--glfw "${VIMGUI_GLFW_PROVIDER:-system}" \
 		--glfw-version "${VIMGUI_GLFW_VERSION:-3.3}"
 
