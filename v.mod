@@ -9,6 +9,6 @@ Module {
 		'antono2.imgui',
 		'antono2.minimp4',
 		'antono2.vulkan',
-		'antono2.vkmemalloc@v2.4.0',
+		'antono2.vkmemalloc@v2.5.0',
 	]
 }
