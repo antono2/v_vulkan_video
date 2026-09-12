@@ -96,7 +96,7 @@ jobs:
         run: v test .
       - name: Build native ImGui
         working-directory: source/modules/antono2/imgui
-        run: ./build_vimgui.sh --linkage '${{ matrix.linkage }}' --glfw system
+        run: v run build_vimgui.vsh --linkage '${{ matrix.linkage }}' --glfw system
       - name: Test and build player
         id: build_player
         continue-on-error: ${{ matrix.compiler == 'v3' }}
