@@ -31,7 +31,8 @@ jobs:
             v_version: latest
           - compiler: v3
             linkage: shared
-            v_version: master
+            # Keep the experimental lane reproducible; advance after validating a newer V commit.
+            v_version: 5ff8ecb55f6709fd7e6f645ef7779383f30c47c0
     env:
       VMODULES: ${{ github.workspace }}/source/modules
       VULKAN_SDK: /usr
