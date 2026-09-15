@@ -28,7 +28,7 @@ required_files=(
 	"$package_dir/lib/libglfw.so.3"
 	"$package_dir/lib/libstdc++.so.6"
 	"$package_dir/lib/libgcc_s.so.1"
-	"$package_dir/res/sample.mp4"
+	"$package_dir/res/20240917_095400.mp4"
 )
 for required in "${required_files[@]}"; do
 	if [[ ! -f $required ]]; then

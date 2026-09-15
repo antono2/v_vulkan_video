@@ -91,7 +91,7 @@ try {
 Copy-Item $VimguiDll.FullName $OutputDirectory -Force
 Copy-Item $GlfwDll.FullName $OutputDirectory -Force
 New-Item -ItemType Directory -Force (Join-Path $OutputDirectory "res") | Out-Null
-Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $OutputDirectory "res\sample.mp4") -Force
+Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $OutputDirectory "res\20240917_095400.mp4") -Force
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $OutputDirectory -Force
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $OutputDirectory -Force
 

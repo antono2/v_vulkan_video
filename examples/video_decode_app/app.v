@@ -81,7 +81,7 @@ fn default_video_path() string {
 	// Release archives place the sample beside the executable. Prefer that
 	// relocatable path; @VMODROOT points at the build checkout and is only a
 	// source-tree fallback.
-	packaged_sample := os.join_path(os.dir(os.executable()), 'res', 'sample.mp4')
+	packaged_sample := os.join_path(os.dir(os.executable()), 'res', '20240917_095400.mp4')
 	if os.is_file(packaged_sample) {
 		return packaged_sample
 	}
