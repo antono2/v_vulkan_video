@@ -1,7 +1,7 @@
 module video_decode_app
 
 import antono2.vulkan as vk
-import antono2.vkmemalloc as vma
+import antono2.vkmemalloc as vkmem
 import antono2.glfw
 import math
 
@@ -36,7 +36,7 @@ pub mut:
 	vk_device                        vk.Device = unsafe { nil }
 	swapchain                        Swapchain // @[required]
 	sampler                          vk.Sampler = unsafe { nil }
-	vma_allocator                    vma.Allocator
+	memory_allocator                 vkmem.Allocator
 	sampler_ycbcr_conversion         vk.SamplerYcbcrConversion
 	video_decode_bitstream_alignment vk.DeviceSize = 1
 	graphics_family                  u32 = vk.queue_family_ignored
@@ -120,7 +120,7 @@ pub fn (mut ctx DeviceContext) shutdown() {
 		vk.destroy_sampler_ycbcr_conversion(ctx.vk_device, ctx.sampler_ycbcr_conversion, unsafe { nil })
 		ctx.sampler_ycbcr_conversion = unsafe { nil }
 	}
-	ctx.vma_allocator.destroy()
+	ctx.memory_allocator.destroy()
 	if !isnil(ctx.vk_device) {
 		vk.destroy_device(ctx.vk_device, unsafe { nil })
 		ctx.vk_device = unsafe { nil }
@@ -221,9 +221,10 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 		}
 	}
 
-	mut active_device_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
-		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
-	memory_budget_supported := vma.supports_memory_budget(gpu)
+	mut active_device_extensions := [vk.khr_swapchain_extension_name,
+		vk.khr_video_queue_extension_name, vk.khr_video_decode_queue_extension_name,
+		vk.khr_video_decode_h264_extension_name]
+	memory_budget_supported := vkmem.supports_memory_budget(gpu)
 	if memory_budget_supported {
 		active_device_extensions << vk.ext_memory_budget_extension_name
 	}
@@ -284,52 +285,13 @@ pub fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile
 	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment, ctx.video_capabilities.minBitstreamBufferOffsetAlignment)
 	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment, ctx.video_capabilities.minBitstreamBufferSizeAlignment)
 
-	/*
-											mut vulkan_functions := vma.VulkanFunctions{
-												// Required when using VMA_DYNAMIC_VULKAN_FUNCTIONS.
-												vkGetInstanceProcAddr:               vk.get_instance_proc_addr
-												// Required when using VMA_DYNAMIC_VULKAN_FUNCTIONS.
-												vkGetDeviceProcAddr:                 vk.get_device_proc_addr
-												vkGetPhysicalDeviceProperties:       vk.get_physical_device_properties
-												vkGetPhysicalDeviceMemoryProperties: vk.get_physical_device_memory_properties
-												vkAllocateMemory:                    vk.allocate_memory
-												vkFreeMemory:                        vk.free_memory
-												vkMapMemory:                         vk.map_memory
-												vkUnmapMemory:                       vk.unmap_memory
-												vkFlushMappedMemoryRanges:           vk.flush_mapped_memory_ranges
-												vkInvalidateMappedMemoryRanges:      vk.invalidate_mapped_memory_ranges
-												vkBindBufferMemory:                  vk.bind_buffer_memory
-												vkBindImageMemory:                   vk.bind_image_memory
-												vkGetBufferMemoryRequirements:       vk.get_buffer_memory_requirements
-												vkGetImageMemoryRequirements:        vk.get_image_memory_requirements
-												vkCreateBuffer:                      vk.create_buffer
-												vkDestroyBuffer:                     vk.destroy_buffer
-												vkCreateImage:                       vk.create_image
-												vkDestroyImage:                      vk.destroy_image
-												vkCmdCopyBuffer:                     vk.cmd_copy_buffer
-											}
-
-											mut allocator_ci := vma.AllocatorCreateInfo{
-												flags:            0 // VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT
-												// physicalDevice:   ctx.get_gpu_current()
-												physicalDevice:   unsafe { voidptr(ctx.get_gpu_current()) }
-												// device:           ctx.vk_device
-												device:           unsafe { voidptr(ctx.vk_device) }
-												pVulkanFunctions: &vulkan_functions
-												// instance:         ctx.vk_instance
-												instance:         unsafe { voidptr(ctx.vk_instance) }
-												vulkanApiVersion: vk.api_version_1_3
-											}
-
-											vma.create_allocator(&allocator_ci, &ctx.vma_allocator)
-											*/
-	allocator_create_info := vma.AllocatorCreateInfo{
+	allocator_create_info := vkmem.AllocatorCreateInfo{
 		physical_device: ctx.get_gpu_current()
 		device: ctx.get_vk_device()
 		memory_budget_enabled: memory_budget_supported
 	}
 
-	ctx.vma_allocator = vma.new(allocator_create_info)
+	ctx.memory_allocator = vkmem.new(allocator_create_info)
 	profile_list := vk.VideoProfileListInfoKHR{
 		profileCount: 1
 		pProfiles: &ctx.video_profile_info
