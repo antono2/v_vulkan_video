@@ -26,7 +26,7 @@ install -m 0755 "$imgui_dir/lib/libvimgui.so" "$package_dir/lib/libvimgui.so"
 install -m 0755 /usr/lib/x86_64-linux-gnu/libglfw.so.3 "$package_dir/lib/libglfw.so.3"
 install -m 0755 /usr/lib/x86_64-linux-gnu/libstdc++.so.6 "$package_dir/lib/libstdc++.so.6"
 install -m 0755 /lib/x86_64-linux-gnu/libgcc_s.so.1 "$package_dir/lib/libgcc_s.so.1"
-install -m 0644 "$project_dir/res/20240917_095400.mp4" "$package_dir/res/sample.mp4"
+install -m 0644 "$project_dir/res/20240917_095400.mp4" "$package_dir/res/20240917_095400.mp4"
 install -m 0755 "$project_dir/packaging/ubuntu24/run.sh" "$package_dir/run.sh"
 install -m 0644 "$project_dir/packaging/ubuntu24/README.txt" "$package_dir/README.txt"
 

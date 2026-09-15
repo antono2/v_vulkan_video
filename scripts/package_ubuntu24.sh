@@ -69,7 +69,7 @@ install -m 0755 "$imgui_dir/lib/libvimgui.so" "$build_dir/$package_name/lib/libv
 install -m 0755 "$rootfs/usr/lib/x86_64-linux-gnu/libglfw.so.3" "$build_dir/$package_name/lib/libglfw.so.3"
 install -m 0755 "$rootfs/usr/lib/x86_64-linux-gnu/libstdc++.so.6" "$build_dir/$package_name/lib/libstdc++.so.6"
 install -m 0755 "$rootfs/lib/x86_64-linux-gnu/libgcc_s.so.1" "$build_dir/$package_name/lib/libgcc_s.so.1"
-install -m 0644 "$project_dir/res/20240917_095400.mp4" "$build_dir/$package_name/res/sample.mp4"
+install -m 0644 "$project_dir/res/20240917_095400.mp4" "$build_dir/$package_name/res/20240917_095400.mp4"
 cp "$project_dir/packaging/ubuntu24/run.sh" "$build_dir/$package_name/run.sh"
 cp "$project_dir/packaging/ubuntu24/README.txt" "$build_dir/$package_name/README.txt"
 chmod 0755 "$build_dir/$package_name/run.sh"
