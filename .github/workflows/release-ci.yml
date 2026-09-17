@@ -221,6 +221,9 @@ jobs:
           Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
           Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./scripts/build_windows.ps1 -Compiler stable
+          $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
+          v -cc msvc test .
+          ./scripts/verify_windows_package.ps1
       - name: Upload Windows package
         uses: actions/upload-artifact@v7
         with:

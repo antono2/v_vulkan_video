@@ -27,6 +27,7 @@ if (-not $OutputDirectory) {
 }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 $BuildDirectory = Join-Path $ProjectDirectory ".build\windows-imgui"
+$PackageDirectory = Join-Path $BuildDirectory "package\vkvideo-windows-x64"
 $ImguiDirectory = Join-Path $Antono2ModulesDirectory "imgui"
 $ImguiLibraryDirectory = Join-Path $ImguiDirectory "lib"
 $GlfwLibraryDirectory = Join-Path $Antono2ModulesDirectory "glfw\lib"
@@ -35,7 +36,7 @@ if (Test-Path $BuildDirectory) {
     # prevents a failed dependency download from poisoning the next run.
     Remove-Item $BuildDirectory -Recurse -Force
 }
-New-Item -ItemType Directory -Force $BuildDirectory, $ImguiLibraryDirectory, $GlfwLibraryDirectory, $OutputDirectory | Out-Null
+New-Item -ItemType Directory -Force $BuildDirectory, $PackageDirectory, $ImguiLibraryDirectory, $GlfwLibraryDirectory, $OutputDirectory | Out-Null
 
 $CMakeArguments = @(
     "-S", $ImguiDirectory,
@@ -76,7 +77,7 @@ $env:VMODULES = $ModulesDirectory
 $env:GLFW_INCLUDE = Split-Path -Parent (Split-Path -Parent $GlfwHeader.FullName)
 $env:GLFW_LIB = $GlfwLibraryDirectory
 
-$Executable = Join-Path $OutputDirectory "v_vulkan_video.exe"
+$Executable = Join-Path $PackageDirectory "v_vulkan_video.exe"
 Push-Location $ProjectDirectory
 try {
     $VArguments = @()
@@ -88,14 +89,19 @@ try {
     Pop-Location
 }
 
-Copy-Item $VimguiDll.FullName $OutputDirectory -Force
-Copy-Item $GlfwDll.FullName $OutputDirectory -Force
-New-Item -ItemType Directory -Force (Join-Path $OutputDirectory "res") | Out-Null
-Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $OutputDirectory "res\20240917_095400.mp4") -Force
-Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $OutputDirectory -Force
-Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $OutputDirectory -Force
+Copy-Item $VimguiDll.FullName $PackageDirectory -Force
+Copy-Item $GlfwDll.FullName $PackageDirectory -Force
+New-Item -ItemType Directory -Force (Join-Path $PackageDirectory "res") | Out-Null
+Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $PackageDirectory "res\20240917_095400.mp4") -Force
+Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $PackageDirectory -Force
+Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $PackageDirectory -Force
+
+# Keep the unpacked output convenient for local testing, but always create the
+# release archive from the clean staging directory above. Files from an older
+# local build can therefore never leak into the ZIP.
+Copy-Item (Join-Path $PackageDirectory "*") $OutputDirectory -Recurse -Force
 
 $ZipPath = "$OutputDirectory.zip"
 if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
-Compress-Archive -Path $OutputDirectory -DestinationPath $ZipPath
+Compress-Archive -Path $PackageDirectory -DestinationPath $ZipPath
 Write-Host "Built Windows package with the $Compiler V compiler: $ZipPath"

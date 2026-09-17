@@ -102,5 +102,8 @@ compiles the player with MSVC, and creates
 `dist\vkvideo-windows-x64.zip`. It requires V 0.5.2+, CMake, Visual Studio C++
 x64 tools, and a Vulkan SDK selected through `VULKAN_SDK`.
 
-Windows playback testing on a Vulkan Video-capable GPU is currently deferred;
-the remaining checks are tracked in `PLATFORM_SUPPORT.md`.
+Windows unit tests, the MSVC build, and the archive layout run in CI on a
+Windows Server 2022 runner. Startup and clean unsupported-device handling were
+also tested on a GeForce GTX 765M. Playback testing on a Vulkan Video-capable
+GPU is currently deferred; the hardware-dependent checks are tracked in
+`PLATFORM_SUPPORT.md`.
