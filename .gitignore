@@ -5,8 +5,10 @@
 
 # Package/build output
 /build/
+/.build/
 /dist/
 /*.zip
+/*.tmp.obj
 
 # Editor and operating-system files
 .DS_Store
