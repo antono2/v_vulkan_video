@@ -16,71 +16,64 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux / ${{ matrix.compiler }} / ${{ matrix.linkage }}
+    name: Linux / stable / ${{ matrix.linkage }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - compiler: stable
-            linkage: shared
-            v_version: latest
-          - compiler: stable
-            linkage: static
-            v_version: latest
-          - compiler: v3
-            linkage: shared
-            v_version: latest
+          - linkage: shared
+          - linkage: static
     env:
       VMODULES: ${{ github.workspace }}/source/modules
       VULKAN_SDK: /usr
       GLFW_INCLUDE: /usr/include
       GLFW_LIB: /usr/lib/x86_64-linux-gnu
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: master
+          ref: v2.0.0
           path: source/modules/antono2/vulkan
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
           ref: v2.6.0
           path: source/modules/antono2/vkmemalloc
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
           ref: v1.4.0
           path: source/modules/antono2/memory
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: master
+          ref: 755f42ea3bf35a35fdf2eb36703d00c6a43bf48a
           path: source/modules/antono2/imgui
           submodules: recursive
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: master
+          ref: e9a367938577919b4a5140a477c1250112978d8e
           path: source/modules/antono2/glfw
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: master
+          ref: bfd69354dd11d1904783198657c3dcc8fb5dc99b
           path: source/modules/antono2/minimp4
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: master
+          ref: d93e2ae0d8794b59929361c03dca5ab019a21b66
           path: source/modules/antono2/h264
       - name: Set up released V compiler
-        uses: prantlf/setup-v-action@v4
+        uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         with:
-          version: ${{ matrix.v_version }}
+          version: 0.5.2
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
       - name: Verify generated binding ownership
@@ -92,64 +85,127 @@ jobs:
             <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' implot/implot.v | sort -u))
           test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
       - name: Test pinned Vulkan memory allocator v2.6.0
-        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        if: matrix.linkage == 'shared'
         working-directory: source/modules/antono2/vkmemalloc
         run: v test .
       - name: Build native ImGui
         working-directory: source/modules/antono2/imgui
         run: v run build_vimgui.vsh --linkage '${{ matrix.linkage }}' --glfw system
       - name: Test and build player
-        id: build_player
-        continue-on-error: ${{ matrix.compiler == 'v3' }}
         working-directory: source/v_vulkan_video
         run: |
           set -euo pipefail
           flags=()
-          if [[ '${{ matrix.compiler }}' == v3 ]]; then flags+=(-new-compiler); fi
           if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
-          if [[ '${{ matrix.compiler }}' == stable ]]; then v "${flags[@]}" test .; fi
+          v "${flags[@]}" -cc gcc test .
           v "${flags[@]}" -cc gcc -o v_vulkan_video .
-      - name: Report V3 compatibility warning
-        if: matrix.compiler == 'v3' && steps.build_player.outcome == 'failure'
-        run: echo '::warning::The experimental V3 player build failed; stable V remains authoritative.'
       - name: Package Ubuntu 24.04 release
-        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64.zip
       - name: Upload Ubuntu release package
-        uses: actions/upload-artifact@v7
-        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: matrix.linkage == 'shared'
         with:
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
           archive: false
           retention-days: 7
           if-no-files-found: error
       - name: Build diagnostic Ubuntu player
-        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: |
           v -d debug -cc gcc -o v_vulkan_video .
           ./scripts/package_ci_ubuntu24.sh vkvideo-ubuntu24-amd64-debug.zip
       - name: Upload Ubuntu diagnostic package
-        uses: actions/upload-artifact@v7
-        if: matrix.compiler == 'stable' && matrix.linkage == 'shared'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: matrix.linkage == 'shared'
         with:
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip
           archive: false
           retention-days: 7
           if-no-files-found: error
       - name: Package static Linux CI binary
-        if: matrix.compiler == 'stable' && matrix.linkage == 'static'
+        if: matrix.linkage == 'static'
         working-directory: source/v_vulkan_video
         run: tar -czf vkvideo-linux-ci-static.tar.gz v_vulkan_video
       - name: Upload static Linux CI binary
-        uses: actions/upload-artifact@v7
-        if: matrix.compiler == 'stable' && matrix.linkage == 'static'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: matrix.linkage == 'static'
         with:
           path: source/v_vulkan_video/vkvideo-linux-ci-static.tar.gz
           archive: false
           retention-days: 7
           if-no-files-found: error
+
+  linux-v-master:
+    name: Advisory current V master and dependency masters
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      VMODULES: ${{ github.workspace }}/source/modules
+      VULKAN_SDK: /usr
+      GLFW_INCLUDE: /usr/include
+      GLFW_LIB: /usr/lib/x86_64-linux-gnu
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: source/v_vulkan_video
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan
+          ref: master
+          path: source/modules/antono2/vulkan
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/vulkan_memory_allocator
+          ref: master
+          path: source/modules/antono2/vkmemalloc
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/memory
+          ref: v1.4.0
+          path: source/modules/antono2/memory
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/imgui
+          ref: master
+          path: source/modules/antono2/imgui
+          submodules: recursive
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/glfw
+          ref: master
+          path: source/modules/antono2/glfw
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/minimp4
+          ref: master
+          path: source/modules/antono2/minimp4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ github.repository_owner }}/h264
+          ref: master
+          path: source/modules/antono2/h264
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: vlang/v
+          ref: master
+          path: toolchain/v
+      - name: Build current V master
+        run: |
+          make -C toolchain/v
+          echo "$GITHUB_WORKSPACE/toolchain/v" >> "$GITHUB_PATH"
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config
+      - name: Build and test player with V3
+        run: |
+          cd source/modules/antono2/imgui
+          v run build_vimgui.vsh --linkage shared --glfw system
+          cd "$GITHUB_WORKSPACE/source/v_vulkan_video"
+          v -cc gcc test .
+          v -cc gcc -o "$RUNNER_TEMP/v_vulkan_video" .
 
   windows:
     name: Windows / stable
@@ -158,48 +214,48 @@ jobs:
     env:
       VMODULES: ${{ github.workspace }}\source\modules
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: master
+          ref: v2.0.0
           path: source/modules/antono2/vulkan
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
           ref: v2.6.0
           path: source/modules/antono2/vkmemalloc
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
           ref: v1.4.0
           path: source/modules/antono2/memory
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: master
+          ref: 755f42ea3bf35a35fdf2eb36703d00c6a43bf48a
           path: source/modules/antono2/imgui
           submodules: recursive
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: master
+          ref: e9a367938577919b4a5140a477c1250112978d8e
           path: source/modules/antono2/glfw
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: master
+          ref: bfd69354dd11d1904783198657c3dcc8fb5dc99b
           path: source/modules/antono2/minimp4
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: master
+          ref: d93e2ae0d8794b59929361c03dca5ab019a21b66
           path: source/modules/antono2/h264
-      - uses: prantlf/setup-v-action@v4
+      - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         with:
-          version: latest
+          version: 0.5.2
       - name: Install Vulkan SDK and SwiftShader test artifacts
         shell: bash
         working-directory: source/v_vulkan_video
@@ -209,8 +265,8 @@ jobs:
         run: |
           $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
           New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/master/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
       - name: Build Windows package
         shell: pwsh
         working-directory: source/v_vulkan_video
@@ -225,7 +281,7 @@ jobs:
           v -cc msvc test .
           ./scripts/verify_windows_package.ps1
       - name: Upload Windows package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           path: source/v_vulkan_video/dist/vkvideo-windows-x64.zip
           archive: false
