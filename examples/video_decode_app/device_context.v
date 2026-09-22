@@ -603,13 +603,12 @@ pub fn (mut ctx DeviceContext) create_image(desc &GPUImageDesc, mut image &GPUIm
 		}
 		mut format_count := u32(0)
 		vk.get_physical_device_video_format_properties_khr(ctx.get_gpu_current(), &video_format_info, &format_count, mut n)
-		mut video_formats := []vk.VideoFormatPropertiesKHR{len: int(format_count)}
-		// TODO: Ticket. &format_count should be mut, or make every other mut optional
-		// TODO: Ticket video_formats.data. Array can not be modified. It's not marked const in vulkan
-		mut tmp_formats := &vk.VideoFormatPropertiesKHR(video_formats.data)
-		res := vk.get_physical_device_video_format_properties_khr(ctx.get_gpu_current(), &video_format_info, &format_count, mut &tmp_formats)
-		if res != vk.Result.success {
-			panic('Could not get device video format properties')
+		if format_count > 0 {
+			mut video_formats := []vk.VideoFormatPropertiesKHR{len: int(format_count)}
+			res := vk.get_physical_device_video_format_properties_khr(ctx.get_gpu_current(), &video_format_info, &format_count, mut video_formats[0])
+			if res != vk.Result.success {
+				panic('Could not get device video format properties')
+			}
 		}
 	}
 

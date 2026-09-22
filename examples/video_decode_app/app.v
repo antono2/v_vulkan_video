@@ -606,7 +606,7 @@ fn (mut app VideoDecodeApp) teardown_per_frame(mut frame_info FrameInfo) {
 		frame_info.queue_submit_fence = unsafe { nil }
 	}
 	if !isnil(frame_info.command_buffer) {
-		vk.free_command_buffers(vk_device, &frame_info.command_pool, 1, &frame_info.command_buffer)
+		vk.free_command_buffers(vk_device, frame_info.command_pool, 1, &frame_info.command_buffer)
 		frame_info.command_buffer = unsafe { nil }
 	}
 	if !isnil(frame_info.command_pool) {
