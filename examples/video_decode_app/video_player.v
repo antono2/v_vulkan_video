@@ -533,10 +533,10 @@ pub fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 	vk_device := vp.app.device_context.vk_device
 	for mut info in vp.command_buffer_infos {
 		if !isnil(info.graphics_command_buffer) {
-			vk.free_command_buffers(vk_device, &vp.graphics_command_pool, 1, &info.graphics_command_buffer)
+			vk.free_command_buffers(vk_device, vp.graphics_command_pool, 1, &info.graphics_command_buffer)
 		}
 		if !isnil(info.video_command_buffer) {
-			vk.free_command_buffers(vk_device, &vp.video_command_pool, 1, &info.video_command_buffer)
+			vk.free_command_buffers(vk_device, vp.video_command_pool, 1, &info.video_command_buffer)
 		}
 		if !isnil(info.sem_video_to_gfx) {
 			vk.destroy_semaphore(vk_device, info.sem_video_to_gfx, unsafe { nil })
@@ -1976,8 +1976,8 @@ pub fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_el
 	}
 	vp.update_presentation()
 
-	vk.cmd_wait_events(graphics_cmd_buffer, 1, &vp.event_video_player, vk.pipeline_stage_2_all_commands_bit, vk.pipeline_stage_2_all_commands_bit, 0, unsafe { nil }, 0, unsafe { nil }, 0, unsafe { nil })
-	vk.cmd_reset_event(graphics_cmd_buffer, vp.event_video_player, vk.pipeline_stage_2_bottom_of_pipe_bit)
+	vk.cmd_wait_events(graphics_cmd_buffer, 1, &vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands), vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands), 0, unsafe { nil }, 0, unsafe { nil }, 0, unsafe { nil })
+	vk.cmd_reset_event(graphics_cmd_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.bottom_of_pipe))
 
 	// Finish recording the command buffer and submit
 	dev_ctx := vp.app.device_context
@@ -2029,7 +2029,7 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 	vk.reset_command_buffer(command_buffer_info.graphics_command_buffer, 0)
 	vk.begin_command_buffer(command_buffer_info.graphics_command_buffer, &begin_command_buffer)
 	if vp.is_stopped {
-		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
+		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 		return
 	}
 
@@ -2102,7 +2102,7 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 		} else {
 			vp.decode_finished = true
 		}
-		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
+		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 		return
 	}
 	mut flush_result := vk.Result.error_unknown
@@ -2166,7 +2166,7 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 
 	// The graphics command buffer waits on the decode semaphore before this
 	// transition, making the copied output safe for fragment sampling.
-	output_barrier := vk.ImageMemoryBarrier2{
+	mut output_barrier := vk.ImageMemoryBarrier2{
 		srcStageMask: vk.pipeline_stage_2_transfer_bit
 		srcAccessMask: vk.access_2_transfer_write_bit
 		dstStageMask: vk.pipeline_stage_2_fragment_shader_bit
@@ -2188,7 +2188,7 @@ pub fn (mut vp VideoPlayer) update_decode_video() ! {
 	vp.output_textures[output_index].layout = .shader_read_only_optimal
 
 	// Signal the application command buffer after the decode queue completes.
-	vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.pipeline_stage_2_all_commands_bit)
+	vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 }
 
 fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBuffer, output_index int) {
