@@ -26,8 +26,11 @@ To compile and run directly from a source checkout, target the repository root:
 v run . [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]
 ```
 
-`examples/video_decode_app` is the application's importable module rather than
-a standalone `main` package, so it is not a direct `v run` target.
+The player is one V application. `main.v` handles command-line options;
+`app.v` owns the window and rendering loop; `device_context.v` selects the GPU.
+`mp4_parser.v`, `decoder_session.v`, `player_decode.v`, and
+`player_presentation.v` implement the media path. Shared player state and
+resource ownership are in `video_player.v`.
 
 Without a video path, the bundled self-recorded and metadata-sanitized sample
 is used. `--list-gpus` reports compatibility against the selected video's
@@ -68,6 +71,14 @@ workflow.
 
 See [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) for tested hardware, known
 limitations, and the release-validation matrix.
+
+## Learn from the implementation
+
+The [design guide](docs/learning-path.md) traces an encoded picture through
+MP4 parsing, GPU capability selection, Vulkan Video decoding, synchronization,
+and presentation. It explains the underlying decisions, their tradeoffs, and
+how to apply the same concepts in another project. Start with its system map
+and follow the chapters that match the problem you are solving.
 
 ## Tests
 

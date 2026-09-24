@@ -34,6 +34,8 @@ Video-capable GPU is available. The remaining Windows work is:
 The completed MSVC build and GTX 765M unsupported-device test do not satisfy
 these playback checks.
 
+## Supported media and failure behavior
+
 The application currently decodes H.264/AVC video carried in MP4. It supports
 8-bit 4:2:0 progressive Baseline, Main, and High profiles when the driver
 reports a compatible Vulkan Video profile. Other codecs, chroma formats,
@@ -73,6 +75,8 @@ stream. They run on machines with only Lavapipe/llvmpipe.
 This deliberately does not advertise Vulkan Video extensions or emulate video
 commands. Decoded-picture-buffer operation, image transitions, queue
 synchronization, and presentation still require a real Vulkan Video device.
+
+## Hardware validation checklist
 
 Before calling a platform supported for release, run at least:
 

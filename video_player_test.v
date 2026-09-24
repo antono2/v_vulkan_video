@@ -1,4 +1,4 @@
-module video_decode_app
+module main
 
 import antono2.minimp4
 import os
@@ -53,10 +53,10 @@ fn test_rotation_from_common_mp4_track_matrices() {
 
 fn test_display_dimensions_apply_sar_before_rotation() {
 	mut metadata := VideoMetadata{
-		coded_width: 720
-		coded_height: 576
-		sar_width: 16
-		sar_height: 15
+		coded_width:      720
+		coded_height:     576
+		sar_width:        16
+		sar_height:       15
 		rotation_degrees: -90
 	}
 	metadata.update_display_dimensions()
@@ -83,7 +83,7 @@ fn test_h264_profile_names() {
 
 fn test_vui_matrix_coefficients_map_to_vulkan_ycbcr_models() {
 	mut metadata := VideoMetadata{
-		coded_height: 1080
+		coded_height:               1080
 		colour_description_present: true
 	}
 	metadata.matrix_coefficients = 0
@@ -114,7 +114,7 @@ fn test_minimp4_retains_track_rotation_matrix() {
 	mut file := os.open(path) or { panic(err) }
 	defer { file.close() }
 	mut user_data := CallbackUserData{
-		file: &file
+		file:      &file
 		file_size: os.file_size(path)
 	}
 	mut mp4 := minimp4.MP4D_demux_t{}
@@ -134,7 +134,7 @@ fn test_minimp4_phone_sample_timing_is_approximately_30_fps() {
 	mut file := os.open(path) or { panic(err) }
 	defer { file.close() }
 	mut user_data := CallbackUserData{
-		file: &file
+		file:      &file
 		file_size: os.file_size(path)
 	}
 	mut mp4 := minimp4.MP4D_demux_t{}
@@ -241,7 +241,7 @@ fn test_mp4_callback_reports_a_short_read() {
 		file.close()
 	}
 	mut callback_data := CallbackUserData{
-		file: &file
+		file:      &file
 		file_size: 8
 	}
 	mut destination := []u8{len: 8}
@@ -299,7 +299,7 @@ fn test_runtime_frame_read_reports_file_truncation() {
 		player.decoder.properties.caps.minBitstreamBufferSizeAlignment = 1
 	}
 	mut frame := VideoPlayerDecodeStreamFrame{
-		gpu_bitstream_capacity: u64(upload_buffer.len)
+		gpu_bitstream_capacity:                    u64(upload_buffer.len)
 		gpu_bitstream_slice_mapped_memory_address: upload_buffer.data
 	}
 	player.write_video_frame(mut frame) or {
@@ -313,12 +313,12 @@ fn test_runtime_frame_read_reports_file_truncation() {
 
 fn test_render_transform_rotates_minus_90_and_letterboxes_portrait_video() {
 	metadata := VideoMetadata{
-		display_width: 1080
-		display_height: 1920
+		display_width:    1080
+		display_height:   1920
 		rotation_degrees: -90
 	}
 	transform := video_render_transform(metadata, vk.Extent2D{
-		width: 1280
+		width:  1280
 		height: 720
 	})
 	assert transform.values[0..7] == [f32(0), 1, 0, 0, -1, 0, 1]

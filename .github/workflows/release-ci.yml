@@ -367,6 +367,10 @@ jobs:
           Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./scripts/build_windows.ps1 -Compiler stable
           $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
+          $HelpText = (& .\dist\vkvideo-windows-x64\v_vulkan_video.exe --help | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $HelpText -notmatch 'Usage:') {
+            throw 'The Windows player did not print its command-line help.'
+          }
           v -cc msvc test .
           ./scripts/verify_windows_package.ps1
       - name: Upload Windows package

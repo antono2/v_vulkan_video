@@ -1,4 +1,4 @@
-module video_decode_app
+module main
 
 #flag -I @VMODROOT/include
 #include "video_bridge.h"

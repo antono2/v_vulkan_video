@@ -59,13 +59,15 @@ a platform-independent archive.
 ## Player command line
 
 ```sh
-./v_vulkan_video [--list-gpus] [--gpu INDEX] [video.mp4]
+./v_vulkan_video [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]
 ```
 
 GPU compatibility is evaluated against the input stream's actual H.264
 profile. Without `--gpu`, the first fully compatible presentation/decode device
 is selected. Invalid media and unsupported or out-of-range devices return a
 clean non-zero exit status with a diagnostic instead of a panic.
+`--decode-output-mode auto|coincident|distinct` selects an advertised DPB and
+output-image mode; `auto` is the default.
 
 ## Ubuntu 24.04 binary package
 
