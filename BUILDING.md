@@ -65,8 +65,10 @@ a platform-independent archive.
 GPU compatibility is evaluated against the input stream's H.264 profile,
 coded extent, DPB slots, active references, output mode, and image formats.
 Without `--gpu`, the first fully compatible presentation/decode device
-is selected. Invalid media and unsupported or out-of-range devices return a
-clean non-zero exit status with a diagnostic instead of a panic.
+is selected. Unsupported codecs and profiles, missing slice parameter-set
+references, truncated MP4 samples, and incompatible or out-of-range devices
+return a non-zero exit status with a diagnostic. Arbitrarily corrupted SPS/PPS
+bitstreams are not fully validated by the pinned H.264 parser.
 `--decode-output-mode auto|coincident|distinct` selects an advertised DPB and
 output-image mode; `auto` is the default.
 

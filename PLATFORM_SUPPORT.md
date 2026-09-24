@@ -60,12 +60,13 @@ have completed. The bundled Big Buck Bunny fixtures cover this path at 360p,
 720p, and 1080p.
 
 Unsupported media, missing Vulkan Video extensions, and incompatible GPU
-profiles produce orderly diagnostics and a non-zero exit status. Unexpected
-failures after Vulkan device creation (for example, allocation, swapchain, or
-queue-submission failures) remain fatal because teardown from partially
-recorded or submitted command buffers is not yet modeled as recoverable. These
-driver/runtime failures are tracked as post-release lifecycle hardening rather
-than being conflated with malformed-input handling.
+profiles produce orderly diagnostics and a non-zero exit status. The pinned
+H.264 parser does not fully validate arbitrary corruption inside SPS/PPS
+bitstreams. Failures after Vulkan device creation (for example, allocation,
+swapchain, or queue-submission failures) remain fatal because teardown from
+partially recorded or submitted command buffers is not yet modeled as
+recoverable. These driver/runtime failures are tracked as post-release
+lifecycle hardening rather than being conflated with malformed-input handling.
 
 Hardware is selected by capability rather than vendor name: the device must
 provide graphics/presentation, the required Vulkan Video extensions, an H.264
