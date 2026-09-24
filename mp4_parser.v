@@ -517,6 +517,17 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 				}
 			}
 
+			// All slices in this MP4 sample belong to one access unit. The
+			// first slice supplies picture metadata; every slice needs space in
+			// the Annex B upload (whose start code can exceed the MP4 prefix).
+			nal_start_code := h264.NalStartCode{}.value
+			data_frame.size += u64(nal_start_code.len) + u64(nal_size)
+			if found_slice {
+				frame_bytes_num_to_do -= size
+				src_buffer_idx += int(size)
+				continue
+			}
+
 			/*
 																																																																					      * Decode Picture Order Count
 																																																																					      * (tig) see ITU-T H.264 (08/2021) pp.113
@@ -625,8 +636,6 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			// Accept frame beginning NAL unit
 			data_frame.nal_ref_idc = u32(nal.idc)
 			data_frame.nal_unit_type = u8(nal.type)
-			nal_start_code := h264.NalStartCode{}.value
-			data_frame.size = u64(nal_start_code.len) + nal_size
 			data_frame.reference_priority = u32(nal.idc)
 
 			data_frame.decode_time_ns = i64(f64(timestamp) * timescale_rcp * 1_000_000_000.0)
@@ -637,9 +646,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 				byteptr(&slice_header).vbytes(int(sizeof(slice_header)))
 			}
 			found_slice = true
-
-			// for frame_bytes_num_to_do > 0
-			break
+			frame_bytes_num_to_do -= size
+			src_buffer_idx += int(size)
 		}
 
 		// x ^ ((x ^ y) & -(x < y)) // max(x, y)

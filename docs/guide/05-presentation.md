@@ -45,7 +45,7 @@ a display width, and a window width that differ. Tests cover
 [track matrices](../../video_player_test.v#L218),
 [sample aspect ratio](../../video_player_test.v#L225),
 [conversion choices](../../video_player_test.v#L255), and
-[portrait letterboxing](../../video_player_test.v#L498).
+[portrait letterboxing](../../video_player_test.v#L501).
 
 ```mermaid
 flowchart LR

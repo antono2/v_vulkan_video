@@ -18,9 +18,9 @@ efficiency: an invalid file should not leave a half-created GPU decoder.
 
 The implementation also checks file size and reads at absolute sample offsets
 through [`read_callback`](../../mp4_parser.v#L17). Tests cover
-[non-MP4 input](../../video_player_test.v#L398),
-[truncation](../../video_player_test.v#L437), and
-[short reads](../../video_player_test.v#L417). In another project, input
+[non-MP4 input](../../video_player_test.v#L401),
+[truncation](../../video_player_test.v#L440), and
+[short reads](../../video_player_test.v#L420). In another project, input
 could instead be a network segment or a camera stream. The boundary remains
 useful: turn untrusted bytes into validated stream requirements before asking
 the device to allocate resources.
@@ -30,11 +30,14 @@ not expose the avcC prefix width, so the parser [detects a complete 1, 2, or
 4 byte layout](../../mp4_parser.v#L90) in the first sample and uses that width
 for both [parsing](../../mp4_parser.v#L478) and
 [GPU upload](../../player_decode.v#L560). Samples containing only metadata
-are [left out of the picture list](../../mp4_parser.v#L649), keeping slice
+are [left out of the picture list](../../mp4_parser.v#L657), keeping slice
 headers aligned with decode indices. The
 [checked slice reader](../../h264_slice.v#L104) honors weighted prediction
 reference counts and rejects invalid reference marking; the pinned H.264
 dependency's reader does not consume the full weighted table.
+The parser [counts every slice's Annex B bytes](../../mp4_parser.v#L524)
+before sizing the upload buffer; several short MP4 length prefixes can expand
+into several four-byte start codes.
 
 ## Two orders, two jobs
 
@@ -49,13 +52,13 @@ flowchart LR
     B --> C[Display: 0, 1, 2, 3, 4, 5, 6]
 ```
 
-[the display-order pass](../../mp4_parser.v#L663) assigns a display order to each
+[the display-order pass](../../mp4_parser.v#L671) assigns a display order to each
 picture while preserving decode order for the decoder. The DPB retains
 reference pictures for the codec; the output-image queue retains decoded
 pictures waiting for presentation. Those are different lifetimes. The
 [`presentation_buffer_size`](../../video_player.v#L394) calculation looks at the
 stream's display-order sequence to bound the waiting queue. The fixture-based
-tests assert the [early sequence](../../video_player_test.v#L361) and
+tests assert the [early sequence](../../video_player_test.v#L364) and
 [required queue depth](../../playback_timeline_test.v#L59).
 
 An H.264 MMCO 5 picture resets reference-picture numbering after it is decoded.

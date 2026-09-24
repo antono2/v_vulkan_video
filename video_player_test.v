@@ -335,6 +335,9 @@ fn test_parser_accepts_available_h264_resolution_and_rate_samples() {
 		assert decoder.video_data.h264_profile_idc == 100
 		assert decoder.video_data.frame_infos.len > 250
 		assert decoder.video_data.total_duration >= 9_000_000_000
+		for frame in decoder.video_data.frame_infos {
+			assert frame.size <= decoder.video_data.max_memory_frame_size_bytes
+		}
 		decoder.video_data.file.close()
 	}
 }
