@@ -66,11 +66,14 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	// picture sequence here.
 	if frame_info.nal_unit_type == u8(h264.NAL_UNIT_TYPE.coded_slice_idr) {
 		vp.dpb.reference_usage.clear()
+		vp.dpb.max_long_term_index = -1
 	}
 
 	dpb_slot_num := int(vp.decoder.video_data.num_dpb_slots)
 	vp.dpb.current_slot = vp.dpb.acquire_decode_slot(dpb_slot_num)
-	vp.dpb.poc_status[vp.dpb.current_slot] = frame_info.decode_poc
+	vp.dpb.long_term[vp.dpb.current_slot] = false
+	vp.dpb.poc_status[vp.dpb.current_slot] = frame_info.top_field_order_cnt
+	vp.dpb.bottom_poc_status[vp.dpb.current_slot] = frame_info.bottom_field_order_cnt
 	vp.dpb.frame_num_status[vp.dpb.current_slot] = int(slice_header.frame_num)
 
 	// Index variable on initialization comes in handy
@@ -91,19 +94,6 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	vp.video_frames[use_frame_index].slice_offsets.clear()
 	mut use_frame := &vp.video_frames[use_frame_index]
 	vp.write_video_frame(mut use_frame)!
-	if use_frame.gpu_bitstream_size == 0 {
-		// MP4 samples may contain only metadata/non-slice NAL units. They do not
-		// form a Vulkan decode operation and must not be submitted with range 0.
-		vk.end_command_buffer(video_command_buffer)
-		if vp.current_frame + 1 < vp.decoder.video_data.frame_infos.len {
-			vp.current_frame++
-		} else {
-			vp.decode_finished = true
-		}
-		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player,
-			vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
-		return
-	}
 	mut flush_result := vk.Result.error_unknown
 	lock vp.decoder {
 		flush_result = vp.app.device_context.memory_allocator.flush_range(vp.decoder.gpu_bitstream_allocation,
@@ -113,10 +103,11 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 
 	decode_ope.stream_offset = use_frame.gpu_bitstream_offset
 	decode_ope.stream_size = use_frame.gpu_bitstream_size
-	decode_ope.poc[0] = frame_info.decode_poc
-	decode_ope.poc[1] = frame_info.decode_poc
+	decode_ope.poc[0] = frame_info.top_field_order_cnt
+	decode_ope.poc[1] = frame_info.bottom_field_order_cnt
 	decode_ope.frame_type = frame_info.frame_type
 	decode_ope.reference_priority = frame_info.reference_priority
+	decode_ope.current_mmco5 = frame_info.has_mmco5
 	decode_ope.decoded_frame_index = vp.current_frame
 	decode_ope.slice_header = slice_header
 	decode_ope.pps = pps
@@ -126,7 +117,25 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	decode_ope.dpb_reference_slots = vp.dpb.reference_usage.data
 	// Pointer to data of fixed size array
 	decode_ope.dpb_poc = &vp.dpb.poc_status[0]
+	decode_ope.dpb_bottom_poc = &vp.dpb.bottom_poc_status[0]
 	decode_ope.dpb_frame_num = &vp.dpb.frame_num_status[0]
+	decode_ope.dpb_long_term = &vp.dpb.long_term[0]
+	decode_ope.dpb_long_term_index = &vp.dpb.long_term_index[0]
+	if frame_info.nal_unit_type == u8(h264.NAL_UNIT_TYPE.coded_slice_idr) {
+		decode_ope.current_long_term = slice_header.drpm.long_term_reference_flag != 0
+		decode_ope.current_long_index = 0
+	} else if frame_info.reference_priority > 0
+		&& slice_header.drpm.adaptive_ref_pic_marking_mode_flag != 0 {
+		for i in 0 .. slice_header.drpm.memory_management_control_operation.len {
+			op := slice_header.drpm.memory_management_control_operation[i]
+			if op == 0 { break
+			 }
+			if op == 6 {
+				decode_ope.current_long_term = true
+				decode_ope.current_long_index = int(slice_header.drpm.long_term_frame_idx[i])
+			}
+		}
+	}
 
 	decode_ope.dpb_slot_num = u32(dpb_slot_num)
 	decode_ope.p_dpbs = dpbs.data
@@ -145,17 +154,12 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	vp.output_textures_ready << output_index
 	output_queued = true
 
-	if frame_info.has_mmco5 {
-		// The current picture still used the old reference list for decoding.
-		// MMCO 5 discards that list and renumbers this picture for future use.
-		vp.dpb.finish_mmco5()
-	}
-	if frame_info.reference_priority > 0 {
-		vp.dpb.reference_usage << vp.dpb.current_slot
-		for vp.dpb.reference_usage.len > int(vp.decoder.video_data.max_reference_pictures) {
-			vp.dpb.reference_usage.delete(0)
-		}
-	}
+	// Reference marking takes effect after decoding; this picture used the
+	// previous DPB when the Vulkan command was recorded.
+	vp.dpb.mark_after_decode(slice_header,
+		frame_info.nal_unit_type == u8(h264.NAL_UNIT_TYPE.coded_slice_idr),
+		frame_info.reference_priority > 0, int(vp.decoder.video_data.max_reference_pictures), int(u32(1) << (
+		sps.log2_max_frame_num_minus4 + 4)))!
 	vk.end_command_buffer(video_command_buffer)
 	mut frame_count := 0
 	rlock vp.decoder {
@@ -461,15 +465,18 @@ fn (mut vp VideoPlayer) video_decode_core(operation &DecoderVideoDecodeOperation
 	for i in 0 .. int(operation.dpb_slot_num) {
 		pictures[i] = vk.VideoPictureResourceInfoKHR{
 			codedExtent:      vk.Extent2D{
-				width:  vp.decoder.video_data.width
-				height: vp.decoder.video_data.height
+				width:  vp.decoder.video_data.width_padd
+				height: vp.decoder.video_data.height_padd
 			}
 			baseArrayLayer:   0
 			imageViewBinding: vp.dpb.image[i].view
 		}
-		C.vv_set_h264_reference_info(&reference_infos[i],
-			u16(unsafe { operation.dpb_frame_num[i] }), unsafe { operation.dpb_poc[i] },
-			unsafe { operation.dpb_poc[i] })
+		C.vv_set_h264_reference_info(&reference_infos[i], u16(if unsafe { operation.dpb_long_term[i] } {
+			unsafe { operation.dpb_long_term_index[i] }
+		} else {
+			unsafe { operation.dpb_frame_num[i] }
+		}), unsafe { operation.dpb_poc[i] }, unsafe { operation.dpb_bottom_poc[i] })
+		reference_infos[i].flags.used_for_long_term_reference = u32(unsafe { operation.dpb_long_term[i] })
 		h264_slots[i] = vk.VideoDecodeH264DpbSlotInfoKHR{
 			pStdReferenceInfo: unsafe { &reference_infos[i] }
 		}
@@ -478,6 +485,19 @@ fn (mut vp VideoPlayer) video_decode_core(operation &DecoderVideoDecodeOperation
 			slotIndex:        i
 			pPictureResource: unsafe { &pictures[i] }
 		}
+	}
+	if operation.current_mmco5 {
+		minimum := if operation.poc[0] < operation.poc[1] {
+			operation.poc[0]
+		} else {
+			operation.poc[1]
+		}
+		C.vv_set_h264_reference_info(&reference_infos[operation.current_dpb], 0,
+			operation.poc[0] - minimum, operation.poc[1] - minimum)
+	} else if operation.current_long_term {
+		C.vv_set_h264_reference_info(&reference_infos[operation.current_dpb],
+			u16(operation.current_long_index), operation.poc[0], operation.poc[1])
+		reference_infos[operation.current_dpb].flags.used_for_long_term_reference = 1
 	}
 
 	mut active_slots := [slot_count]vk.VideoReferenceSlotInfoKHR{}
@@ -511,8 +531,8 @@ fn (mut vp VideoPlayer) video_decode_core(operation &DecoderVideoDecodeOperation
 	} else {
 		vk.VideoPictureResourceInfoKHR{
 			codedExtent:      vk.Extent2D{
-				width:  vp.decoder.video_data.width
-				height: vp.decoder.video_data.height
+				width:  vp.decoder.video_data.width_padd
+				height: vp.decoder.video_data.height_padd
 			}
 			baseArrayLayer:   0
 			imageViewBinding: vp.decode_output_image.view
@@ -540,16 +560,17 @@ fn (mut vp VideoPlayer) video_decode_core(operation &DecoderVideoDecodeOperation
 fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame) ! {
 	data_frame := vp.decoder.video_data.frame_infos[vp.current_frame]
 	mut frame_bytes_num_to_do := data_frame.frame_bytes_num
+	length_size := int(vp.decoder.video_data.nal_length_size)
 	lock vp.decoder {
 		vp.decoder.video_data.file.seek(data_frame.src_offset, .start) or {
 			return error('could not seek to MP4 frame ${vp.current_frame}: ${err}')
 		}
 	}
 	for frame_bytes_num_to_do > 0 {
-		if frame_bytes_num_to_do < 4 {
+		if frame_bytes_num_to_do < u64(length_size) {
 			return error('MP4 frame ${vp.current_frame} has a truncated H.264 NAL length')
 		}
-		mut src_buffer := []u8{len: 4}
+		mut src_buffer := []u8{len: length_size}
 		mut length_bytes_read := 0
 		lock vp.decoder {
 			length_bytes_read = vp.decoder.video_data.file.read(mut src_buffer) or {
@@ -557,13 +578,13 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 			}
 		}
 		if length_bytes_read != src_buffer.len {
-			return error('short read of H.264 NAL length in MP4 frame ${vp.current_frame}: expected 4 bytes, read ${length_bytes_read}')
+			return error('short read of H.264 NAL length in MP4 frame ${vp.current_frame}: expected ${length_size} bytes, read ${length_bytes_read}')
 		}
-		mut size := u32(src_buffer[0]) << 24 | u32(src_buffer[1]) << 16 | u32(src_buffer[2]) << 8 | src_buffer[3]
-		size += 4
-		if size < 4 || frame_bytes_num_to_do < size {
-			return error('MP4 frame ${vp.current_frame} has an invalid H.264 NAL size ${size - 4}')
+		nal_size := read_nal_length(src_buffer, 0, length_size)!
+		if u64(nal_size) > frame_bytes_num_to_do - u64(length_size) {
+			return error('MP4 frame ${vp.current_frame} has an invalid H.264 NAL size ${nal_size}')
 		}
+		size := u64(nal_size) + u64(length_size)
 		mut file := File(os.File{})
 		mut nal_header_byte := u8(0)
 		lock vp.decoder {
@@ -579,15 +600,15 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 			&& nal.type != h264.NAL_UNIT_TYPE.coded_slice_non_idr {
 			frame_bytes_num_to_do -= size
 			lock vp.decoder {
-				vp.decoder.video_data.file.seek(size - 4, .current) or {
+				vp.decoder.video_data.file.seek(nal_size, .current) or {
 					return error('could not skip non-slice NAL in MP4 frame ${vp.current_frame}: ${err}')
 				}
 			}
 			continue
 		}
 
-		if frame.gpu_bitstream_size + size <= frame.gpu_bitstream_capacity {
-			nal_start_code := h264.NalStartCode{}.value
+		nal_start_code := h264.NalStartCode{}.value
+		if frame.gpu_bitstream_size + u64(nal_start_code.len) + u64(nal_size) <= frame.gpu_bitstream_capacity {
 			frame.slice_offsets << u32(frame.gpu_bitstream_size)
 			dst_buffer := unsafe {
 				frame.gpu_bitstream_slice_mapped_memory_address + frame.gpu_bitstream_size
@@ -596,18 +617,21 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 				unsafe { vmemcpy(dst_buffer, nal_start_code.data, nal_start_code.len) }
 				bytes_read := vp.decoder.video_data.file.read_into_ptr(unsafe {
 					dst_buffer + nal_start_code.len
-				}, int(size - 4)) or {
+				}, int(nal_size)) or {
 					return error('could not read H.264 NAL payload in MP4 frame ${vp.current_frame}: ${err}')
 				}
-				if bytes_read != int(size - 4) {
-					return error('short read of H.264 NAL payload in MP4 frame ${vp.current_frame}: expected ${size - 4} bytes, read ${bytes_read}')
+				if bytes_read != int(nal_size) {
+					return error('short read of H.264 NAL payload in MP4 frame ${vp.current_frame}: expected ${nal_size} bytes, read ${bytes_read}')
 				}
 			}
-			frame.gpu_bitstream_size += u64(nal_start_code.len) + size - 4
+			frame.gpu_bitstream_size += u64(nal_start_code.len) + u64(nal_size)
 		} else {
 			return error('encoded access unit ${vp.current_frame} requires more than its ${frame.gpu_bitstream_capacity}-byte aligned bitstream-buffer capacity (written=${frame.gpu_bitstream_size}, next_nal=${size})')
 		}
 		frame_bytes_num_to_do -= size
+	}
+	if frame.gpu_bitstream_size == 0 {
+		return error('MP4 frame ${vp.current_frame} no longer contains a decodable H.264 slice')
 	}
 	lock vp.decoder {
 		aligned_size :=

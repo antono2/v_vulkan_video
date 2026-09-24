@@ -6,7 +6,7 @@ ratio and rotation metadata.
 
 ## Display order and time
 
-[`VideoPlayer.update_presentation`](../../player_presentation.v#L72) asks for the next
+[`VideoPlayer.update_presentation`](../../player_presentation.v#L73) asks for the next
 display-order image. It initially waits until enough reordered pictures are
 ready; then it advances only when the current duration is due and that next
 image exists. At end of stream it keeps the final picture visible while the
@@ -29,23 +29,23 @@ reordered image can cause a burst of frames when it arrives.
 
 ## Color and geometry are media data
 
-[`parse_mp4_data`](../../mp4_parser.v#L193) stores the track matrix and
-[H.264 video usability metadata](../../mp4_parser.v#L246).
-[`ycbcr_model_for_video`](../../device_context.v#L295)
+[the MP4 track parse](../../mp4_parser.v#L283) stores the track matrix and
+[H.264 video usability metadata](../../mp4_parser.v#L345).
+[`ycbcr_model_for_video`](../../device_context.v#L303)
 chooses a Vulkan YCbCr model from signaled matrix coefficients, with a
 resolution-based fallback when no description is present. The Vulkan sampler
 conversion uses the video's full or limited range. The app draws into an
-[`UNORM swapchain`](../../app.v#L220) so display-encoded YCbCr conversion is
+[`UNORM swapchain`](../../app.v#L230) so display-encoded YCbCr conversion is
 not encoded as sRGB a second time.
 
 [`video_render_transform`](../../app.v#L91) applies quarter-turn rotation and
 letterboxing based on display dimensions. Those dimensions incorporate sample
 aspect ratio before rotation. The picture can therefore have a coded width,
 a display width, and a window width that differ. Tests cover
-[track matrices](../../video_player_test.v#L108),
-[sample aspect ratio](../../video_player_test.v#L115),
-[conversion choices](../../video_player_test.v#L145), and
-[portrait letterboxing](../../video_player_test.v#L371).
+[track matrices](../../video_player_test.v#L218),
+[sample aspect ratio](../../video_player_test.v#L225),
+[conversion choices](../../video_player_test.v#L255), and
+[portrait letterboxing](../../video_player_test.v#L498).
 
 ```mermaid
 flowchart LR

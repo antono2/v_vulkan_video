@@ -7,8 +7,8 @@ assumed profile.
 
 ## Trace the input
 
-[`VideoPlayer.prepare`](../../video_player.v#L425) calls
-[`Decoder.parse_mp4_data`](../../mp4_parser.v#L141). The parser finds an H.264
+[`VideoPlayer.prepare`](../../video_player.v#L559) calls
+[`Decoder.parse_mp4_data`](../../mp4_parser.v#L231). The parser finds an H.264
 track, checks its timescale and samples, reads SPS and PPS data, and records
 picture dimensions, profile, timing, references, and display metadata. MP4
 gives sample offsets and durations; H.264 headers give codec rules such as
@@ -18,12 +18,23 @@ efficiency: an invalid file should not leave a half-created GPU decoder.
 
 The implementation also checks file size and reads at absolute sample offsets
 through [`read_callback`](../../mp4_parser.v#L17). Tests cover
-[non-MP4 input](../../video_player_test.v#L271),
-[truncation](../../video_player_test.v#L310), and
-[short reads](../../video_player_test.v#L290). In another project, input
+[non-MP4 input](../../video_player_test.v#L398),
+[truncation](../../video_player_test.v#L437), and
+[short reads](../../video_player_test.v#L417). In another project, input
 could instead be a network segment or a camera stream. The boundary remains
 useful: turn untrusted bytes into validated stream requirements before asking
 the device to allocate resources.
+
+MP4 AVC samples store each NAL with a length prefix. The demux binding does
+not expose the avcC prefix width, so the parser [detects a complete 1, 2, or
+4 byte layout](../../mp4_parser.v#L90) in the first sample and uses that width
+for both [parsing](../../mp4_parser.v#L478) and
+[GPU upload](../../player_decode.v#L560). Samples containing only metadata
+are [left out of the picture list](../../mp4_parser.v#L649), keeping slice
+headers aligned with decode indices. The
+[checked slice reader](../../h264_slice.v#L104) honors weighted prediction
+reference counts and rejects invalid reference marking; the pinned H.264
+dependency's reader does not consume the full weighted table.
 
 ## Two orders, two jobs
 
@@ -38,22 +49,27 @@ flowchart LR
     B --> C[Display: 0, 1, 2, 3, 4, 5, 6]
 ```
 
-[`parse_mp4_data`](../../mp4_parser.v#L525) assigns a display order to each
+[the display-order pass](../../mp4_parser.v#L663) assigns a display order to each
 picture while preserving decode order for the decoder. The DPB retains
 reference pictures for the codec; the output-image queue retains decoded
 pictures waiting for presentation. Those are different lifetimes. The
-[`presentation_buffer_size`](../../video_player.v#L266) calculation looks at the
+[`presentation_buffer_size`](../../video_player.v#L394) calculation looks at the
 stream's display-order sequence to bound the waiting queue. The fixture-based
-tests assert the [early sequence](../../video_player_test.v#L251) and
+tests assert the [early sequence](../../video_player_test.v#L361) and
 [required queue depth](../../playback_timeline_test.v#L59).
 
 An H.264 MMCO 5 picture resets reference-picture numbering after it is decoded.
-The parser [detects the operation](../../mp4_parser.v#L79) and
-[starts a new display-order group](../../mp4_parser.v#L110), while retaining
+The parser [detects the operation](../../mp4_parser.v#L169) and
+[starts a new display-order group](../../mp4_parser.v#L200), while retaining
 the picture's original count for the decode command. The
-[ordering test](../../video_player_test.v#L50) covers a reset followed by a
+[ordering test](../../video_player_test.v#L160) covers a reset followed by a
 picture-order-count wrap. This separation matters whenever a codec resets its
 reference state without starting a new file or decoder session.
+
+The parser also computes [POC type 1](../../mp4_parser.v#L136) from the SPS
+reference cycle, reference status, and slice deltas. The
+[unit case](../../video_player_test.v#L79) shows why a nonreference picture can
+have a different count from a reference picture with the same frame number.
 
 **Invariant:** decode input advances in codec order; presentation advances
 only when the next display-order picture is ready. The next display-order

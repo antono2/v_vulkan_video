@@ -27,12 +27,122 @@ fn test_mmco5_discards_old_references_after_decode_and_renumbers_current_picture
 		reference_usage: [u8(0), 1]
 	}
 	dpb.poc_status[2] = 14
+	dpb.bottom_poc_status[2] = 14
 	dpb.frame_num_status[2] = 7
 	dpb.finish_mmco5()
 	assert dpb.reference_usage.len == 0
 	assert dpb.poc_status[2] == 0
+	assert dpb.bottom_poc_status[2] == 0
 	assert dpb.frame_num_status[2] == 0
 	assert dpb.poc_status[0] == 0
+}
+
+fn test_progressive_field_order_counts_remain_distinct() {
+	mut state := PictureOrderCountType0State{}
+	result := state.advance(6, -2, 16, true, true, false)
+	assert result.top == 6
+	assert result.bottom == 4
+	assert result.display_poc == 4
+	mut dpb := DPB{
+		current_slot: 1
+	}
+	dpb.poc_status[1] = 14
+	dpb.bottom_poc_status[1] = 16
+	dpb.finish_mmco5()
+	assert dpb.poc_status[1] == 0
+	assert dpb.bottom_poc_status[1] == 2
+}
+
+fn test_nal_length_prefixes_and_invalid_prefixes() {
+	for width in [1, 2, 4] {
+		mut sample := []u8{len: width}
+		sample[width - 1] = 2
+		sample << [u8(0x65), 0x80]
+		assert detect_nal_length_size(sample)! == u32(width)
+		assert read_nal_length(sample, 0, width)! == 2
+	}
+	if _ := detect_nal_length_size([u8(0), 2, 0xe5, 0x80]) {
+		assert false, 'forbidden NAL header was accepted'
+	}
+}
+
+fn test_slice_parameter_set_references_are_validated_before_full_parse() {
+	mut pps := h264.PictureParameterSet{}
+	pps.seq_parameter_set_id = 0
+	validate_slice_parameter_sets([u8(0xd0)], [pps], [h264.SequenceParameterSet{}]) or {
+		assert err.msg().contains('missing PPS 1')
+		return
+	}
+	assert false, 'missing PPS was accepted'
+}
+
+fn test_picture_order_count_type_one_uses_cycle_and_nonreference_offset() {
+	mut sps := h264.SequenceParameterSet{
+		pic_order_cnt_type:                    1
+		num_ref_frames_in_pic_order_cnt_cycle: 2
+		offset_for_non_ref_pic:                -1
+		offset_for_top_to_bottom_field:        1
+	}
+	sps.offset_for_ref_frame[0] = 2
+	sps.offset_for_ref_frame[1] = 2
+	mut header := h264.SliceHeader{
+		frame_num: 3
+	}
+	header.delta_pic_order_cnt[0] = -1
+	top, bottom := poc_type1_fields(&sps, &header, 0, true) or { panic(err) }
+	assert top == 5 && bottom == 6
+	header.frame_num = 4
+	nonref_top, nonref_bottom := poc_type1_fields(&sps, &header, 0, false) or { panic(err) }
+	assert nonref_top == 4 && nonref_bottom == 5
+}
+
+fn test_dpb_applies_short_and_long_term_reference_marking() {
+	mut dpb := DPB{
+		reference_usage:     [u8(0), 1]
+		current_slot:        2
+		max_long_term_index: 1
+	}
+	dpb.frame_num_status[0] = 3
+	dpb.frame_num_status[1] = 4
+	mut header := h264.SliceHeader{
+		frame_num: 5
+	}
+	header.drpm.adaptive_ref_pic_marking_mode_flag = 1
+	header.drpm.memory_management_control_operation[0] = 1
+	header.drpm.difference_of_pic_nums_minus1[0] = 0
+	dpb.frame_num_status[2] = 5
+	dpb.mark_after_decode(&header, false, true, 3, 16) or { panic(err) }
+	assert dpb.reference_usage == [u8(0), 2]
+
+	dpb.current_slot = 1
+	dpb.frame_num_status[1] = 6
+	header = h264.SliceHeader{
+		frame_num: 6
+	}
+	header.drpm.adaptive_ref_pic_marking_mode_flag = 1
+	header.drpm.memory_management_control_operation[0] = 3
+	header.drpm.difference_of_pic_nums_minus1[0] = 2
+	header.drpm.long_term_frame_idx[0] = 1
+	header.drpm.memory_management_control_operation[1] = 6
+	header.drpm.long_term_frame_idx[1] = 0
+	dpb.mark_after_decode(&header, false, true, 3, 16) or { panic(err) }
+	assert dpb.reference_usage == [u8(0), 2, 1]
+	assert dpb.long_term[0] && dpb.long_term_index[0] == 1
+	assert !dpb.long_term[2]
+	assert dpb.long_term[1] && dpb.long_term_index[1] == 0
+
+	dpb.current_slot = 3
+	header = h264.SliceHeader{
+		frame_num: 7
+	}
+	header.drpm.adaptive_ref_pic_marking_mode_flag = 1
+	header.drpm.memory_management_control_operation[0] = 2
+	header.drpm.long_term_pic_num[0] = 0
+	header.drpm.memory_management_control_operation[1] = 4
+	header.drpm.max_long_term_frame_idx_plus1[1] = 1
+	dpb.mark_after_decode(&header, false, true, 3, 16) or { panic(err) }
+	assert dpb.reference_usage == [u8(2), 3]
+	assert !dpb.long_term[1] && !dpb.long_term[0]
 }
 
 fn test_mmco5_is_found_only_in_a_reference_non_idr_slice() {
@@ -264,6 +374,23 @@ fn test_parser_orders_type_zero_b_frames_within_their_gop() {
 		previous := decoder.video_data.frame_infos[decode_index - 1]
 		if frame.gop == previous.gop && frame.reference_priority > 0 {
 			assert frame.poc >= 0
+		}
+	}
+}
+
+fn test_parsed_reference_marking_operations_are_valid() {
+	mut decoder := Decoder{}
+	decoder.parse_mp4_data('${v_modroot}/res/Big_Buck_Bunny_360_10s_1MB.mp4') or { panic(err) }
+	defer { decoder.video_data.file.close() }
+	for i in 0 .. decoder.video_data.frame_infos.len {
+		header := unsafe {
+			&h264.SliceHeader(byteptr(decoder.video_data.slice_header_bytes.data) +
+				i * sizeof(h264.SliceHeader))
+		}
+		for op in header.drpm.memory_management_control_operation {
+			assert op <= 6, 'sample ${i} has invalid MMCO ${op}'
+			if op == 0 { break
+			 }
 		}
 	}
 }

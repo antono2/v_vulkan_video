@@ -76,6 +76,96 @@ fn remove_emulation_prevention_bytes(ebsp byteptr, size int) []u8 {
 	return rbsp
 }
 
+fn read_nal_length(bytes []u8, offset int, length_size int) !u32 {
+	if length_size !in [1, 2, 4] || offset < 0 || offset + length_size > bytes.len {
+		return error('truncated or unsupported H.264 NAL length')
+	}
+	mut length := u32(0)
+	for i in 0 .. length_size {
+		length = (length << 8) | u32(bytes[offset + i])
+	}
+	return length
+}
+
+fn detect_nal_length_size(sample []u8) !u32 {
+	for length_size in [4, 2, 1] {
+		mut offset := 0
+		mut valid := sample.len > 0
+		for offset < sample.len {
+			if offset + length_size > sample.len {
+				valid = false
+				break
+			}
+			nal_size := read_nal_length(sample, offset, length_size) or {
+				valid = false
+				break
+			}
+			if nal_size < 2 || u64(nal_size) > u64(sample.len - offset - length_size) {
+				valid = false
+				break
+			}
+			nal_header := sample[offset + length_size]
+			if nal_header & 0x80 != 0 || nal_header & 0x1f == 0 {
+				valid = false
+				break
+			}
+			offset += length_size + int(nal_size)
+		}
+		if valid && offset == sample.len {
+			return u32(length_size)
+		}
+	}
+	return error('MP4 sample has no valid H.264 NAL length prefix')
+}
+
+fn validate_slice_parameter_sets(payload []u8, pps_array []h264.PictureParameterSet, sps_array []h264.SequenceParameterSet) ! {
+	mut bits := h264.Bitstream{}
+	bits.init(payload)
+	bits.ue() // first_mb_in_slice
+	bits.ue() // slice_type
+	pps_id := bits.ue()
+	if pps_id >= u32(pps_array.len) {
+		return error('H.264 slice references missing PPS ${pps_id}')
+	}
+	sps_id := pps_array[pps_id].seq_parameter_set_id
+	if sps_id >= u32(sps_array.len) {
+		return error('H.264 PPS ${pps_id} references missing SPS ${sps_id}')
+	}
+}
+
+fn poc_type1_fields(sps &h264.SequenceParameterSet, header &h264.SliceHeader,
+	frame_num_offset u32, is_reference bool) !(int, int) {
+	mut abs_frame_num := if sps.num_ref_frames_in_pic_order_cnt_cycle == 0 {
+		u32(0)
+	} else {
+		frame_num_offset + header.frame_num
+	}
+	if !is_reference && abs_frame_num > 0 {
+		abs_frame_num--
+	}
+	mut expected_poc := 0
+	if abs_frame_num > 0 {
+		cycle_length := int(sps.num_ref_frames_in_pic_order_cnt_cycle)
+		if cycle_length <= 0 || cycle_length > sps.offset_for_ref_frame.len {
+			return error('invalid H.264 picture-order-count cycle length ${cycle_length}')
+		}
+		mut cycle_delta := 0
+		for i in 0 .. cycle_length {
+			cycle_delta += sps.offset_for_ref_frame[i]
+		}
+		expected_poc = (int(abs_frame_num) - 1) / cycle_length * cycle_delta
+		for i in 0 .. ((int(abs_frame_num) - 1) % cycle_length + 1) {
+			expected_poc += sps.offset_for_ref_frame[i]
+		}
+	}
+	if !is_reference {
+		expected_poc += sps.offset_for_non_ref_pic
+	}
+	top := expected_poc + header.delta_pic_order_cnt[0]
+	bottom := top + sps.offset_for_top_to_bottom_field + header.delta_pic_order_cnt[1]
+	return top, bottom
+}
+
 fn slice_has_mmco5(slice_header &h264.SliceHeader, is_idr bool, ref_idc h264.NAL_REF_IDC) bool {
 	if is_idr || ref_idc == .priority_disposable
 		|| slice_header.drpm.adaptive_ref_pic_marking_mode_flag == 0 {
@@ -131,7 +221,7 @@ fn (mut state PictureOrderCountType0State) advance(pic_lsb int, delta_bottom int
 	}
 	return PictureOrderCountType0Result{
 		decode_poc:  top
-		display_poc: if has_mmco5 { 0 } else { top }
+		display_poc: if has_mmco5 { 0 } else { math.min(top, bottom) }
 		top:         top
 		bottom:      bottom
 		cycle:       state.cycle
@@ -230,6 +320,15 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		if sps.frame_mbs_only_flag == 0 {
 			return error('interlaced H.264 video is not currently supported')
 		}
+		if sps.pic_order_cnt_type > 2 {
+			return error('invalid H.264 picture-order-count type ${sps.pic_order_cnt_type}')
+		}
+		if sps.num_ref_frames >= slot_count {
+			return error('H.264 stream requires ${sps.num_ref_frames} references; this player supports at most ${slot_count - 1}')
+		}
+		if sps.log2_max_frame_num_minus4 > 12 || sps.log2_max_pic_order_cnt_lsb_minus4 > 12 {
+			return error('invalid H.264 frame or picture-order-count bit width')
+		}
 		// Data validation
 		// https://stackoverflow.com/questions/6394874/fetching-the-dimensions-of-a-h264video-stream
 		width := ((sps.pic_width_in_mbs_minus1 + 1) * 16) - (sps.frame_crop_left_offset * 2) -
@@ -324,7 +423,6 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 
 	d.video_data.frame_infos = []DecoderVideoDataFrameInfo{cap: int(track.sample_count)}
 	d.video_data.slice_header_bytes.ensure_cap(int(track.sample_count * sizeof(h264.SliceHeader)))
-	d.video_data.slice_header_count = track.sample_count
 
 	mut file := d.video_data.file
 	mut sample_index := u32(0)
@@ -368,22 +466,23 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			return error('MP4 sample ${sample_index} is truncated: expected ${expected_frame_bytes} bytes, read ${frame_bytes_num_to_do}')
 		}
 		input_file_position = offset + frame_bytes_num_to_do
+		if sample_index == 0 {
+			d.video_data.nal_length_size = detect_nal_length_size(src_buffer)!
+		}
+		length_size := int(d.video_data.nal_length_size)
+		mut found_slice := false
 		for frame_bytes_num_to_do > 0 {
-			if frame_bytes_num_to_do < 4 {
+			if frame_bytes_num_to_do < d.video_data.nal_length_size {
 				return error('MP4 sample ${sample_index} has a truncated H.264 NAL length')
 			}
-			// mut size := unsafe{ (u32(*&src_buffer[src_buffer_idx+0]) << 24) | (u32(*&src_buffer[src_buffer_idx+1]) << 16) | (u32(*&src_buffer[src_buffer_idx+2]) << 8) | *&src_buffer[src_buffer_idx+3] }
-			mut size := unsafe {
-				(u32(src_buffer[src_buffer_idx + 0]) << 24) | (u32(src_buffer[src_buffer_idx + 1]) << 16) | (u32(src_buffer[
-					src_buffer_idx + 2]) << 8) | src_buffer[src_buffer_idx + 3]
+			nal_size := read_nal_length(src_buffer, src_buffer_idx, length_size)!
+			if nal_size > frame_bytes_num_to_do - d.video_data.nal_length_size {
+				return error('MP4 sample ${sample_index} has an invalid H.264 NAL size ${nal_size}')
 			}
-			size += 4
-			if size < 4 || frame_bytes_num_to_do < size {
-				return error('MP4 sample ${sample_index} has an invalid H.264 NAL size ${size - 4}')
-			}
+			size := nal_size + d.video_data.nal_length_size
 
-			length_prefixed_data_offset := src_buffer_idx + 4
-			length_prefixed_data_size := size - 4
+			length_prefixed_data_offset := src_buffer_idx + length_size
+			length_prefixed_data_size := nal_size
 			if length_prefixed_data_size <= 1 {
 				return error('MP4 sample ${sample_index} contains an empty H.264 NAL unit')
 			}
@@ -424,8 +523,11 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 																																																																					      *
 																																																																					      */
 			// tig: see Rec. ITU-T H.264 (08/2021) p.66 (7-1)
-			mut slice_header := h264.SliceHeader{}
-			slice_header.read_slice_header(&nal, pps_array, sps_array, mut nal_payload_bs)
+			validate_slice_parameter_sets(nal_payload_rbsp_data, pps_array, sps_array) or {
+				return error('MP4 sample ${sample_index}: ${err}')
+			}
+			mut slice_header := read_slice_header_checked(&nal, pps_array, sps_array, mut
+				nal_payload_bs) or { return error('MP4 sample ${sample_index}: ${err}') }
 			data_frame.has_mmco5 = slice_has_mmco5(&slice_header, is_idr, nal.idc)
 			if slice_header.pic_parameter_set_id >= u32(pps_array.len) {
 				return error('MP4 sample ${sample_index} references missing H.264 PPS ${slice_header.pic_parameter_set_id}')
@@ -439,7 +541,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			max_frame_num := u32(1) << (sps.log2_max_frame_num_minus4 + 4)
 			max_pic_order_cnt_lsb := int(u32(1) << (sps.log2_max_pic_order_cnt_lsb_minus4 + 4))
 			mut frame_num_offset := u32(0)
-			mut tmp_pic_order_cout := u32(0)
+			mut tmp_pic_order_cout := 0
 
 			match sps.pic_order_cnt_type {
 				0 {
@@ -454,6 +556,30 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 					data_frame.gop = result.cycle
 				}
 				// match 0
+				1 {
+					if is_idr {
+						frame_num_offset = 0
+					} else if prev_frame_num > slice_header.frame_num {
+						frame_num_offset = prev_frame_offset + max_frame_num
+					} else {
+						frame_num_offset = prev_frame_offset
+					}
+					data_frame.top_field_order_cnt, data_frame.bottom_field_order_cnt = poc_type1_fields(&sps,
+						&slice_header, frame_num_offset, nal.idc != .priority_disposable)!
+					data_frame.decode_poc = math.min(data_frame.top_field_order_cnt,
+						data_frame.bottom_field_order_cnt)
+					data_frame.poc = if data_frame.has_mmco5 { 0 } else { data_frame.decode_poc }
+					if is_idr || data_frame.has_mmco5 {
+						poc_state.cycle++
+					}
+					data_frame.gop = poc_state.cycle
+					prev_frame_offset = if data_frame.has_mmco5 { u32(0) } else { frame_num_offset }
+					prev_frame_num = if data_frame.has_mmco5 {
+						u32(0)
+					} else {
+						slice_header.frame_num
+					}
+				}
 				2 {
 					if is_idr {
 						frame_num_offset = 0
@@ -472,9 +598,9 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 					if is_idr {
 						tmp_pic_order_cout = 0
 					} else if nal.idc == h264.NAL_REF_IDC.priority_disposable {
-						tmp_pic_order_cout = 2 * (frame_num_offset + slice_header.frame_num) - 1
+						tmp_pic_order_cout = 2 * int(frame_num_offset + slice_header.frame_num) - 1
 					} else {
-						tmp_pic_order_cout = 2 * (frame_num_offset + slice_header.frame_num)
+						tmp_pic_order_cout = 2 * int(frame_num_offset + slice_header.frame_num)
 					}
 
 					// (tig) Ignore bottom or top fields, as we assume progressive.
@@ -482,6 +608,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 					// field shall be set, depending on whether the current picture is the
 					// top or bottom field, as indicated by bottom_field_flag
 					data_frame.decode_poc = int(tmp_pic_order_cout)
+					data_frame.top_field_order_cnt = tmp_pic_order_cout
+					data_frame.bottom_field_order_cnt = tmp_pic_order_cout
 					data_frame.poc = if data_frame.has_mmco5 { 0 } else { data_frame.decode_poc }
 					if tmp_pic_order_cout == 0 || data_frame.has_mmco5 {
 						poc_state.cycle++
@@ -498,7 +626,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			data_frame.nal_ref_idc = u32(nal.idc)
 			data_frame.nal_unit_type = u8(nal.type)
 			nal_start_code := h264.NalStartCode{}.value
-			data_frame.size = u64(nal_start_code.len) + size - 4
+			data_frame.size = u64(nal_start_code.len) + nal_size
 			data_frame.reference_priority = u32(nal.idc)
 
 			data_frame.decode_time_ns = i64(f64(timestamp) * timescale_rcp * 1_000_000_000.0)
@@ -508,6 +636,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			d.video_data.slice_header_bytes << unsafe {
 				byteptr(&slice_header).vbytes(int(sizeof(slice_header)))
 			}
+			found_slice = true
 
 			// for frame_bytes_num_to_do > 0
 			break
@@ -517,9 +646,18 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		// max_frame_size_bytes = max_frame_size_bytes ^ ((max_frame_size_bytes ^ data_frame.size) & -(u64(max_frame_size_bytes < data_frame.size)))
 		max_frame_size_bytes = math.max[u64](max_frame_size_bytes, data_frame.size)
 
-		d.video_data.frame_infos << data_frame
+		if found_slice {
+			d.video_data.frame_infos << data_frame
+		} else if d.video_data.frame_infos.len > 0 {
+			// A metadata-only sample consumes time without producing a picture.
+			last := d.video_data.frame_infos.len - 1
+			d.video_data.frame_infos[last].duration_ns += i64(f64(duration) * timescale_rcp * 1_000_000_000.0)
+		}
 		sample_index++
 	} // for sample_index < track.sample_count
+	if d.video_data.frame_infos.len == 0 {
+		return error('H.264 video track contains no decodable slices')
+	}
 
 	// Fills array values with their index 0..len
 	d.video_data.frame_display_order = []u64{len: d.video_data.frame_infos.len, init: index}

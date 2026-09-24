@@ -40,9 +40,17 @@ The application currently decodes H.264/AVC video carried in MP4. It supports
 8-bit 4:2:0 progressive Baseline, Main, and High profiles when the driver
 reports a compatible Vulkan Video profile. Other codecs, chroma formats,
 bit depths, and interlaced streams are rejected with an explanatory error.
-MMCO 5 reference resets are handled in picture ordering and DPB state, with
-software tests; playback of an MMCO 5 stream has not yet been validated on
-hardware.
+Picture-order-count types 0, 1, and 2 are calculated for progressive frames.
+Separate top and bottom order counts are supplied to Vulkan references.
+The DPB applies sliding-window marking and explicit MMCO 1–6, including
+long-term references. The bundled 360p stream exercises MMCO 1 on the tested
+Linux GPU. MMCO 5 and long-term reference playback still need dedicated
+hardware fixtures; their state transitions have software tests.
+
+AVC samples with 1, 2, or 4 byte NAL length prefixes are accepted. The parser
+skips metadata-only samples and reports invalid slice references before
+creating a Vulkan device. The pinned H.264 module's weighted-prediction reader
+is corrected in this application's checked slice reader.
 
 B-frame streams are decoded in codec order and retained in a bounded image
 queue until they become next in presentation order. The queue size is derived
@@ -61,7 +69,8 @@ than being conflated with malformed-input handling.
 
 Hardware is selected by capability rather than vendor name: the device must
 provide graphics/presentation, the required Vulkan Video extensions, an H.264
-decode queue, and a supported decode output format. The decoded-picture-buffer
+decode queue, coded extent and reference limits, and output/DPB formats with
+the required image usages. The decoded-picture-buffer
 and output-image mode is chosen from the modes reported by the driver. Use
 `--decode-output-mode coincident` or `--decode-output-mode distinct` to force a
 specific advertised path during compatibility testing; `auto` remains the

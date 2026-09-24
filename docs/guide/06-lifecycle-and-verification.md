@@ -9,16 +9,16 @@ without reparsing the MP4.
 ## Trace ownership
 
 [`main`](../../main.v#L71) owns the `VideoDecodeApp` lifetime.
-[`VideoDecodeApp.initialize`](../../app.v#L145) creates the window, instance,
+[`VideoDecodeApp.initialize`](../../app.v#L147) creates the window, instance,
 surface, compatible device, swapchain, descriptors, pipeline, ImGui backend,
-and player resources. [`VideoDecodeApp.run`](../../app.v#L355) handles out-of-date
-swapchain results and calls [`recreate_swapchain`](../../app.v#L485), which waits
+and player resources. [`VideoDecodeApp.run`](../../app.v#L367) handles out-of-date
+swapchain results and calls [`recreate_swapchain`](../../app.v#L504), which waits
 for idle, releases per-frame resources, resizes, and recreates the dependent
-resources. [`shutdown`](../../app.v#L534) waits for the device, releases player and
+resources. [`shutdown`](../../app.v#L553) waits for the device, releases player and
 graphics resources, then destroys the device, window, and GLFW state.
 
 Input and capability failures during initialization use
-[`abort_initialization`](../../app.v#L587) and close the input file. Later Vulkan
+[`abort_initialization`](../../app.v#L606) and close the input file. Later Vulkan
 allocation or submission failures can still be fatal; the repository does not
 claim to recover from every partial GPU initialization. The precise support
 boundary is in [Supported media and failure behavior](../../PLATFORM_SUPPORT.md#supported-media-and-failure-behavior).

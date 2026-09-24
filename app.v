@@ -126,9 +126,11 @@ fn video_render_transform(metadata VideoMetadata, extent vk.Extent2D) VideoRende
 			result.values[6] = 0
 		}
 	}
+
 	mut scale_x := f32(1)
 	mut scale_y := f32(1)
-	if metadata.display_width > 0 && metadata.display_height > 0 && extent.width > 0 && extent.height > 0 {
+	if metadata.display_width > 0 && metadata.display_height > 0 && extent.width > 0
+		&& extent.height > 0 {
 		video_aspect := f32(metadata.display_width) / f32(metadata.display_height)
 		surface_aspect := f32(extent.width) / f32(extent.height)
 		if video_aspect > surface_aspect {
@@ -152,7 +154,8 @@ fn (mut app VideoDecodeApp) initialize() bool {
 	glfw.window_hint(glfw.client_api, glfw.no_api)
 	glfw.window_hint(glfw.resizable, glfw._true)
 
-	app.window_p = glfw.create_window(1280, 720, 'Vulkan Video Player', unsafe { nil }, unsafe { nil })
+	app.window_p = glfw.create_window(1280, 720, 'Vulkan Video Player', unsafe { nil },
+		unsafe { nil })
 	if isnil(app.window_p) {
 		println('app.window_p is nil')
 		return false
@@ -177,8 +180,10 @@ fn (mut app VideoDecodeApp) initialize() bool {
 		return false
 	}
 	h264_profile_idc := app.video_player.h264_profile_idc()
+	decode_requirements := app.video_player.decode_requirements()
 	video_metadata := app.video_player.metadata()
-	diagnostics := app.device_context.h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc, app.decode_output_mode)
+	diagnostics := app.device_context.h264_decode_gpu_diagnostics_for_output_mode(decode_requirements,
+		app.decode_output_mode)
 	if app.list_gpus {
 		println('Vulkan devices for H.264 ${h264_profile_name(h264_profile_idc)} Profile:')
 		for index, diagnostic in diagnostics {
@@ -194,14 +199,16 @@ fn (mut app VideoDecodeApp) initialize() bool {
 			app.abort_initialization()
 			return false
 		}
-		if !app.device_context.is_h264_decode_gpu_compatible_for_output_mode(app.preferred_gpu_index, h264_profile_idc, app.decode_output_mode) {
+		if !app.device_context.is_h264_decode_gpu_compatible_for_output_mode(app.preferred_gpu_index,
+			decode_requirements, app.decode_output_mode) {
 			eprintln('GPU [${app.preferred_gpu_index}] cannot play this video: ${diagnostics[app.preferred_gpu_index]}')
 			app.abort_initialization()
 			return false
 		}
 		gpu_index = u32(app.preferred_gpu_index)
 	} else {
-		gpu_index = app.device_context.find_h264_decode_gpu_for_output_mode(h264_profile_idc, app.decode_output_mode) or {
+		gpu_index = app.device_context.find_h264_decode_gpu_for_output_mode(decode_requirements,
+			app.decode_output_mode) or {
 			mode_requirement := if app.decode_output_mode == .automatic {
 				'a supported DPB/output mode'
 			} else {
@@ -242,7 +249,8 @@ fn (mut app VideoDecodeApp) initialize() bool {
 		poolSizeCount: u32(descriptor_pool_sizes.len)
 		pPoolSizes:    descriptor_pool_sizes.data
 	}
-	check_vk(vk.create_descriptor_pool(app.device_context.vk_device, &descriptor_pool_ci, unsafe { nil }, &app.descriptor_pool), 'Could not create descriptor pool')
+	check_vk(vk.create_descriptor_pool(app.device_context.vk_device, &descriptor_pool_ci,
+		unsafe { nil }, &app.descriptor_pool), 'Could not create descriptor pool')
 
 	mut sampler_ci := vk.SamplerCreateInfo{
 		magFilter:    vk.Filter.linear
@@ -256,7 +264,8 @@ fn (mut app VideoDecodeApp) initialize() bool {
 		conversion: app.device_context.sampler_ycbcr_conversion
 	}
 	sampler_ci.pNext = &sampler_conversion_info
-	check_vk(vk.create_sampler(app.device_context.vk_device, &sampler_ci, unsafe { nil }, &app.sampler), 'Could not create video sampler')
+	check_vk(vk.create_sampler(app.device_context.vk_device, &sampler_ci, unsafe { nil },
+		&app.sampler), 'Could not create video sampler')
 
 	// ImGui
 	// # IMGUI_CHECKVERSION();
@@ -291,7 +300,8 @@ fn (mut app VideoDecodeApp) initialize() bool {
 		bindingCount: u32(ds_layouts.len)
 		pBindings:    ds_layouts.data
 	}
-	check_vk(vk.create_descriptor_set_layout(app.device_context.vk_device, &ds_layout_ci, unsafe { nil }, &app.ds_layout), 'Could not create descriptor-set layout')
+	check_vk(vk.create_descriptor_set_layout(app.device_context.vk_device, &ds_layout_ci,
+		unsafe { nil }, &app.ds_layout), 'Could not create descriptor-set layout')
 
 	app.initialize_render_pass()
 	app.initialize_pipeline()
@@ -304,8 +314,10 @@ fn (mut app VideoDecodeApp) initialize() bool {
 	}
 
 	semaphore_ci := vk.SemaphoreCreateInfo{}
-	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_render_complete), 'Could not create render-complete semaphore')
-	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_present_complete), 'Could not create presentation semaphore')
+	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil }, &app.sem_render_complete),
+		'Could not create render-complete semaphore')
+	check_vk(vk.create_semaphore(vk_device, &semaphore_ci, unsafe { nil },
+		&app.sem_present_complete), 'Could not create presentation semaphore')
 	$if debug {
 		eprintln('Application synchronization initialized')
 	}
@@ -361,7 +373,8 @@ fn (mut app VideoDecodeApp) run() {
 		graph.ensure_cap(300)
 	}
 	mut prev_time := time.now()
-	for !glfw.window_should_close(app.window_p) && glfw.get_key(app.window_p, glfw.key_escape) == glfw.release {
+	for !glfw.window_should_close(app.window_p)
+		&& glfw.get_key(app.window_p, glfw.key_escape) == glfw.release {
 		glfw.poll_events()
 
 		// Keep playback timing in nanoseconds. Converting a sub-second frame
@@ -409,7 +422,8 @@ fn (mut app VideoDecodeApp) run() {
 				descriptorType:  .combined_image_sampler
 				pImageInfo:      &image_info
 			}
-			vk.update_descriptor_sets(app.device_context.vk_device, 1, &write_descriptor, 0, unsafe { nil })
+			vk.update_descriptor_sets(app.device_context.vk_device, 1, &write_descriptor, 0,
+				unsafe { nil })
 		}
 
 		// Finish the Dear ImGui frame before starting the next one. The previous
@@ -438,8 +452,11 @@ fn (mut app VideoDecodeApp) run() {
 		mut video_transform := video_render_transform(metadata, extent)
 		if !isnil(output_view) {
 			vk.cmd_bind_pipeline(frame.command_buffer, .graphics, app.pipeline)
-			vk.cmd_bind_descriptor_sets(frame.command_buffer, .graphics, app.pipeline_layout, 0, 1, &frame.descriptor_set, 0, unsafe { nil })
-			vk.cmd_push_constants(frame.command_buffer, app.pipeline_layout, vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex), 0, u32(sizeof(VideoRenderTransform)), &video_transform)
+			vk.cmd_bind_descriptor_sets(frame.command_buffer, .graphics, app.pipeline_layout, 0, 1,
+				&frame.descriptor_set, 0, unsafe { nil })
+			vk.cmd_push_constants(frame.command_buffer, app.pipeline_layout,
+				vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex), 0,
+				u32(sizeof(VideoRenderTransform)), &video_transform)
 			viewport := vk.Viewport{
 				width:    f32(extent.width)
 				height:   f32(extent.height)
@@ -469,12 +486,14 @@ fn (mut app VideoDecodeApp) run() {
 			signalSemaphoreCount: 1
 			pSignalSemaphores:    &app.sem_render_complete
 		}
-		res = vk.queue_submit(app.device_context.get_queue(.graphics), 1, &submit_info, frame.queue_submit_fence)
+		res = vk.queue_submit(app.device_context.get_queue(.graphics), 1, &submit_info,
+			frame.queue_submit_fence)
 		if res != vk.Result.success {
 			panic('Could not submit graphics command buffer: ${res}')
 		}
 		present_result := app.device_context.present([app.sem_render_complete])
-		if present_result == vk.Result.error_out_of_date_khr || present_result == vk.Result.suboptimal_khr {
+		if present_result == vk.Result.error_out_of_date_khr
+			|| present_result == vk.Result.suboptimal_khr {
 			app.recreate_swapchain()
 		} else if present_result != vk.Result.success {
 			panic('Could not present a swapchain image: ${present_result}')
@@ -597,7 +616,8 @@ fn (mut app VideoDecodeApp) abort_initialization() {
 fn (mut app VideoDecodeApp) teardown_per_frame(mut frame_info FrameInfo) {
 	vk_device := app.device_context.get_vk_device()
 	if !isnil(frame_info.descriptor_set) {
-		result := vk.free_descriptor_sets(vk_device, app.descriptor_pool, 1, &frame_info.descriptor_set)
+		result := vk.free_descriptor_sets(vk_device, app.descriptor_pool, 1,
+			&frame_info.descriptor_set)
 		assert result == .success
 		frame_info.descriptor_set = unsafe { nil }
 	}
@@ -688,7 +708,8 @@ fn (mut app VideoDecodeApp) initialize_render_pass() {
 		pDependencies:   &dependency
 	}
 
-	check_vk(vk.create_render_pass(vk_device, &rp_info, unsafe { nil }, &app.render_pass), 'Could not create render pass')
+	check_vk(vk.create_render_pass(vk_device, &rp_info, unsafe { nil }, &app.render_pass),
+		'Could not create render pass')
 }
 
 @[heap]
@@ -704,7 +725,8 @@ fn (mut app VideoDecodeApp) create_shader_module(shader_data []u32) vk.ShaderMod
 		pCode:    unsafe { shader_data.data }
 	}
 	mut shader_module := vk.ShaderModule(0)
-	check_vk(vk.create_shader_module(vk_device, &module_ci, unsafe { nil }, &shader_module), 'Could not create shader module')
+	check_vk(vk.create_shader_module(vk_device, &module_ci, unsafe { nil }, &shader_module),
+		'Could not create shader module')
 	return shader_module
 }
 
@@ -724,7 +746,8 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 		pushConstantRangeCount: 1
 		pPushConstantRanges:    &push_constant_range
 	}
-	check_vk(vk.create_pipeline_layout(vk_device, &pipeline_layout_ci, unsafe { nil }, &app.pipeline_layout), 'Could not create graphics pipeline layout')
+	check_vk(vk.create_pipeline_layout(vk_device, &pipeline_layout_ci, unsafe { nil },
+		&app.pipeline_layout), 'Could not create graphics pipeline layout')
 
 	mut vertex_input_ci := vk.PipelineVertexInputStateCreateInfo{}
 	mut input_assembly_ci := vk.PipelineInputAssemblyStateCreateInfo{
@@ -786,7 +809,8 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 		renderPass:          app.render_pass
 	}
 
-	check_vk(vk.create_graphics_pipelines(vk_device, unsafe { nil }, 1, &pipeline_ci, unsafe { nil }, &app.pipeline), 'Could not create graphics pipeline')
+	check_vk(vk.create_graphics_pipelines(vk_device, unsafe { nil }, 1, &pipeline_ci,
+		unsafe { nil }, &app.pipeline), 'Could not create graphics pipeline')
 
 	for sstage in shader_stages {
 		vk.destroy_shader_module(vk_device, sstage.module, unsafe { nil })
@@ -812,7 +836,8 @@ fn (mut app VideoDecodeApp) initialize_framebuffers() {
 			layers:          1
 		}
 		mut fb := unsafe { nil }
-		check_vk(vk.create_framebuffer(vk_device, &framebuffer_ci, unsafe { nil }, &fb), 'Could not create swapchain framebuffer ${i}')
+		check_vk(vk.create_framebuffer(vk_device, &framebuffer_ci, unsafe { nil }, &fb),
+			'Could not create swapchain framebuffer ${i}')
 		app.frames[i].framebuffer = fb
 		app.init_per_frame(mut app.frames[i])
 	}
@@ -824,19 +849,22 @@ fn (mut app VideoDecodeApp) init_per_frame(mut frame_info FrameInfo) {
 	fence_ci := vk.FenceCreateInfo{
 		flags: vk.FenceCreateFlags(vk.FenceCreateFlagBits.signaled)
 	}
-	check_vk(vk.create_fence(vk_device, &fence_ci, unsafe { nil }, &frame_info.queue_submit_fence), 'Could not create frame fence')
+	check_vk(vk.create_fence(vk_device, &fence_ci, unsafe { nil }, &frame_info.queue_submit_fence),
+		'Could not create frame fence')
 
 	command_pool_ci := vk.CommandPoolCreateInfo{
 		flags: vk.CommandPoolCreateFlags(vk.CommandPoolCreateFlagBits.transient)
 	}
-	check_vk(vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &frame_info.command_pool), 'Could not create graphics command pool')
+	check_vk(vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil },
+		&frame_info.command_pool), 'Could not create graphics command pool')
 
 	command_buffer_allocate_info := vk.CommandBufferAllocateInfo{
 		commandPool:        frame_info.command_pool
 		level:              vk.CommandBufferLevel.primary
 		commandBufferCount: 1
 	}
-	check_vk(vk.allocate_command_buffers(vk_device, &command_buffer_allocate_info, &frame_info.command_buffer), 'Could not allocate graphics command buffer')
+	check_vk(vk.allocate_command_buffers(vk_device, &command_buffer_allocate_info,
+		&frame_info.command_buffer), 'Could not allocate graphics command buffer')
 	frame_info.queue_index = 0
 
 	descriptor_set_allocate_info := vk.DescriptorSetAllocateInfo{
@@ -844,7 +872,8 @@ fn (mut app VideoDecodeApp) init_per_frame(mut frame_info FrameInfo) {
 		descriptorSetCount: 1
 		pSetLayouts:        &app.ds_layout
 	}
-	result := vk.allocate_descriptor_sets(vk_device, &descriptor_set_allocate_info, &frame_info.descriptor_set)
+	result := vk.allocate_descriptor_sets(vk_device, &descriptor_set_allocate_info,
+		&frame_info.descriptor_set)
 	if result != .success || isnil(frame_info.descriptor_set) {
 		panic('Could not allocate per-frame descriptor set: ${result}')
 	}

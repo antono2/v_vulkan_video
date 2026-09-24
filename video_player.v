@@ -4,6 +4,7 @@ import antono2.vulkan as vk
 import os
 import math
 import antono2.vkmemalloc as vkmem
+import antono2.h264
 
 const max_texture_count = 64
 const slot_count = 17
@@ -137,21 +138,22 @@ enum VideoPlayerFlags as u32 {
 
 struct DPB {
 pub mut:
-	image            [slot_count]Image
-	resource_state   [slot_count]DPBResourceState
-	poc_status       [slot_count]int
-	frame_num_status [slot_count]int
-	reference_usage  []u8
-	next_ref         u8
-	next_slot        u8
-	current_slot     u8
+	image               [slot_count]Image
+	resource_state      [slot_count]DPBResourceState
+	poc_status          [slot_count]int
+	bottom_poc_status   [slot_count]int
+	frame_num_status    [slot_count]int
+	reference_usage     []u8
+	long_term           [slot_count]bool
+	long_term_index     [slot_count]int
+	max_long_term_index int = -1
+	next_ref            u8
+	next_slot           u8
+	current_slot        u8
 }
 
 // Choose a slot which is not referenced by the picture being decoded. When all
-// slots are references, expire the oldest short-term reference first (the H.264
-// sliding-window default). MMCO 5 clears the active list after the current
-// decode. Other explicit MMCO and long-term reference operations are not yet
-// represented by this list.
+// slots are references, expire the oldest short-term reference first.
 fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 	assert slot_limit > 0 && slot_limit <= slot_count
 	for slot in 0 .. slot_limit {
@@ -167,8 +169,134 @@ fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 
 fn (mut dpb DPB) finish_mmco5() {
 	dpb.reference_usage.clear()
-	dpb.poc_status[dpb.current_slot] = 0
+	dpb.max_long_term_index = -1
+	minimum := math.min(dpb.poc_status[dpb.current_slot], dpb.bottom_poc_status[dpb.current_slot])
+	dpb.poc_status[dpb.current_slot] -= minimum
+	dpb.bottom_poc_status[dpb.current_slot] -= minimum
 	dpb.frame_num_status[dpb.current_slot] = 0
+}
+
+fn (mut dpb DPB) remove_reference(slot u8) {
+	for i, active in dpb.reference_usage {
+		if active == slot {
+			dpb.reference_usage.delete(i)
+			break
+		}
+	}
+	dpb.long_term[slot] = false
+}
+
+fn (mut dpb DPB) remove_long_term_index(index int) {
+	for slot in dpb.reference_usage.clone() {
+		if dpb.long_term[slot] && dpb.long_term_index[slot] == index {
+			dpb.remove_reference(slot)
+		}
+	}
+}
+
+fn (dpb &DPB) short_term_slot(pic_num int, curr_frame_num int, max_frame_num int) ?u8 {
+	for slot in dpb.reference_usage {
+		if dpb.long_term[slot] {
+			continue
+		}
+		frame_num := dpb.frame_num_status[slot]
+		frame_num_wrap := if frame_num > curr_frame_num {
+			frame_num - max_frame_num
+		} else {
+			frame_num
+		}
+		if frame_num_wrap == pic_num {
+			return slot
+		}
+	}
+	return none
+}
+
+fn (mut dpb DPB) mark_after_decode(header &h264.SliceHeader, is_idr bool,
+	is_reference bool, max_references int, max_frame_num int) ! {
+	if !is_reference {
+		return
+	}
+	dpb.long_term[dpb.current_slot] = false
+	if is_idr {
+		dpb.reference_usage.clear()
+		dpb.max_long_term_index = if header.drpm.long_term_reference_flag != 0 { 0 } else { -1 }
+		if header.drpm.long_term_reference_flag != 0 {
+			dpb.long_term[dpb.current_slot] = true
+			dpb.long_term_index[dpb.current_slot] = 0
+		}
+	} else if header.drpm.adaptive_ref_pic_marking_mode_flag != 0 {
+		for i in 0 .. header.drpm.memory_management_control_operation.len {
+			op := header.drpm.memory_management_control_operation[i]
+			if op == 0 {
+				break
+			}
+			pic_num_x := int(header.frame_num) - int(header.drpm.difference_of_pic_nums_minus1[i]) -
+				1
+			if op in [u32(1), 3] {
+				if pic_num_x < -max_frame_num {
+					return error('invalid H.264 MMCO short-term picture number')
+				}
+			}
+			match op {
+				1 {
+					if slot := dpb.short_term_slot(pic_num_x, int(header.frame_num), max_frame_num) {
+						dpb.remove_reference(slot)
+					}
+				}
+				2 {
+					dpb.remove_long_term_index(int(header.drpm.long_term_pic_num[i]))
+				}
+				3 {
+					slot := dpb.short_term_slot(pic_num_x, int(header.frame_num), max_frame_num) or {
+						return error('H.264 MMCO 3 refers to an unavailable short-term picture')
+					}
+					index := int(header.drpm.long_term_frame_idx[i])
+					if index > dpb.max_long_term_index {
+						return error('H.264 MMCO 3 long-term index ${index} exceeds ${dpb.max_long_term_index}')
+					}
+					dpb.remove_long_term_index(index)
+					dpb.long_term[slot] = true
+					dpb.long_term_index[slot] = index
+				}
+				4 {
+					dpb.max_long_term_index = int(header.drpm.max_long_term_frame_idx_plus1[i]) - 1
+					for slot in dpb.reference_usage.clone() {
+						if dpb.long_term[slot]
+							&& dpb.long_term_index[slot] > dpb.max_long_term_index {
+							dpb.remove_reference(slot)
+						}
+					}
+				}
+				5 {
+					dpb.finish_mmco5()
+				}
+				6 {
+					index := int(header.drpm.long_term_frame_idx[i])
+					if index > dpb.max_long_term_index {
+						return error('H.264 MMCO 6 long-term index ${index} exceeds ${dpb.max_long_term_index}')
+					}
+					dpb.remove_long_term_index(index)
+					dpb.long_term[dpb.current_slot] = true
+					dpb.long_term_index[dpb.current_slot] = index
+				}
+				else {
+					return error('invalid H.264 MMCO ${op} at frame_num ${header.frame_num}, operation ${i}')
+				}
+			}
+		}
+	} else if dpb.reference_usage.len >= max_references {
+		for slot in dpb.reference_usage {
+			if !dpb.long_term[slot] {
+				dpb.remove_reference(slot)
+				break
+			}
+		}
+	}
+	dpb.reference_usage << dpb.current_slot
+	if dpb.reference_usage.len > max_references {
+		return error('H.264 reference marking exceeds ${max_references} active pictures')
+	}
 }
 
 struct DPBResourceState {
@@ -280,16 +408,16 @@ fn presentation_buffer_size(display_orders []int) int {
 
 struct DecoderVideoFileProperties {
 pub mut:
-	file               os.File
-	file_open          bool
-	h264_profile_idc   u32
-	width_padd         u32
-	height_padd        u32
-	width              u32
-	height             u32
-	sps_count          u32
-	pps_count          u32
-	slice_header_count u32
+	file             os.File
+	file_open        bool
+	h264_profile_idc u32
+	width_padd       u32
+	height_padd      u32
+	width            u32
+	height           u32
+	sps_count        u32
+	pps_count        u32
+	nal_length_size  u32
 
 	frame_infos                 []DecoderVideoDataFrameInfo
 	max_memory_frame_size_bytes u64
@@ -407,9 +535,15 @@ pub mut:
 	poc                 [2]int
 	current_dpb         u32
 	dpb_reference_count u32
-	dpb_reference_slots &u8  = unsafe { nil }
-	dpb_poc             &int = unsafe { nil }
-	dpb_frame_num       &int = unsafe { nil }
+	dpb_reference_slots &u8   = unsafe { nil }
+	dpb_poc             &int  = unsafe { nil }
+	dpb_bottom_poc      &int  = unsafe { nil }
+	dpb_frame_num       &int  = unsafe { nil }
+	dpb_long_term       &bool = unsafe { nil }
+	dpb_long_term_index &int  = unsafe { nil }
+	current_long_term   bool
+	current_long_index  int
+	current_mmco5       bool
 	dpb_slot_num        u32
 	p_dpbs              vk.Image
 	p_dpb_views         vk.ImageView
@@ -446,6 +580,19 @@ fn (mut vp VideoPlayer) close_input() {
 fn (vp &VideoPlayer) h264_profile_idc() u32 {
 	rlock vp.decoder {
 		return vp.decoder.video_data.h264_profile_idc
+	}
+}
+
+fn (vp &VideoPlayer) decode_requirements() VideoDecodeRequirements {
+	rlock vp.decoder {
+		data := vp.decoder.video_data
+		return VideoDecodeRequirements{
+			profile_idc: data.h264_profile_idc
+			width:       data.width_padd
+			height:      data.height_padd
+			dpb_slots:   data.num_dpb_slots
+			references:  data.num_dpb_slots - 1
+		}
 	}
 }
 
@@ -743,8 +890,8 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 		imageType:             ._2d
 		format:                vp.decoder.properties.format_props.format
 		extent:                vk.Extent3D{
-			width:  vp.decoder.video_data.width
-			height: vp.decoder.video_data.height
+			width:  vp.decoder.video_data.width_padd
+			height: vp.decoder.video_data.height_padd
 			depth:  1
 		}
 		mipLevels:             1
