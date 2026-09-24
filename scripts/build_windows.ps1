@@ -82,7 +82,7 @@ Push-Location $ProjectDirectory
 try {
     $VArguments = @()
     if ($Compiler -eq "v3") { $VArguments += "-new-compiler" }
-    $VArguments += @("-cc", "msvc", "-cflags", "/MT", "-o", $Executable, ".")
+    $VArguments += @("-subsystem", "console", "-cc", "msvc", "-cflags", "/MT", "-o", $Executable, ".")
     & v @VArguments
     if ($LASTEXITCODE -ne 0) { throw "V application build failed." }
 } finally {
