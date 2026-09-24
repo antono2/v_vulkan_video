@@ -42,10 +42,10 @@ not encoded as sRGB a second time.
 letterboxing based on display dimensions. Those dimensions incorporate sample
 aspect ratio before rotation. The picture can therefore have a coded width,
 a display width, and a window width that differ. Tests cover
-[track matrices](../../video_player_test.v#L95),
-[sample aspect ratio](../../video_player_test.v#L102),
-[conversion choices](../../video_player_test.v#L132), and
-[portrait letterboxing](../../video_player_test.v#L358).
+[track matrices](../../video_player_test.v#L108),
+[sample aspect ratio](../../video_player_test.v#L115),
+[conversion choices](../../video_player_test.v#L145), and
+[portrait letterboxing](../../video_player_test.v#L371).
 
 ```mermaid
 flowchart LR

@@ -7,7 +7,7 @@ assumed profile.
 
 ## Trace the input
 
-[`VideoPlayer.prepare`](../../video_player.v#L421) calls
+[`VideoPlayer.prepare`](../../video_player.v#L425) calls
 [`Decoder.parse_mp4_data`](../../mp4_parser.v#L141). The parser finds an H.264
 track, checks its timescale and samples, reads SPS and PPS data, and records
 picture dimensions, profile, timing, references, and display metadata. MP4
@@ -18,9 +18,9 @@ efficiency: an invalid file should not leave a half-created GPU decoder.
 
 The implementation also checks file size and reads at absolute sample offsets
 through [`read_callback`](../../mp4_parser.v#L17). Tests cover
-[non-MP4 input](../../video_player_test.v#L258),
-[truncation](../../video_player_test.v#L297), and
-[short reads](../../video_player_test.v#L277). In another project, input
+[non-MP4 input](../../video_player_test.v#L271),
+[truncation](../../video_player_test.v#L310), and
+[short reads](../../video_player_test.v#L290). In another project, input
 could instead be a network segment or a camera stream. The boundary remains
 useful: turn untrusted bytes into validated stream requirements before asking
 the device to allocate resources.
@@ -42,9 +42,9 @@ flowchart LR
 picture while preserving decode order for the decoder. The DPB retains
 reference pictures for the codec; the output-image queue retains decoded
 pictures waiting for presentation. Those are different lifetimes. The
-[`presentation_buffer_size`](../../video_player.v#L262) calculation looks at the
+[`presentation_buffer_size`](../../video_player.v#L266) calculation looks at the
 stream's display-order sequence to bound the waiting queue. The fixture-based
-tests assert the [early sequence](../../video_player_test.v#L238) and
+tests assert the [early sequence](../../video_player_test.v#L251) and
 [required queue depth](../../playback_timeline_test.v#L59).
 
 An H.264 MMCO 5 picture resets reference-picture numbering after it is decoded.

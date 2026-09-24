@@ -21,7 +21,7 @@ is no longer needed as a reference may free a DPB slot even if its display
 time has not arrived. Conversely, a displayed picture may still be referenced
 by later decode operations. This is why the app copies decode results into a
 separate bounded pool of [`OutputImage`](../../video_player.v#L180) objects,
-[allocated after decoder setup](../../video_player.v#L531). The
+[allocated after decoder setup](../../video_player.v#L535). The
 graphics side samples that pool, not a DPB slot whose codec lifetime it does
 not control.
 

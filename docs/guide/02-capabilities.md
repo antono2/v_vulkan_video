@@ -28,8 +28,8 @@ the decoded output is a DPB image. In *distinct* mode, the output and DPB
 images are separate. `auto` prefers coincident and falls back to distinct;
 forced modes aid driver validation and fail if unsupported. The choice is made
 by [`select_decode_output_mode`](../../video_player.v#L17), with software tests
-for [automatic fallback](../../video_player_test.v#L71) and
-[forced modes](../../video_player_test.v#L76).
+for [automatic fallback](../../video_player_test.v#L84) and
+[forced modes](../../video_player_test.v#L89).
 
 ```mermaid
 flowchart TD

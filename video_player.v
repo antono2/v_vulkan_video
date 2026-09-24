@@ -245,12 +245,16 @@ pub mut:
 }
 
 fn compare_frame_display_order(a &DecoderVideoDataFrameInfo, b &DecoderVideoDataFrameInfo) int {
-	key_a := u64(a.gop) << 32 | u64(a.poc)
-	key_b := u64(b.gop) << 32 | u64(b.poc)
-	if key_a < key_b {
+	if a.gop < b.gop {
 		return -1
 	}
-	if key_a > key_b {
+	if a.gop > b.gop {
+		return 1
+	}
+	if a.poc < b.poc {
+		return -1
+	}
+	if a.poc > b.poc {
 		return 1
 	}
 	return 0

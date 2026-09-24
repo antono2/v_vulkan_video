@@ -68,6 +68,19 @@ fn test_mmco5_starts_a_new_display_group_and_preserves_pre_reset_decode_poc() {
 	}) < 0
 }
 
+fn test_display_order_compares_signed_picture_counts_within_a_group() {
+	before := DecoderVideoDataFrameInfo{
+		gop: 2
+		poc: -2
+	}
+	after := DecoderVideoDataFrameInfo{
+		gop: 2
+		poc: 1
+	}
+	assert compare_frame_display_order(&before, &after) < 0
+	assert compare_frame_display_order(&after, &before) > 0
+}
+
 fn test_decode_output_mode_selection_prefers_coincident_in_auto_mode() {
 	assert select_decode_output_mode(.automatic, true, true)! == .coincident
 	assert select_decode_output_mode(.automatic, false, true)! == .distinct
