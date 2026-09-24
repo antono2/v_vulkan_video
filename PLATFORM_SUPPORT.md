@@ -40,6 +40,9 @@ The application currently decodes H.264/AVC video carried in MP4. It supports
 8-bit 4:2:0 progressive Baseline, Main, and High profiles when the driver
 reports a compatible Vulkan Video profile. Other codecs, chroma formats,
 bit depths, and interlaced streams are rejected with an explanatory error.
+MMCO 5 reference resets are handled in picture ordering and DPB state, with
+software tests; playback of an MMCO 5 stream has not yet been validated on
+hardware.
 
 B-frame streams are decoded in codec order and retained in a bounded image
 queue until they become next in presentation order. The queue size is derived

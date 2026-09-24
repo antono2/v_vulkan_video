@@ -22,7 +22,8 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	vk.reset_command_buffer(command_buffer_info.graphics_command_buffer, 0)
 	vk.begin_command_buffer(command_buffer_info.graphics_command_buffer, &begin_command_buffer)
 	if vp.is_stopped {
-		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
+		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player,
+			vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 		return
 	}
 
@@ -40,18 +41,22 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 		assert !isnil(vp.decoder.get_sps())
 
 		slice_header = unsafe {
-			&h264.SliceHeader(byteptr(usize(vp.decoder.get_slice_header()) + usize(vp.current_frame) * sizeof(h264.SliceHeader)))
+			&h264.SliceHeader(byteptr(usize(vp.decoder.get_slice_header()) +
+				usize(vp.current_frame) * sizeof(h264.SliceHeader)))
 		}
 		pps = unsafe {
-			&h264.PictureParameterSet(byteptr(usize(vp.decoder.get_pps()) + usize(slice_header.pic_parameter_set_id) * sizeof(h264.PictureParameterSet)))
+			&h264.PictureParameterSet(byteptr(usize(vp.decoder.get_pps()) +
+				usize(slice_header.pic_parameter_set_id) * sizeof(h264.PictureParameterSet)))
 		}
 		sps = unsafe {
-			&h264.SequenceParameterSet(byteptr(usize(vp.decoder.get_sps()) + usize(pps.seq_parameter_set_id) * sizeof(h264.SequenceParameterSet)))
+			&h264.SequenceParameterSet(byteptr(usize(vp.decoder.get_sps()) +
+				usize(pps.seq_parameter_set_id) * sizeof(h264.SequenceParameterSet)))
 		}
 	}
 
 	mut decode_ope := DecoderVideoDecodeOperation{}
-	if vp.current_frame == 0 || has_flag[VideoPlayerFlags](vp.flags, VideoPlayerFlags.e_decoder_reset) {
+	if vp.current_frame == 0
+		|| has_flag[VideoPlayerFlags](vp.flags, VideoPlayerFlags.e_decoder_reset) {
 		decode_ope.flags = u32(DecoderVideoDecodeOperationFlags.e_session_reset)
 		vp.flags &= ~u32(VideoPlayerFlags.e_decoder_reset)
 	}
@@ -65,7 +70,7 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 
 	dpb_slot_num := int(vp.decoder.video_data.num_dpb_slots)
 	vp.dpb.current_slot = vp.dpb.acquire_decode_slot(dpb_slot_num)
-	vp.dpb.poc_status[vp.dpb.current_slot] = int(frame_info.poc)
+	vp.dpb.poc_status[vp.dpb.current_slot] = frame_info.decode_poc
 	vp.dpb.frame_num_status[vp.dpb.current_slot] = int(slice_header.frame_num)
 
 	// Index variable on initialization comes in handy
@@ -95,19 +100,21 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 		} else {
 			vp.decode_finished = true
 		}
-		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
+		vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player,
+			vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 		return
 	}
 	mut flush_result := vk.Result.error_unknown
 	lock vp.decoder {
-		flush_result = vp.app.device_context.memory_allocator.flush_range(vp.decoder.gpu_bitstream_allocation, use_frame.gpu_bitstream_offset, use_frame.gpu_bitstream_size)
+		flush_result = vp.app.device_context.memory_allocator.flush_range(vp.decoder.gpu_bitstream_allocation,
+			use_frame.gpu_bitstream_offset, use_frame.gpu_bitstream_size)
 	}
 	check_vk(flush_result, 'Could not flush the Vulkan Video bitstream buffer')
 
 	decode_ope.stream_offset = use_frame.gpu_bitstream_offset
 	decode_ope.stream_size = use_frame.gpu_bitstream_size
-	decode_ope.poc[0] = frame_info.poc
-	decode_ope.poc[1] = frame_info.poc
+	decode_ope.poc[0] = frame_info.decode_poc
+	decode_ope.poc[1] = frame_info.decode_poc
 	decode_ope.frame_type = frame_info.frame_type
 	decode_ope.reference_priority = frame_info.reference_priority
 	decode_ope.decoded_frame_index = vp.current_frame
@@ -138,6 +145,11 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	vp.output_textures_ready << output_index
 	output_queued = true
 
+	if frame_info.has_mmco5 {
+		// The current picture still used the old reference list for decoding.
+		// MMCO 5 discards that list and renumbers this picture for future use.
+		vp.dpb.finish_mmco5()
+	}
 	if frame_info.reference_priority > 0 {
 		vp.dpb.reference_usage << vp.dpb.current_slot
 		for vp.dpb.reference_usage.len > int(vp.decoder.video_data.max_reference_pictures) {
@@ -181,7 +193,8 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	vp.output_textures[output_index].layout = .shader_read_only_optimal
 
 	// Signal the application command buffer after the decode queue completes.
-	vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
+	vk.cmd_set_event(command_buffer_info.graphics_command_buffer, vp.event_video_player,
+		vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands))
 }
 
 fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBuffer, output_index int) {
@@ -341,7 +354,8 @@ fn (mut vp VideoPlayer) video_decode_pre_barrier(video_command_buffer vk.Command
 	mut image_barriers := []vk.ImageMemoryBarrier2{}
 	decode_family := vp.app.device_context.get_decoder_queue_family_index()
 	mut current_state := &vp.dpb.resource_state[vp.dpb.current_slot]
-	if current_state.layout != .video_decode_dpb_khr || current_state.flag != vk.access_2_video_decode_write_bit_khr {
+	if current_state.layout != .video_decode_dpb_khr
+		|| current_state.flag != vk.access_2_video_decode_write_bit_khr {
 		barrier := vk.ImageMemoryBarrier2{
 			srcStageMask:        vk.pipeline_stage_2_video_decode_bit_khr
 			srcAccessMask:       current_state.flag
@@ -364,7 +378,9 @@ fn (mut vp VideoPlayer) video_decode_pre_barrier(video_command_buffer vk.Command
 		current_state.layout = barrier.newLayout
 		current_state.flag = barrier.dstAccessMask
 	}
-	if !vp.decoder.properties.dpb_and_output_coincide && (vp.decode_output_state.layout != .video_decode_dst_khr || vp.decode_output_state.flag != vk.access_2_video_decode_write_bit_khr) {
+	if !vp.decoder.properties.dpb_and_output_coincide
+		&& (vp.decode_output_state.layout != .video_decode_dst_khr
+		|| vp.decode_output_state.flag != vk.access_2_video_decode_write_bit_khr) {
 		output_barrier := vk.ImageMemoryBarrier2{
 			srcStageMask:        vk.pipeline_stage_2_all_commands_bit
 			srcAccessMask:       vp.decode_output_state.flag
@@ -387,7 +403,8 @@ fn (mut vp VideoPlayer) video_decode_pre_barrier(video_command_buffer vk.Command
 	}
 	for ref_index in vp.dpb.reference_usage {
 		mut ref_state := &vp.dpb.resource_state[ref_index]
-		if ref_state.layout != .video_decode_dpb_khr || ref_state.flag != vk.access_2_video_decode_read_bit_khr {
+		if ref_state.layout != .video_decode_dpb_khr
+			|| ref_state.flag != vk.access_2_video_decode_read_bit_khr {
 			barrier := vk.ImageMemoryBarrier2{
 				srcStageMask:        vk.pipeline_stage_2_video_decode_bit_khr
 				srcAccessMask:       ref_state.flag
@@ -450,7 +467,9 @@ fn (mut vp VideoPlayer) video_decode_core(operation &DecoderVideoDecodeOperation
 			baseArrayLayer:   0
 			imageViewBinding: vp.dpb.image[i].view
 		}
-		C.vv_set_h264_reference_info(&reference_infos[i], u16(unsafe { operation.dpb_frame_num[i] }), unsafe { operation.dpb_poc[i] }, unsafe { operation.dpb_poc[i] })
+		C.vv_set_h264_reference_info(&reference_infos[i],
+			u16(unsafe { operation.dpb_frame_num[i] }), unsafe { operation.dpb_poc[i] },
+			unsafe { operation.dpb_poc[i] })
 		h264_slots[i] = vk.VideoDecodeH264DpbSlotInfoKHR{
 			pStdReferenceInfo: unsafe { &reference_infos[i] }
 		}
@@ -556,7 +575,8 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 		mut nal := h264.NetworkAbstractionLayerHeader{}
 		nal.read_nal_header(mut bs)
 		// Skip over any frame data that is not idr slice or non-idr slice
-		if nal.type != h264.NAL_UNIT_TYPE.coded_slice_idr && nal.type != h264.NAL_UNIT_TYPE.coded_slice_non_idr {
+		if nal.type != h264.NAL_UNIT_TYPE.coded_slice_idr
+			&& nal.type != h264.NAL_UNIT_TYPE.coded_slice_non_idr {
 			frame_bytes_num_to_do -= size
 			lock vp.decoder {
 				vp.decoder.video_data.file.seek(size - 4, .current) or {
@@ -590,13 +610,15 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 		frame_bytes_num_to_do -= size
 	}
 	lock vp.decoder {
-		aligned_size := U64(frame.gpu_bitstream_size).align_to(vp.decoder.properties.caps.minBitstreamBufferSizeAlignment)
+		aligned_size :=
+			U64(frame.gpu_bitstream_size).align_to(vp.decoder.properties.caps.minBitstreamBufferSizeAlignment)
 		if aligned_size > frame.gpu_bitstream_capacity {
 			return error('aligned access unit ${vp.current_frame} exceeds its ${frame.gpu_bitstream_capacity}-byte bitstream-buffer capacity')
 		}
 		if aligned_size > frame.gpu_bitstream_size {
 			unsafe {
-				vmemset(frame.gpu_bitstream_slice_mapped_memory_address + frame.gpu_bitstream_size, 0, isize(aligned_size - frame.gpu_bitstream_size))
+				vmemset(frame.gpu_bitstream_slice_mapped_memory_address + frame.gpu_bitstream_size,
+					0, isize(aligned_size - frame.gpu_bitstream_size))
 			}
 		}
 		frame.gpu_bitstream_size = aligned_size

@@ -76,25 +76,66 @@ fn remove_emulation_prevention_bytes(ebsp byteptr, size int) []u8 {
 	return rbsp
 }
 
-type BytePtr = byteptr
+fn slice_has_mmco5(slice_header &h264.SliceHeader, is_idr bool, ref_idc h264.NAL_REF_IDC) bool {
+	if is_idr || ref_idc == .priority_disposable
+		|| slice_header.drpm.adaptive_ref_pic_marking_mode_flag == 0 {
+		return false
+	}
+	for operation in slice_header.drpm.memory_management_control_operation {
+		if operation == 5 {
+			return true
+		}
+		if operation == 0 {
+			break
+		}
+	}
+	return false
+}
 
-fn (p BytePtr) to_varray[T](len u32) []T {
-	if isnil(p) && len > 0 {
-		panic('Nil to_varray for len: ${len}')
+struct PictureOrderCountType0State {
+mut:
+	prev_msb int
+	prev_lsb int
+	cycle    int = -1
+}
+
+struct PictureOrderCountType0Result {
+	decode_poc  int
+	display_poc int
+	top         int
+	bottom      int
+	cycle       int
+}
+
+fn (mut state PictureOrderCountType0State) advance(pic_lsb int, delta_bottom int,
+	max_lsb int, is_idr bool, is_reference bool, has_mmco5 bool) PictureOrderCountType0Result {
+	if is_idr {
+		state.prev_msb = 0
+		state.prev_lsb = 0
+		state.cycle++
 	}
-	if len <= 0 {
-		return []T{}
+	mut msb := state.prev_msb
+	if pic_lsb < state.prev_lsb && state.prev_lsb - pic_lsb >= max_lsb / 2 {
+		msb += max_lsb
+	} else if pic_lsb > state.prev_lsb && pic_lsb - state.prev_lsb > max_lsb / 2 {
+		msb -= max_lsb
 	}
-	// TODO: doesn't trigger on to_varray[u8]
-	$if T is u8 {
-		return p.vbytes(int(len))
+	top := msb + pic_lsb
+	bottom := top + delta_bottom
+	if has_mmco5 {
+		state.cycle++
 	}
-	mut ret := []T{cap: int(len)}
-	// vmemcpy(ret.data, p, len * sizeof(T))
-	for i in 0 .. len {
-		ret << *unsafe { &T(p + (i * sizeof(T))) }
+	if is_reference {
+		state.prev_msb = if has_mmco5 { 0 } else { msb }
+		state.prev_lsb = if has_mmco5 { top } else { pic_lsb }
 	}
-	return ret
+	return PictureOrderCountType0Result{
+		decode_poc:  top
+		display_poc: if has_mmco5 { 0 } else { top }
+		top:         top
+		bottom:      bottom
+		cycle:       state.cycle
+	}
 }
 
 fn (mut d Decoder) parse_mp4_data(file_path string) ! {
@@ -191,8 +232,10 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		}
 		// Data validation
 		// https://stackoverflow.com/questions/6394874/fetching-the-dimensions-of-a-h264video-stream
-		width := ((sps.pic_width_in_mbs_minus1 + 1) * 16) - (sps.frame_crop_left_offset * 2) - (sps.frame_crop_right_offset * 2)
-		height := ((2 - sps.frame_mbs_only_flag) * (sps.pic_height_in_map_units_minus1 + 1) * 16) - (sps.frame_crop_top_offset * 2) - (sps.frame_crop_bottom_offset * 2)
+		width := ((sps.pic_width_in_mbs_minus1 + 1) * 16) - (sps.frame_crop_left_offset * 2) -
+			(sps.frame_crop_right_offset * 2)
+		height := ((2 - sps.frame_mbs_only_flag) * (sps.pic_height_in_map_units_minus1 + 1) * 16) -
+			(sps.frame_crop_top_offset * 2) - (sps.frame_crop_bottom_offset * 2)
 		mp4_width := unsafe { track.sampleDescription.video.width }
 		mp4_height := unsafe { track.sampleDescription.video.height }
 		if mp4_width != width || mp4_height != height {
@@ -201,9 +244,11 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		d.video_data.width_padd = (sps.pic_width_in_mbs_minus1 + 1) * 16
 		d.video_data.height_padd = (sps.pic_height_in_map_units_minus1 + 1) * 16
 		if sps.vui_parameters_present_flag != 0 {
-			d.video_data.metadata.sar_width, d.video_data.metadata.sar_height = sample_aspect_ratio(sps.vui.aspect_ratio_idc, sps.vui.sar_width, sps.vui.sar_height)
+			d.video_data.metadata.sar_width, d.video_data.metadata.sar_height = sample_aspect_ratio(sps.vui.aspect_ratio_idc,
+				sps.vui.sar_width, sps.vui.sar_height)
 			d.video_data.metadata.video_full_range = sps.vui.video_full_range_flag != 0
-			d.video_data.metadata.colour_description_present = d.video_data.metadata.colour_description_present
+			d.video_data.metadata.colour_description_present =
+				d.video_data.metadata.colour_description_present
 				|| sps.vui.color_description_present_flag != 0
 			d.video_data.metadata.colour_primaries = u8(sps.vui.colour_primaries)
 			d.video_data.metadata.transfer_function = u8(sps.vui.transfer_characteristics)
@@ -211,7 +256,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		}
 		// x ^ ((x ^ y) & -(x < y)) // max(x, y)
 		// d.video_data.num_dpb_slots = d.video_data.num_dpb_slots ^ ((d.video_data.num_dpb_slots ^ (sps.num_ref_frames * 2 + 1)) & -u32(d.video_data.num_dpb_slots < (sps.num_ref_frames * 2 + 1)))
-		d.video_data.num_dpb_slots = math.max[u32](d.video_data.num_dpb_slots, sps.num_ref_frames + 1)
+		d.video_data.num_dpb_slots = math.max[u32](d.video_data.num_dpb_slots, sps.num_ref_frames +
+			1)
 		d.video_data.sps_bytes << unsafe { byteptr(&sps).vbytes(int(sizeof(sps))) }
 		sps_array << sps
 		d.video_data.sps_count++
@@ -266,9 +312,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 	println('Display metadata: coded ${d.video_data.metadata.coded_width}x${d.video_data.metadata.coded_height}, display ${d.video_data.metadata.display_width}x${d.video_data.metadata.display_height}, SAR ${d.video_data.metadata.sar_width}:${d.video_data.metadata.sar_height}, rotation ${d.video_data.metadata.rotation_degrees}°')
 
 	timescale_rcp := 1.0 / f64(track.timescale)
-	mut prev_pic_order_cnt_lsb := u32(0)
-	mut prev_pic_order_cnt_msb := u32(0)
-	mut poc_cycle := -1
+	mut poc_state := PictureOrderCountType0State{}
 	mut prev_frame_num := u32(0)
 	mut prev_frame_offset := u32(0)
 
@@ -294,7 +338,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		// minimp4 returns timestamp before duration. These were previously passed
 		// in reverse order, causing later frames to use their growing timestamp as
 		// a duration and making playback progressively slower.
-		offset := minimp4.mp4d_frame_offset(&mp4, ntrack, sample_index, &frame_bytes_num_to_do, &timestamp, &duration)
+		offset := minimp4.mp4d_frame_offset(&mp4, ntrack, sample_index, &frame_bytes_num_to_do,
+			&timestamp, &duration)
 		// The upload buffer must fit any slice contained in the complete MP4
 		// sample, including samples with leading non-slice NAL units.
 		max_frame_size_bytes = math.max[u64](max_frame_size_bytes, frame_bytes_num_to_do)
@@ -329,7 +374,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			}
 			// mut size := unsafe{ (u32(*&src_buffer[src_buffer_idx+0]) << 24) | (u32(*&src_buffer[src_buffer_idx+1]) << 16) | (u32(*&src_buffer[src_buffer_idx+2]) << 8) | *&src_buffer[src_buffer_idx+3] }
 			mut size := unsafe {
-				(u32(src_buffer[src_buffer_idx + 0]) << 24) | (u32(src_buffer[src_buffer_idx + 1]) << 16) | (u32(src_buffer[src_buffer_idx + 2]) << 8) | src_buffer[src_buffer_idx + 3]
+				(u32(src_buffer[src_buffer_idx + 0]) << 24) | (u32(src_buffer[src_buffer_idx + 1]) << 16) | (u32(src_buffer[
+					src_buffer_idx + 2]) << 8) | src_buffer[src_buffer_idx + 3]
 			}
 			size += 4
 			if size < 4 || frame_bytes_num_to_do < size {
@@ -344,12 +390,14 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 
 			mut nal := h264.NetworkAbstractionLayerHeader{}
 			mut nal_header_bs := h264.Bitstream{}
-			nal_header_bs.init(src_buffer[length_prefixed_data_offset..length_prefixed_data_offset + 1])
+			nal_header_bs.init(src_buffer[length_prefixed_data_offset..
+				length_prefixed_data_offset + 1])
 			nal.read_nal_header(mut nal_header_bs)
 
 			slfrom := length_prefixed_data_offset + 1
 			nal_payload_rbsp_data := unsafe {
-				remove_emulation_prevention_bytes(byteptr(src_buffer.data) + slfrom, int(length_prefixed_data_size - 1))
+				remove_emulation_prevention_bytes(byteptr(src_buffer.data) + slfrom,
+					int(length_prefixed_data_size - 1))
 			}
 			mut nal_payload_bs := h264.Bitstream{}
 			nal_payload_bs.init(nal_payload_rbsp_data)
@@ -378,6 +426,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			// tig: see Rec. ITU-T H.264 (08/2021) p.66 (7-1)
 			mut slice_header := h264.SliceHeader{}
 			slice_header.read_slice_header(&nal, pps_array, sps_array, mut nal_payload_bs)
+			data_frame.has_mmco5 = slice_has_mmco5(&slice_header, is_idr, nal.idc)
 			if slice_header.pic_parameter_set_id >= u32(pps_array.len) {
 				return error('MP4 sample ${sample_index} references missing H.264 PPS ${slice_header.pic_parameter_set_id}')
 			}
@@ -388,50 +437,22 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			sps := sps_array[pps.seq_parameter_set_id]
 
 			max_frame_num := u32(1) << (sps.log2_max_frame_num_minus4 + 4)
-			max_pic_order_cnt_lsb := u32(1) << (sps.log2_max_pic_order_cnt_lsb_minus4 + 4)
-			pic_order_cnt_lsb := u32(slice_header.pic_order_cnt_lsb)
-			mut pic_order_cnt_msb := u32(0)
+			max_pic_order_cnt_lsb := int(u32(1) << (sps.log2_max_pic_order_cnt_lsb_minus4 + 4))
 			mut frame_num_offset := u32(0)
 			mut tmp_pic_order_cout := u32(0)
 
 			match sps.pic_order_cnt_type {
 				0 {
-					// TYPE 0
-					// Rec. ITU-T H.264 (08/2021) page 114
-					// Use the NAL unit type, not idr flag
-					if is_idr {
-						prev_pic_order_cnt_msb = 0
-						prev_pic_order_cnt_lsb = 0
-						poc_cycle++
-					}
-					if pic_order_cnt_lsb < prev_pic_order_cnt_lsb && (prev_pic_order_cnt_lsb - pic_order_cnt_lsb) >= max_pic_order_cnt_lsb / 2 {
-						pic_order_cnt_msb = prev_pic_order_cnt_msb + max_pic_order_cnt_lsb
-					} else if pic_order_cnt_lsb > prev_pic_order_cnt_lsb && (pic_order_cnt_lsb - prev_pic_order_cnt_lsb) > max_pic_order_cnt_lsb / 2 {
-						pic_order_cnt_msb = prev_pic_order_cnt_msb - max_pic_order_cnt_lsb
-					} else {
-						pic_order_cnt_msb = prev_pic_order_cnt_msb
-					}
-					// Top and bottom field order count in case the picture is a field
-					if slice_header.field_pic_flag == 0 || slice_header.bottom_field_flag == 0 {
-						data_frame.top_field_order_cnt = pic_order_cnt_msb + pic_order_cnt_lsb
-					}
-					if slice_header.field_pic_flag == 0 {
-						data_frame.bottom_field_order_cnt = data_frame.top_field_order_cnt + u32(slice_header.delta_pic_order_cnt_bottom)
-					} else if slice_header.bottom_field_flag != 0 {
-						data_frame.bottom_field_order_cnt = pic_order_cnt_msb + slice_header.pic_order_cnt_lsb
-					}
-
-					// Same as top field order count
-					data_frame.poc = int(pic_order_cnt_msb + pic_order_cnt_lsb)
-					data_frame.gop = poc_cycle
-
-					// TODO: memory_management_control_operation equal to 5
-					if nal.idc != h264.NAL_REF_IDC.priority_disposable {
-						prev_pic_order_cnt_msb = pic_order_cnt_msb
-						prev_pic_order_cnt_lsb = pic_order_cnt_lsb
-					}
+					// The parser already rejected interlaced SPSs, so this is a frame.
+					result := poc_state.advance(int(slice_header.pic_order_cnt_lsb),
+						int(slice_header.delta_pic_order_cnt_bottom), max_pic_order_cnt_lsb,
+						is_idr, nal.idc != .priority_disposable, data_frame.has_mmco5)
+					data_frame.top_field_order_cnt = result.top
+					data_frame.bottom_field_order_cnt = result.bottom
+					data_frame.decode_poc = result.decode_poc
+					data_frame.poc = result.display_poc
+					data_frame.gop = result.cycle
 				}
-
 				// match 0
 				2 {
 					if is_idr {
@@ -441,8 +462,12 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 					} else {
 						frame_num_offset = prev_frame_offset
 					}
-					prev_frame_offset = frame_num_offset
-					prev_frame_num = slice_header.frame_num
+					prev_frame_offset = if data_frame.has_mmco5 { u32(0) } else { frame_num_offset }
+					prev_frame_num = if data_frame.has_mmco5 {
+						u32(0)
+					} else {
+						slice_header.frame_num
+					}
 
 					if is_idr {
 						tmp_pic_order_cout = 0
@@ -456,13 +481,13 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 					// If it were otherwise - for interleaved - either the top or the bottom
 					// field shall be set, depending on whether the current picture is the
 					// top or bottom field, as indicated by bottom_field_flag
-					data_frame.poc = int(tmp_pic_order_cout)
-					if tmp_pic_order_cout == 0 {
-						poc_cycle++
+					data_frame.decode_poc = int(tmp_pic_order_cout)
+					data_frame.poc = if data_frame.has_mmco5 { 0 } else { data_frame.decode_poc }
+					if tmp_pic_order_cout == 0 || data_frame.has_mmco5 {
+						poc_state.cycle++
 					}
-					data_frame.gop = poc_cycle
+					data_frame.gop = poc_state.cycle
 				}
-
 				// match 2
 				else {
 					return error('H.264 picture-order-count type ${sps.pic_order_cnt_type} is not supported')
@@ -472,15 +497,14 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			// Accept frame beginning NAL unit
 			data_frame.nal_ref_idc = u32(nal.idc)
 			data_frame.nal_unit_type = u8(nal.type)
-			// TODO: h264.nal_start_code as pub const. error, imported types must start with a capital letter, but const can't be upper case
-			// data_frame.size = sizeof(h264.nal_start_code) + size - 4
 			nal_start_code := h264.NalStartCode{}.value
 			data_frame.size = u64(nal_start_code.len) + size - 4
 			data_frame.reference_priority = u32(nal.idc)
 
 			data_frame.decode_time_ns = i64(f64(timestamp) * timescale_rcp * 1_000_000_000.0)
 			data_frame.display_time_ns = i64(f64(timestamp) * timescale_rcp * 1_000_000_000.0)
-			data_frame.duration_ns = math.max[i64](1, i64(f64(duration) * timescale_rcp * 1_000_000_000.0))
+			data_frame.duration_ns = math.max[i64](1,
+				i64(f64(duration) * timescale_rcp * 1_000_000_000.0))
 			d.video_data.slice_header_bytes << unsafe {
 				byteptr(&slice_header).vbytes(int(sizeof(slice_header)))
 			}
@@ -508,7 +532,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		mut j := i
 		for j > 0 {
 			previous_index := d.video_data.frame_display_order[j - 1]
-			if compare_frame_display_order(&d.video_data.frame_infos[previous_index], &frame_to_insert) <= 0 {
+			if compare_frame_display_order(&d.video_data.frame_infos[previous_index],
+				&frame_to_insert) <= 0 {
 				break
 			}
 			d.video_data.frame_display_order[j] = previous_index

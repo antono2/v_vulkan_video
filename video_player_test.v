@@ -1,6 +1,7 @@
 module main
 
 import antono2.minimp4
+import antono2.h264
 import os
 import antono2.vulkan as vk
 
@@ -18,6 +19,53 @@ fn test_dpb_acquire_expires_oldest_reference_when_full() {
 	}
 	assert dpb.acquire_decode_slot(3) == 2
 	assert dpb.reference_usage == [u8(0), 1]
+}
+
+fn test_mmco5_discards_old_references_after_decode_and_renumbers_current_picture() {
+	mut dpb := DPB{
+		current_slot:    2
+		reference_usage: [u8(0), 1]
+	}
+	dpb.poc_status[2] = 14
+	dpb.frame_num_status[2] = 7
+	dpb.finish_mmco5()
+	assert dpb.reference_usage.len == 0
+	assert dpb.poc_status[2] == 0
+	assert dpb.frame_num_status[2] == 0
+	assert dpb.poc_status[0] == 0
+}
+
+fn test_mmco5_is_found_only_in_a_reference_non_idr_slice() {
+	mut slice_header := h264.SliceHeader{}
+	slice_header.drpm.adaptive_ref_pic_marking_mode_flag = 1
+	slice_header.drpm.memory_management_control_operation[0] = 1
+	slice_header.drpm.memory_management_control_operation[1] = 5
+	assert slice_has_mmco5(&slice_header, false, .priority_high)
+	assert !slice_has_mmco5(&slice_header, true, .priority_high)
+	assert !slice_has_mmco5(&slice_header, false, .priority_disposable)
+	slice_header.drpm.memory_management_control_operation[0] = 0
+	assert !slice_has_mmco5(&slice_header, false, .priority_high)
+}
+
+fn test_mmco5_starts_a_new_display_group_and_preserves_pre_reset_decode_poc() {
+	mut state := PictureOrderCountType0State{}
+	idr := state.advance(0, 0, 16, true, true, false)
+	assert idr.decode_poc == 0 && idr.display_poc == 0 && idr.cycle == 0
+	previous := state.advance(6, 0, 16, false, true, false)
+	assert previous.decode_poc == 6 && previous.cycle == 0
+	reset := state.advance(14, 0, 16, false, true, true)
+	assert reset.decode_poc == 14
+	assert reset.display_poc == 0 && reset.cycle == 1
+	assert state.prev_msb == 0 && state.prev_lsb == 14
+	next := state.advance(1, 0, 16, false, true, false)
+	assert next.decode_poc == 17 && next.display_poc == 17 && next.cycle == 1
+	assert compare_frame_display_order(&DecoderVideoDataFrameInfo{
+		gop: previous.cycle
+		poc: previous.display_poc
+	}, &DecoderVideoDataFrameInfo{
+		gop: reset.cycle
+		poc: reset.display_poc
+	}) < 0
 }
 
 fn test_decode_output_mode_selection_prefers_coincident_in_auto_mode() {
@@ -170,9 +218,7 @@ fn test_parser_accepts_available_h264_resolution_and_rate_samples() {
 
 fn test_parser_accepts_supported_elephants_dream_720p_sample() {
 	mut decoder := Decoder{}
-	decoder.parse_mp4_data('${v_modroot}/res/Elephants_Dream_720p30_8s_CC-BY.mp4') or {
-		panic(err)
-	}
+	decoder.parse_mp4_data('${v_modroot}/res/Elephants_Dream_720p30_8s_CC-BY.mp4') or { panic(err) }
 	defer {
 		decoder.video_data.file.close()
 	}
@@ -191,9 +237,7 @@ fn test_parser_accepts_supported_elephants_dream_720p_sample() {
 
 fn test_parser_orders_type_zero_b_frames_within_their_gop() {
 	mut decoder := Decoder{}
-	decoder.parse_mp4_data('${v_modroot}/res/Big_Buck_Bunny_360_10s_1MB.mp4') or {
-		panic(err)
-	}
+	decoder.parse_mp4_data('${v_modroot}/res/Big_Buck_Bunny_360_10s_1MB.mp4') or { panic(err) }
 	defer {
 		decoder.video_data.file.close()
 	}

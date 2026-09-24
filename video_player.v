@@ -149,8 +149,9 @@ pub mut:
 
 // Choose a slot which is not referenced by the picture being decoded. When all
 // slots are references, expire the oldest short-term reference first (the H.264
-// sliding-window default). Explicit MMCO and long-term references are handled
-// separately as stream metadata becomes available.
+// sliding-window default). MMCO 5 clears the active list after the current
+// decode. Other explicit MMCO and long-term reference operations are not yet
+// represented by this list.
 fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 	assert slot_limit > 0 && slot_limit <= slot_count
 	for slot in 0 .. slot_limit {
@@ -162,6 +163,12 @@ fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 	expired_slot := dpb.reference_usage[0]
 	dpb.reference_usage.delete(0)
 	return expired_slot
+}
+
+fn (mut dpb DPB) finish_mmco5() {
+	dpb.reference_usage.clear()
+	dpb.poc_status[dpb.current_slot] = 0
+	dpb.frame_num_status[dpb.current_slot] = 0
 }
 
 struct DPBResourceState {
@@ -222,8 +229,10 @@ pub mut:
 	frame_bytes_num        u64
 	size                   u64
 	poc                    int
-	bottom_field_order_cnt u32
-	top_field_order_cnt    u32
+	decode_poc             int
+	has_mmco5              bool
+	bottom_field_order_cnt int
+	top_field_order_cnt    int
 	gop                    int
 	display_order          int
 	decode_time_ns         i64
@@ -375,10 +384,8 @@ fn (mut metadata VideoMetadata) update_display_dimensions() {
 
 struct DecoderDpbImage {
 pub mut:
-	image vk.Image
-	view  vk.ImageView
-	// TODO: Refactor Allocator to Decoder
-	allocator       vkmem.Allocator
+	image           vk.Image
+	view            vk.ImageView
 	allocation_info vkmem.AllocationInfo
 }
 
@@ -411,7 +418,6 @@ enum DecoderVideoDecodeOperationFlags {
 	e_session_reset = 1
 }
 
-// TODO: May be worth to use interface types, but interfaces IApp containg sub interface IDeviceContext "error: `&video_decode_app.VideoDecodeApp` incorrectly implements field `device_context` of interface `examples.video_decode_app.video_player.IApp`, expected `video_player.IDeviceContext`, got `video_decode_app.DeviceContext`", no matter what's in the interface
 fn (mut vp VideoPlayer) prepare(path string) ! {
 	// Do not propagate parser errors from inside the lock: cleanup must be able
 	// to reacquire it and close a partially opened input file.
@@ -468,7 +474,8 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 				allocation_info: image.allocation_info
 			}
 		}
-		vp.presentation_buffer_count = presentation_buffer_size(vp.decoder.video_data.frame_infos.map(it.display_order))
+		vp.presentation_buffer_count =
+			presentation_buffer_size(vp.decoder.video_data.frame_infos.map(it.display_order))
 	}
 
 	vk_device := app.device_context.vk_device
@@ -476,17 +483,20 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 		fence_ci := vk.FenceCreateInfo{
 			flags: vk.FenceCreateFlags(vk.FenceCreateFlagBits.signaled)
 		}
-		res := vk.create_fence(vk_device, &fence_ci, unsafe { nil }, &vp.video_frames[i].in_flight_fence)
+		res := vk.create_fence(vk_device, &fence_ci, unsafe { nil },
+			&vp.video_frames[i].in_flight_fence)
 		check_vk(res, 'Could not create video-frame fence ${i}')
 	}
 	mut command_pool_ci := vk.CommandPoolCreateInfo{
 		flags: vk.CommandPoolCreateFlags(vk.CommandPoolCreateFlagBits.reset_command_buffer)
 	}
 	command_pool_ci.queueFamilyIndex = app.device_context.graphics_family
-	mut res := vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &vp.graphics_command_pool)
+	mut res := vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil },
+		&vp.graphics_command_pool)
 	check_vk(res, 'Could not create video-player graphics command pool')
 	command_pool_ci.queueFamilyIndex = app.device_context.get_decoder_queue_family_index()
-	res = vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &vp.video_command_pool)
+	res = vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil },
+		&vp.video_command_pool)
 	check_vk(res, 'Could not create video-decode command pool')
 
 	vp.command_buffer_infos = []CommandBufferInfo{len: app.device_context.swapchain.image_views.len}
@@ -531,7 +541,8 @@ fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 	vk_device := vp.app.device_context.vk_device
 	for mut info in vp.command_buffer_infos {
 		if !isnil(info.graphics_command_buffer) {
-			vk.free_command_buffers(vk_device, vp.graphics_command_pool, 1, &info.graphics_command_buffer)
+			vk.free_command_buffers(vk_device, vp.graphics_command_pool, 1,
+				&info.graphics_command_buffer)
 		}
 		if !isnil(info.video_command_buffer) {
 			vk.free_command_buffers(vk_device, vp.video_command_pool, 1, &info.video_command_buffer)
@@ -547,12 +558,14 @@ fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 			commandBufferCount: 1
 			commandPool:        vp.graphics_command_pool
 		}
-		mut result := vk.allocate_command_buffers(vk_device, &alloc_info, &info.graphics_command_buffer)
+		mut result := vk.allocate_command_buffers(vk_device, &alloc_info,
+			&info.graphics_command_buffer)
 		check_vk(result, 'Could not reallocate video-player graphics command buffer')
 		alloc_info.commandPool = vp.video_command_pool
 		result = vk.allocate_command_buffers(vk_device, &alloc_info, &info.video_command_buffer)
 		check_vk(result, 'Could not reallocate video-decode command buffer')
-		result = vk.create_semaphore(vk_device, &vk.SemaphoreCreateInfo{}, unsafe { nil }, &info.sem_video_to_gfx)
+		result = vk.create_semaphore(vk_device, &vk.SemaphoreCreateInfo{}, unsafe { nil },
+			&info.sem_video_to_gfx)
 		check_vk(result, 'Could not recreate video-to-graphics semaphore')
 	}
 	// The caller waits for device idle before rebuilding the swapchain, so every
@@ -622,7 +635,8 @@ fn (mut vp VideoPlayer) shutdown() {
 			vk.destroy_image(vk_device, vp.decode_output_image.image, unsafe { nil })
 			vp.decode_output_image.image = unsafe { nil }
 		}
-		_ = vp.app.device_context.memory_allocator.release(mut vp.decode_output_image.allocation_info)
+		_ =
+			vp.app.device_context.memory_allocator.release(mut vp.decode_output_image.allocation_info)
 		for mut dpb in vp.decoder.info.images_dpb {
 			if !isnil(dpb.view) {
 				vk.destroy_image_view(vk_device, dpb.view, unsafe { nil })
@@ -641,7 +655,8 @@ fn (mut vp VideoPlayer) shutdown() {
 		}
 		_ = vp.app.device_context.memory_allocator.release(mut vp.decoder.gpu_bitstream_allocation)
 		if !isnil(vp.decoder.video_session_parameters) {
-			vk.destroy_video_session_parameters_khr(vk_device, vp.decoder.video_session_parameters, unsafe { nil })
+			vk.destroy_video_session_parameters_khr(vk_device, vp.decoder.video_session_parameters,
+				unsafe { nil })
 			vp.decoder.video_session_parameters = unsafe { nil }
 		}
 		if !isnil(vp.decoder.video_session) {
@@ -752,7 +767,8 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 			layerCount: 1
 		}
 	}
-	result = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil }, &vp.decode_output_image.view)
+	result = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil },
+		&vp.decode_output_image.view)
 	check_vk(result, 'Could not create distinct video decode-output image view')
 }
 
@@ -764,13 +780,15 @@ fn query_video_format(gpu vk.PhysicalDevice, profile_list &vk.VideoProfileListIn
 	}
 	mut count := u32(0)
 	mut no_formats := unsafe { nil }
-	mut result := vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut no_formats)
+	mut result := vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
+		no_formats)
 	if result != .success || count == 0 {
 		return none
 	}
 	mut formats := []vk.VideoFormatPropertiesKHR{len: int(count), init: vk.VideoFormatPropertiesKHR{}}
 	mut formats_data := formats.data
-	result = vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut formats_data)
+	result = vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
+		formats_data)
 	if result != .success || count == 0 {
 		return none
 	}

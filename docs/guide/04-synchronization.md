@@ -6,7 +6,7 @@ chapter follows the synchronization path and the output-image reuse rule.
 
 ## Follow one submission
 
-[`update_decode_video`](../../player_decode.v#L81) waits on the fence for the
+[`update_decode_video`](../../player_decode.v#L86) waits on the fence for the
 bitstream upload slot it is about to reuse, then writes and flushes the encoded
 bytes. It records the video command buffer: prepare image layouts, begin and
 perform decode, copy the result to an output image, and restore the source
@@ -35,8 +35,8 @@ sequenceDiagram
     Graphics->>Graphics: Sample image and render swapchain
 ```
 
-Image barriers in [`video_decode_pre_barrier`](../../player_decode.v#L340) and
-[`copy_decoded_frame_to_output`](../../player_decode.v#L187) describe access and
+Image barriers in [`video_decode_pre_barrier`](../../player_decode.v#L353) and
+[`copy_decoded_frame_to_output`](../../player_decode.v#L200) describe access and
 layout transitions. The semaphore orders work between queues. These solve
 different problems: a layout name alone does not wait for a prior queue's
 writes, and a semaphore alone does not describe the next image layout.
