@@ -1,4 +1,4 @@
-module video_decode_app
+module main
 
 fn test_mock_timeline_fixed_rate() {
 	mut timeline := PlaybackTimeline{}
@@ -65,7 +65,7 @@ fn test_presentation_buffer_accounts_for_b_frame_reordering() {
 
 fn test_ready_outputs_are_presented_by_picture_order() {
 	mut player := VideoPlayer{
-		output_textures: [
+		output_textures:       [
 			OutputImage{ display_order: 6, duration_ns: 1 },
 			OutputImage{ display_order: 3, duration_ns: 1 },
 			OutputImage{ display_order: 0, duration_ns: 1 },
@@ -88,9 +88,9 @@ fn test_ready_outputs_are_presented_by_picture_order() {
 fn test_loop_restart_keeps_last_picture_until_new_zero_is_ready() {
 	mut player := VideoPlayer{
 		current_output_index: 4
-		current_frame: 9
-		next_display_order: 10
-		decode_finished: true
+		current_frame:        9
+		next_display_order:   10
+		decode_finished:      true
 	}
 	player.restart_decode_cycle()
 	assert player.current_output_index == 4

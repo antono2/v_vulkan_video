@@ -1,7 +1,7 @@
-module video_decode_app
+module main
 
 // Generated from video.vert with glslc. Do not edit the words by hand.
-pub const g_vertex_shader = [
+const g_vertex_shader = [
 	u32(0x07230203), 0x00010000, 0x000d000b, 0x00000060, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
 	0x00000001, 0x4c534c47, 0x6474732e, 0x3035342e, 0x00000000, 0x0003000e, 0x00000000, 0x00000001,
 	0x0009000f, 0x00000000, 0x00000004, 0x6e69616d, 0x00000000, 0x00000016, 0x0000001d, 0x0000003a,

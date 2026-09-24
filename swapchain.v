@@ -1,29 +1,29 @@
-module video_decode_app
+module main
 
 import antono2.vulkan as vk
 import math
 import antono2.glfw
 
-pub struct Swapchain {
+struct Swapchain {
 mut:
-	swapchain     vk.SwapchainKHR = unsafe { nil }
+	swapchain     vk.SwapchainKHR   = unsafe { nil }
 	present_mode  vk.PresentModeKHR = vk.PresentModeKHR.fifo
 	images        []vk.Image
 	current_index u32 = u32(0)
 pub mut:
 	image_views              []vk.ImageView
-	app                      &VideoDecodeApp = unsafe { nil } // @[required]
-	surface                  vk.SurfaceKHR = unsafe { nil }
+	app                      &VideoDecodeApp           = unsafe { nil } // @[required]
+	surface                  vk.SurfaceKHR             = unsafe { nil }
 	sampler_ycbcr_conversion vk.SamplerYcbcrConversion = unsafe { nil }
-	surface_format           vk.SurfaceFormatKHR = vk.SurfaceFormatKHR{
-		format: vk.Format.undefined
+	surface_format           vk.SurfaceFormatKHR       = vk.SurfaceFormatKHR{
+		format:     vk.Format.undefined
 		colorSpace: vk.ColorSpaceKHR.srgb_nonlinear
 	}
 	image_count              u32 = u32(2)
 	extent_2d                vk.Extent2D
 }
 
-pub fn (mut sc Swapchain) initialize_surface(window_p &glfw.Window) {
+fn (mut sc Swapchain) initialize_surface(window_p &glfw.Window) {
 	if !isnil(sc.surface) {
 		return
 	}
@@ -34,7 +34,7 @@ pub fn (mut sc Swapchain) initialize_surface(window_p &glfw.Window) {
 	}
 }
 
-pub fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format) bool {
+fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format) bool {
 	sc.initialize_surface(window_p)
 	mut n := unsafe { nil }
 	device_context := sc.app.device_context
@@ -88,7 +88,7 @@ pub fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Fo
 	return sc.resize(swapchain_size)
 }
 
-pub fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
+fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 	device_context := sc.app.device_context
 	mut surface_caps := vk.SurfaceCapabilitiesKHR{}
 	vk.get_physical_device_surface_capabilities_khr(device_context.get_gpu_current(), sc.surface, mut &surface_caps)
@@ -101,19 +101,19 @@ pub fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 	}
 	mut old_swapchain := sc.swapchain
 	mut swapchain_ci := vk.SwapchainCreateInfoKHR{
-		surface: sc.surface
-		minImageCount: sc.image_count
-		imageFormat: sc.surface_format.format
-		imageColorSpace: sc.surface_format.colorSpace
-		imageExtent: actual_extent
+		surface:          sc.surface
+		minImageCount:    sc.image_count
+		imageFormat:      sc.surface_format.format
+		imageColorSpace:  sc.surface_format.colorSpace
+		imageExtent:      actual_extent
 		imageArrayLayers: 1
-		imageUsage: vk.ImageUsageFlags(vk.ImageUsageFlagBits.color_attachment)
+		imageUsage:       vk.ImageUsageFlags(vk.ImageUsageFlagBits.color_attachment)
 		imageSharingMode: vk.SharingMode.exclusive
-		preTransform: surface_caps.currentTransform
-		compositeAlpha: vk.CompositeAlphaFlagBitsKHR.opaque
-		presentMode: sc.present_mode
-		clipped: vk._true
-		oldSwapchain: old_swapchain
+		preTransform:     surface_caps.currentTransform
+		compositeAlpha:   vk.CompositeAlphaFlagBitsKHR.opaque
+		presentMode:      sc.present_mode
+		clipped:          vk._true
+		oldSwapchain:     old_swapchain
 	}
 
 	vk_device := device_context.vk_device
@@ -137,21 +137,21 @@ pub fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 	sc.image_count = image_count
 	for i in 0 .. image_count {
 		mut view_ci := vk.ImageViewCreateInfo{
-			image: sc.images[i]
-			viewType: vk.ImageViewType._2d
-			format: sc.surface_format.format
-			components: vk.ComponentMapping{
+			image:            sc.images[i]
+			viewType:         vk.ImageViewType._2d
+			format:           sc.surface_format.format
+			components:       vk.ComponentMapping{
 				r: vk.ComponentSwizzle.r
 				g: vk.ComponentSwizzle.g
 				b: vk.ComponentSwizzle.b
 				a: vk.ComponentSwizzle.a
 			}
 			subresourceRange: vk.ImageSubresourceRange{
-				aspectMask: vk.ImageAspectFlags(vk.ImageAspectFlagBits.color)
-				baseMipLevel: 0
-				levelCount: 1
+				aspectMask:     vk.ImageAspectFlags(vk.ImageAspectFlagBits.color)
+				baseMipLevel:   0
+				levelCount:     1
 				baseArrayLayer: 0
-				layerCount: 1
+				layerCount:     1
 			}
 		}
 		view_result := vk.create_image_view(vk_device, &view_ci, unsafe { nil }, &sc.image_views[i])
@@ -164,11 +164,11 @@ pub fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 	return true
 }
 
-pub fn (sc Swapchain) get_handle() vk.SwapchainKHR {
+fn (sc Swapchain) get_handle() vk.SwapchainKHR {
 	return sc.swapchain
 }
 
-pub fn (mut sc Swapchain) acquire_next_image(mut sem_present_complete vk.Semaphore) vk.Result {
+fn (mut sc Swapchain) acquire_next_image(mut sem_present_complete vk.Semaphore) vk.Result {
 	device_context := sc.app.device_context
 	mut vk_device := device_context.get_vk_device()
 	mut index := u32(0)
@@ -183,11 +183,11 @@ pub fn (mut sc Swapchain) acquire_next_image(mut sem_present_complete vk.Semapho
 	return res
 }
 
-pub fn (sc Swapchain) get_current_index() u32 {
+fn (sc Swapchain) get_current_index() u32 {
 	return sc.current_index
 }
 
-pub fn (mut sc Swapchain) shutdown() {
+fn (mut sc Swapchain) shutdown() {
 	device_context := sc.app.device_context
 	mut vk_device := device_context.get_vk_device()
 	// Image views must be released before the swapchain images they reference.

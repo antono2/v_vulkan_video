@@ -1,6 +1,6 @@
 Module {
-	name: 'vulkan'
-	description: 'Video with V and Vulkan'
+	name: 'v_vulkan_video'
+	description: 'H.264 MP4 player using Vulkan Video decode'
 	version: '0.0.0'
 	license: 'MIT'
 	dependencies: [

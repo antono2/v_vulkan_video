@@ -1,4 +1,4 @@
-module video_decode_app
+module main
 
 import antono2.vulkan as vk
 import antono2.glfw
@@ -25,10 +25,10 @@ import os
 // #flag -DCIMGUI_NO_EXPORT=no
 // #flag -DIMGUI_DISABLE_WIN32_FUNCTIONS=yes
 // #flag -DIMGUI_DISABLE_OSX_FUNCTIONS=yes
-pub const v_modroot = @VMODROOT
+const v_modroot = @VMODROOT
 
 @[heap]
-pub struct VideoDecodeApp {
+struct VideoDecodeApp {
 mut:
 	reference_slots      []int
 	dpb_slot_graph       [18][]int
@@ -60,7 +60,7 @@ fn check_vk(result vk.Result, operation string) {
 }
 
 @[heap]
-pub struct FrameInfo {
+struct FrameInfo {
 pub mut:
 	command_pool       vk.CommandPool
 	command_buffer     vk.CommandBuffer
@@ -72,7 +72,7 @@ pub mut:
 
 // Three vec4 values match the vertex shader's push-constant block without
 // relying on compiler-specific struct padding.
-pub struct VideoRenderTransform {
+struct VideoRenderTransform {
 pub mut:
 	values [12]f32
 }
@@ -142,7 +142,7 @@ fn video_render_transform(metadata VideoMetadata, extent vk.Extent2D) VideoRende
 	return result
 }
 
-pub fn (mut app VideoDecodeApp) initialize() bool {
+fn (mut app VideoDecodeApp) initialize() bool {
 	println('Initializing')
 	if !glfw.initialize() {
 		println('Could not initialize glfw')
@@ -228,26 +228,26 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 
 	descriptor_pool_sizes := [
 		vk.DescriptorPoolSize{
-			type: vk.DescriptorType.uniform_buffer
+			type:            vk.DescriptorType.uniform_buffer
 			descriptorCount: 1000
 		},
 		vk.DescriptorPoolSize{
-			type: vk.DescriptorType.combined_image_sampler
+			type:            vk.DescriptorType.combined_image_sampler
 			descriptorCount: 1000
 		},
 	]
 	descriptor_pool_ci := vk.DescriptorPoolCreateInfo{
-		flags: vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFlagBits.free_descriptor_set)
-		maxSets: 100
+		flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFlagBits.free_descriptor_set)
+		maxSets:       100
 		poolSizeCount: u32(descriptor_pool_sizes.len)
-		pPoolSizes: descriptor_pool_sizes.data
+		pPoolSizes:    descriptor_pool_sizes.data
 	}
 	check_vk(vk.create_descriptor_pool(app.device_context.vk_device, &descriptor_pool_ci, unsafe { nil }, &app.descriptor_pool), 'Could not create descriptor pool')
 
 	mut sampler_ci := vk.SamplerCreateInfo{
-		magFilter: vk.Filter.linear
-		minFilter: vk.Filter.linear
-		mipmapMode: vk.SamplerMipmapMode.linear
+		magFilter:    vk.Filter.linear
+		minFilter:    vk.Filter.linear
+		mipmapMode:   vk.SamplerMipmapMode.linear
 		addressModeU: vk.SamplerAddressMode.clamp_to_edge
 		addressModeV: vk.SamplerAddressMode.clamp_to_edge
 		addressModeW: vk.SamplerAddressMode.clamp_to_edge
@@ -274,22 +274,22 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 	}
 	ds_layouts := [
 		vk.DescriptorSetLayoutBinding{
-			binding: 0
-			descriptorType: vk.DescriptorType.uniform_buffer
+			binding:         0
+			descriptorType:  vk.DescriptorType.uniform_buffer
 			descriptorCount: 1
-			stageFlags: vk.ShaderStageFlags(vk.ShaderStageFlagBits.all_graphics)
+			stageFlags:      vk.ShaderStageFlags(vk.ShaderStageFlagBits.all_graphics)
 		},
 		vk.DescriptorSetLayoutBinding{
-			binding: 1
-			descriptorType: vk.DescriptorType.combined_image_sampler
-			descriptorCount: 1
-			stageFlags: vk.ShaderStageFlags(vk.ShaderStageFlagBits.all_graphics)
+			binding:            1
+			descriptorType:     vk.DescriptorType.combined_image_sampler
+			descriptorCount:    1
+			stageFlags:         vk.ShaderStageFlags(vk.ShaderStageFlagBits.all_graphics)
 			pImmutableSamplers: &app.sampler
 		},
 	]
 	ds_layout_ci := vk.DescriptorSetLayoutCreateInfo{
 		bindingCount: u32(ds_layouts.len)
-		pBindings: ds_layouts.data
+		pBindings:    ds_layouts.data
 	}
 	check_vk(vk.create_descriptor_set_layout(app.device_context.vk_device, &ds_layout_ci, unsafe { nil }, &app.ds_layout), 'Could not create descriptor-set layout')
 
@@ -316,17 +316,17 @@ pub fn (mut app VideoDecodeApp) initialize() bool {
 fn (mut app VideoDecodeApp) initialize_imgui_vulkan_backend() {
 	dev_ctx := app.device_context
 	mut vk_info := impl_vulkan.InitInfo{
-		api_version: vk.api_version_1_3
-		instance: dev_ctx.vk_instance
-		physical_device: dev_ctx.get_gpu_current()
-		device: dev_ctx.vk_device
-		queue_family: dev_ctx.graphics_family
-		queue: dev_ctx.get_queue(.graphics)
-		descriptor_pool: app.descriptor_pool
-		min_image_count: 2
-		image_count: dev_ctx.swapchain.image_count
+		api_version:        vk.api_version_1_3
+		instance:           dev_ctx.vk_instance
+		physical_device:    dev_ctx.get_gpu_current()
+		device:             dev_ctx.vk_device
+		queue_family:       dev_ctx.graphics_family
+		queue:              dev_ctx.get_queue(.graphics)
+		descriptor_pool:    app.descriptor_pool
+		min_image_count:    2
+		image_count:        dev_ctx.swapchain.image_count
 		pipeline_info_main: impl_vulkan.PipelineInfo{
-			render_pass: app.render_pass
+			render_pass:  app.render_pass
 			msaa_samples: vk.SampleCountFlagBits._1
 		}
 	}
@@ -340,7 +340,7 @@ fn (mut app VideoDecodeApp) initialize_imgui_vulkan_backend() {
 	app.imgui_image_count = dev_ctx.swapchain.image_count
 }
 
-pub fn loader_function_callback(function_name &char, user_data voidptr) voidptr {
+fn loader_function_callback(function_name &char, user_data voidptr) voidptr {
 	app := unsafe { &VideoDecodeApp(user_data) }
 	// ImGui requests both instance- and device-level commands through this one
 	// callback. Querying the instance first follows vkGetInstanceProcAddr's
@@ -352,7 +352,7 @@ pub fn loader_function_callback(function_name &char, user_data voidptr) voidptr 
 	return vk.get_device_proc_addr(app.device_context.vk_device, function_name)
 }
 
-pub fn (mut app VideoDecodeApp) run() {
+fn (mut app VideoDecodeApp) run() {
 	$if debug {
 		eprintln('Entering playback loop')
 	}
@@ -398,16 +398,16 @@ pub fn (mut app VideoDecodeApp) run() {
 		app.video_player.update(frame.command_buffer, time_elapsed_ns)
 		output_view := app.video_player.current_output_view()
 		mut image_info := vk.DescriptorImageInfo{
-			imageView: output_view
+			imageView:   output_view
 			imageLayout: .shader_read_only_optimal
 		}
 		if !isnil(output_view) {
 			write_descriptor := vk.WriteDescriptorSet{
-				dstSet: frame.descriptor_set
-				dstBinding: 1
+				dstSet:          frame.descriptor_set
+				dstBinding:      1
 				descriptorCount: 1
-				descriptorType: .combined_image_sampler
-				pImageInfo: &image_info
+				descriptorType:  .combined_image_sampler
+				pImageInfo:      &image_info
 			}
 			vk.update_descriptor_sets(app.device_context.vk_device, 1, &write_descriptor, 0, unsafe { nil })
 		}
@@ -421,13 +421,13 @@ pub fn (mut app VideoDecodeApp) run() {
 		clear_value.color.float32[2] = 0.10
 		clear_value.color.float32[3] = 1.0
 		render_pass_begin := vk.RenderPassBeginInfo{
-			renderPass: app.render_pass
-			framebuffer: frame.framebuffer
-			renderArea: vk.Rect2D{
+			renderPass:      app.render_pass
+			framebuffer:     frame.framebuffer
+			renderArea:      vk.Rect2D{
 				extent: app.device_context.swapchain.extent_2d
 			}
 			clearValueCount: 1
-			pClearValues: &clear_value
+			pClearValues:    &clear_value
 		}
 		vk.cmd_begin_render_pass(frame.command_buffer, &render_pass_begin, .inline)
 		extent := app.device_context.swapchain.extent_2d
@@ -441,8 +441,8 @@ pub fn (mut app VideoDecodeApp) run() {
 			vk.cmd_bind_descriptor_sets(frame.command_buffer, .graphics, app.pipeline_layout, 0, 1, &frame.descriptor_set, 0, unsafe { nil })
 			vk.cmd_push_constants(frame.command_buffer, app.pipeline_layout, vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex), 0, u32(sizeof(VideoRenderTransform)), &video_transform)
 			viewport := vk.Viewport{
-				width: f32(extent.width)
-				height: f32(extent.height)
+				width:    f32(extent.width)
+				height:   f32(extent.height)
 				maxDepth: 1
 			}
 			scissor := vk.Rect2D{
@@ -461,13 +461,13 @@ pub fn (mut app VideoDecodeApp) run() {
 		}
 		mut wait_stage := vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
 		submit_info := vk.SubmitInfo{
-			waitSemaphoreCount: 1
-			pWaitSemaphores: &app.sem_present_complete
-			pWaitDstStageMask: &wait_stage
-			commandBufferCount: 1
-			pCommandBuffers: &frame.command_buffer
+			waitSemaphoreCount:   1
+			pWaitSemaphores:      &app.sem_present_complete
+			pWaitDstStageMask:    &wait_stage
+			commandBufferCount:   1
+			pCommandBuffers:      &frame.command_buffer
 			signalSemaphoreCount: 1
-			pSignalSemaphores: &app.sem_render_complete
+			pSignalSemaphores:    &app.sem_render_complete
 		}
 		res = vk.queue_submit(app.device_context.get_queue(.graphics), 1, &submit_info, frame.queue_submit_fence)
 		if res != vk.Result.success {
@@ -497,7 +497,7 @@ fn (mut app VideoDecodeApp) recreate_swapchain() bool {
 	}
 	app.frames.clear()
 	if !app.device_context.swapchain.resize(vk.Extent2D{
-		width: u32(width)
+		width:  u32(width)
 		height: u32(height)
 	}) {
 		return false
@@ -531,7 +531,7 @@ fn key_function_callback(window_p &glfw.Window, key int, _scancode int, action i
 	}
 }
 
-pub fn (mut app VideoDecodeApp) shutdown() {
+fn (mut app VideoDecodeApp) shutdown() {
 	vk_device := app.device_context.get_vk_device()
 	vk.device_wait_idle(vk_device)
 	app.video_player.shutdown()
@@ -649,50 +649,50 @@ fn (mut app VideoDecodeApp) initialize_render_pass() {
 
 	mut attachment := vk.AttachmentDescription{
 		// flags: vk.AttachmentDescriptionFlags(vk.AttachmentDescriptionFlagBits.may_alias)
-		format: dev_ctx.swapchain.surface_format.format
-		samples: vk.SampleCountFlagBits._1
-		loadOp: vk.AttachmentLoadOp.clear
-		storeOp: vk.AttachmentStoreOp.store
-		stencilLoadOp: vk.AttachmentLoadOp.dont_care
+		format:         dev_ctx.swapchain.surface_format.format
+		samples:        vk.SampleCountFlagBits._1
+		loadOp:         vk.AttachmentLoadOp.clear
+		storeOp:        vk.AttachmentStoreOp.store
+		stencilLoadOp:  vk.AttachmentLoadOp.dont_care
 		stencilStoreOp: vk.AttachmentStoreOp.dont_care
-		initialLayout: vk.ImageLayout.undefined
-		finalLayout: vk.ImageLayout.present_src_khr
+		initialLayout:  vk.ImageLayout.undefined
+		finalLayout:    vk.ImageLayout.present_src_khr
 	}
 
 	mut color_ref := vk.AttachmentReference{
 		attachment: 0
-		layout: vk.ImageLayout.color_attachment_optimal
+		layout:     vk.ImageLayout.color_attachment_optimal
 	}
 
 	mut subpass := vk.SubpassDescription{
-		pipelineBindPoint: vk.PipelineBindPoint.graphics
+		pipelineBindPoint:    vk.PipelineBindPoint.graphics
 		colorAttachmentCount: 1
-		pColorAttachments: &color_ref
+		pColorAttachments:    &color_ref
 	}
 
 	mut dependency := vk.SubpassDependency{
-		srcSubpass: vk.subpass_external
-		dstSubpass: 0
-		srcStageMask: vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
-		dstStageMask: vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
+		srcSubpass:    vk.subpass_external
+		dstSubpass:    0
+		srcStageMask:  vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
+		dstStageMask:  vk.PipelineStageFlags(vk.PipelineStageFlagBits.color_attachment_output)
 		srcAccessMask: 0
 		dstAccessMask: vk.AccessFlags(u32(vk.AccessFlagBits.color_attachment_read) | u32(vk.AccessFlagBits.color_attachment_write))
 	}
 
 	rp_info := vk.RenderPassCreateInfo{
 		attachmentCount: 1
-		pAttachments: &attachment
-		subpassCount: 1
-		pSubpasses: &subpass
+		pAttachments:    &attachment
+		subpassCount:    1
+		pSubpasses:      &subpass
 		dependencyCount: 1
-		pDependencies: &dependency
+		pDependencies:   &dependency
 	}
 
 	check_vk(vk.create_render_pass(vk_device, &rp_info, unsafe { nil }, &app.render_pass), 'Could not create render pass')
 }
 
 @[heap]
-pub struct ShaderModuleHeap {
+struct ShaderModuleHeap {
 pub mut:
 	shader_module vk.ShaderModule
 }
@@ -701,7 +701,7 @@ fn (mut app VideoDecodeApp) create_shader_module(shader_data []u32) vk.ShaderMod
 	vk_device := app.device_context.vk_device
 	module_ci := vk.ShaderModuleCreateInfo{
 		codeSize: usize(shader_data.len) * sizeof(u32)
-		pCode: unsafe { shader_data.data }
+		pCode:    unsafe { shader_data.data }
 	}
 	mut shader_module := vk.ShaderModule(0)
 	check_vk(vk.create_shader_module(vk_device, &module_ci, unsafe { nil }, &shader_module), 'Could not create shader module')
@@ -716,13 +716,13 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 	}
 	mut push_constant_range := vk.PushConstantRange{
 		stageFlags: vk.ShaderStageFlags(vk.ShaderStageFlagBits.vertex)
-		size: u32(sizeof(VideoRenderTransform))
+		size:       u32(sizeof(VideoRenderTransform))
 	}
 	pipeline_layout_ci := vk.PipelineLayoutCreateInfo{
-		setLayoutCount: 1
-		pSetLayouts: &app.ds_layout
+		setLayoutCount:         1
+		pSetLayouts:            &app.ds_layout
 		pushConstantRangeCount: 1
-		pPushConstantRanges: &push_constant_range
+		pPushConstantRanges:    &push_constant_range
 	}
 	check_vk(vk.create_pipeline_layout(vk_device, &pipeline_layout_ci, unsafe { nil }, &app.pipeline_layout), 'Could not create graphics pipeline layout')
 
@@ -731,7 +731,7 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 		topology: vk.PrimitiveTopology.triangle_strip
 	}
 	mut raster_ci := vk.PipelineRasterizationStateCreateInfo{
-		cullMode: vk.CullModeFlags(vk.CullModeFlagBits.back)
+		cullMode:  vk.CullModeFlags(vk.CullModeFlagBits.back)
 		frontFace: vk.FrontFace.counter_clockwise
 		lineWidth: 1.0
 	}
@@ -744,11 +744,11 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 	}
 	mut blend_ci := vk.PipelineColorBlendStateCreateInfo{
 		attachmentCount: 1
-		pAttachments: &blend_attachment
+		pAttachments:    &blend_attachment
 	}
 	mut viewport_ci := vk.PipelineViewportStateCreateInfo{
 		viewportCount: 1
-		scissorCount: 1
+		scissorCount:  1
 	}
 	mut depth_stencil_ci := vk.PipelineDepthStencilStateCreateInfo{}
 	mut multisample_ci := vk.PipelineMultisampleStateCreateInfo{
@@ -757,33 +757,33 @@ fn (mut app VideoDecodeApp) initialize_pipeline() {
 	mut dynamic_states := [vk.DynamicState.viewport, vk.DynamicState.scissor]
 	mut dynamic_ci := vk.PipelineDynamicStateCreateInfo{
 		dynamicStateCount: u32(dynamic_states.len)
-		pDynamicStates: dynamic_states.data
+		pDynamicStates:    dynamic_states.data
 	}
 	mut shader_stages := [
 		vk.PipelineShaderStageCreateInfo{
-			stage: vk.ShaderStageFlagBits.vertex
+			stage:  vk.ShaderStageFlagBits.vertex
 			module: app.create_shader_module(g_vertex_shader)
-			pName: c'main'
+			pName:  c'main'
 		},
 		vk.PipelineShaderStageCreateInfo{
-			stage: vk.ShaderStageFlagBits.fragment
+			stage:  vk.ShaderStageFlagBits.fragment
 			module: app.create_shader_module(g_fragment_shader)
-			pName: c'main'
+			pName:  c'main'
 		},
 	]
 	mut pipeline_ci := vk.GraphicsPipelineCreateInfo{
-		stageCount: u32(shader_stages.len)
-		pStages: shader_stages.data
-		pVertexInputState: &vertex_input_ci
+		stageCount:          u32(shader_stages.len)
+		pStages:             shader_stages.data
+		pVertexInputState:   &vertex_input_ci
 		pInputAssemblyState: &input_assembly_ci
-		pViewportState: &viewport_ci
+		pViewportState:      &viewport_ci
 		pRasterizationState: &raster_ci
-		pMultisampleState: &multisample_ci
-		pDepthStencilState: &depth_stencil_ci
-		pColorBlendState: &blend_ci
-		pDynamicState: &dynamic_ci
-		layout: app.pipeline_layout
-		renderPass: app.render_pass
+		pMultisampleState:   &multisample_ci
+		pDepthStencilState:  &depth_stencil_ci
+		pColorBlendState:    &blend_ci
+		pDynamicState:       &dynamic_ci
+		layout:              app.pipeline_layout
+		renderPass:          app.render_pass
 	}
 
 	check_vk(vk.create_graphics_pipelines(vk_device, unsafe { nil }, 1, &pipeline_ci, unsafe { nil }, &app.pipeline), 'Could not create graphics pipeline')
@@ -804,12 +804,12 @@ fn (mut app VideoDecodeApp) initialize_framebuffers() {
 	for i in 0 .. count {
 		view := swapchain.image_views[i]
 		framebuffer_ci := vk.FramebufferCreateInfo{
-			renderPass: app.render_pass
+			renderPass:      app.render_pass
 			attachmentCount: 1
-			pAttachments: &view
-			width: extent.width
-			height: extent.height
-			layers: 1
+			pAttachments:    &view
+			width:           extent.width
+			height:          extent.height
+			layers:          1
 		}
 		mut fb := unsafe { nil }
 		check_vk(vk.create_framebuffer(vk_device, &framebuffer_ci, unsafe { nil }, &fb), 'Could not create swapchain framebuffer ${i}')
@@ -832,17 +832,17 @@ fn (mut app VideoDecodeApp) init_per_frame(mut frame_info FrameInfo) {
 	check_vk(vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &frame_info.command_pool), 'Could not create graphics command pool')
 
 	command_buffer_allocate_info := vk.CommandBufferAllocateInfo{
-		commandPool: frame_info.command_pool
-		level: vk.CommandBufferLevel.primary
+		commandPool:        frame_info.command_pool
+		level:              vk.CommandBufferLevel.primary
 		commandBufferCount: 1
 	}
 	check_vk(vk.allocate_command_buffers(vk_device, &command_buffer_allocate_info, &frame_info.command_buffer), 'Could not allocate graphics command buffer')
 	frame_info.queue_index = 0
 
 	descriptor_set_allocate_info := vk.DescriptorSetAllocateInfo{
-		descriptorPool: app.descriptor_pool
+		descriptorPool:     app.descriptor_pool
 		descriptorSetCount: 1
-		pSetLayouts: &app.ds_layout
+		pSetLayouts:        &app.ds_layout
 	}
 	result := vk.allocate_descriptor_sets(vk_device, &descriptor_set_allocate_info, &frame_info.descriptor_set)
 	if result != .success || isnil(frame_info.descriptor_set) {

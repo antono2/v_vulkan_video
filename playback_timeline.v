@@ -1,4 +1,4 @@
-module video_decode_app
+module main
 
 import math
 

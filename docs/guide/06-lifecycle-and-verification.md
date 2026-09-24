@@ -1,0 +1,58 @@
+# 6. Own the lifecycle and test the right boundary
+
+The player creates resources in layers. Input validation comes before GPU
+selection; instance and surface come before presentation checks; the logical
+device comes before session, images, and descriptors. Shutdown follows those
+dependencies in reverse. Resize rebuilds resources tied to the swapchain
+without reparsing the MP4.
+
+## Trace ownership
+
+[`main`](../../main.v#L71) owns the `VideoDecodeApp` lifetime.
+[`VideoDecodeApp.initialize`](../../app.v#L145) creates the window, instance,
+surface, compatible device, swapchain, descriptors, pipeline, ImGui backend,
+and player resources. [`VideoDecodeApp.run`](../../app.v#L355) handles out-of-date
+swapchain results and calls [`recreate_swapchain`](../../app.v#L485), which waits
+for idle, releases per-frame resources, resizes, and recreates the dependent
+resources. [`shutdown`](../../app.v#L534) waits for the device, releases player and
+graphics resources, then destroys the device, window, and GLFW state.
+
+Input and capability failures during initialization use
+[`abort_initialization`](../../app.v#L587) and close the input file. Later Vulkan
+allocation or submission failures can still be fatal; the repository does not
+claim to recover from every partial GPU initialization. The precise support
+boundary is in [Supported media and failure behavior](../../PLATFORM_SUPPORT.md#supported-media-and-failure-behavior).
+
+```mermaid
+flowchart TD
+    Parse[Validate MP4] --> Instance[Instance, surface, GPU probe]
+    Instance --> Device[Device and swapchain]
+    Device --> Decoder[Session, DPB and output images]
+    Decoder --> Frames[Per-frame descriptors and commands]
+    Frames --> Resize[Resize: wait, release dependent objects, rebuild]
+    Frames --> Shutdown[Shutdown: wait, release in reverse order]
+```
+
+## What the checks establish
+
+| Check | What it establishes | What it cannot establish |
+| --- | --- | --- |
+| [`v test .`](../../README.md#tests) | CLI parsing, MP4 validation, metadata, reorder depth, and timeline rules for the test fixtures. | Driver video commands, image barriers, or visible output. |
+| [Root executable build](../../BUILDING.md#shared-dear-imgui-default) | V/C bindings, native linking, and package entry point. | Compatible hardware or correct playback. |
+| [`--list-gpus VIDEO`](../../README.md#run) | The current driver advertises the required capabilities for that stream. | That a full decode and resize session succeeds. |
+| [Playback and resize on a supported GPU](../../PLATFORM_SUPPORT.md#hardware-validation-checklist) | The tested media and driver complete the actual path. | Other codecs, GPUs, operating systems, or long-running stability. |
+
+The [README](../../README.md#tests) has the software command;
+[Platform Support](../../PLATFORM_SUPPORT.md) has the hardware matrix, and the
+[hardware checklist](../../PLATFORM_SUPPORT.md#hardware-validation-checklist)
+lists release checks. A useful development loop is to run software tests for
+every parser or timing change, then use short media fixtures with B-frames,
+rotation, and different color metadata on an actual decode-capable GPU.
+
+## Transfer the approach
+
+Keep a testable media clock and parser separate from hardware submission.
+Record which failures can be returned cleanly and which still abort. When
+adding seeking, stream changes, audio, or multiple windows, draw a new
+resource-lifetime diagram first: each feature adds a new point at which a
+buffer, reference picture, or display image may still be in use.

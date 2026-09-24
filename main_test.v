@@ -1,7 +1,5 @@
 module main
 
-import examples.video_decode_app as vda
-
 fn test_parse_cli_defaults() {
 	options := parse_cli([]) or { panic(err) }
 	assert options.video_path == ''
@@ -19,9 +17,9 @@ fn test_parse_cli_gpu_and_list() {
 
 fn test_parse_cli_decode_output_modes() {
 	for name, expected in {
-		'auto':       vda.DecodeOutputMode.automatic
-		'coincident': vda.DecodeOutputMode.coincident
-		'distinct':   vda.DecodeOutputMode.distinct
+		'auto':       DecodeOutputMode.automatic
+		'coincident': DecodeOutputMode.coincident
+		'distinct':   DecodeOutputMode.distinct
 	} {
 		options := parse_cli(['--decode-output-mode', name, 'movie.mp4']) or { panic(err) }
 		assert options.decode_output_mode == expected
