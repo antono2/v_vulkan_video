@@ -484,7 +484,7 @@ fn gpu_h264_stream_issue(gpu vk.PhysicalDevice, requirements VideoDecodeRequirem
 		stdProfileIdc: unsafe { vk.StdVideoH264ProfileIdc(requirements.profile_idc) }
 		pictureLayout: .progressive
 	}
-	profile := vk.VideoProfileInfoKHR{
+	mut profile := vk.VideoProfileInfoKHR{
 		pNext:               &h264_profile
 		videoCodecOperation: .decode_h264
 		chromaSubsampling:   vk.VideoChromaSubsamplingFlagsKHR(vk.VideoChromaSubsamplingFlagBitsKHR._420)
