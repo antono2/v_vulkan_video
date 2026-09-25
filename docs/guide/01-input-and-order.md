@@ -7,8 +7,8 @@ assumed profile.
 
 ## Trace the input
 
-[`VideoPlayer.prepare`](../../video_player.v#L415) calls
-[`Decoder.parse_mp4_data`](../../mp4_parser.v#L100). The parser finds an H.264
+[`VideoPlayer.prepare`](../../video_player.v#L579) calls
+[`Decoder.parse_mp4_data`](../../mp4_parser.v#L252). The parser finds an H.264
 track, checks its timescale and samples, reads SPS and PPS data, and records
 picture dimensions, profile, timing, references, and display metadata. MP4
 gives sample offsets and durations; H.264 headers give codec rules such as
@@ -18,12 +18,43 @@ efficiency: an invalid file should not leave a half-created GPU decoder.
 
 The implementation also checks file size and reads at absolute sample offsets
 through [`read_callback`](../../mp4_parser.v#L17). Tests cover
-[non-MP4 input](../../video_player_test.v#L214),
-[truncation](../../video_player_test.v#L253), and
-[short reads](../../video_player_test.v#L233). In another project, input
+[non-MP4 input](../../video_player_test.v#L557),
+[truncation](../../video_player_test.v#L596), and
+[short reads](../../video_player_test.v#L576). In another project, input
 could instead be a network segment or a camera stream. The boundary remains
 useful: turn untrusted bytes into validated stream requirements before asking
 the device to allocate resources.
+
+The [SPS preflight](../../h264_parameter_sets.v#L225) and
+[PPS preflight](../../h264_parameter_sets.v#L300) check syntax length, reference
+counts, bit widths, and fixed-array limits before calling the pinned H.264
+parser. Unsupported slice groups fail with a clear error. The parser
+[resolves parameter sets by H.264 ID](../../h264_slice.v#L5), and the player
+[maps those IDs to serialized offsets](../../video_player.v#L442) when recording
+[decode commands](../../player_decode.v#L49). A legal nonzero ID therefore
+does not have to equal its position in the MP4 parameter-set list. The
+[ID mapping test](../../video_player_test.v#L170) and
+[truncation and mutation test](../../video_player_test.v#L190) exercise these
+boundaries without a GPU. A [five-frame fixture test](../../video_player_test.v#L672)
+also parses SPS, PPS, and slices whose IDs are all 7 while each parameter
+set is the first entry in its MP4 list.
+
+MP4 AVC samples store each NAL with a length prefix. The demux binding does
+not expose the avcC prefix width, so the parser [detects a complete 1, 2, or
+4 byte layout](../../mp4_parser.v#L90) in the first sample and uses that width
+for both [parsing](../../mp4_parser.v#L528) and
+[GPU upload](../../player_decode.v#L562). Samples containing only metadata
+are [left out of the picture list](../../mp4_parser.v#L714), keeping slice
+headers aligned with decode indices. The
+[checked slice reader](../../h264_slice.v#L122) honors weighted prediction
+reference counts and rejects invalid reference marking; the pinned H.264
+dependency's reader does not consume the full weighted table.
+The parser [counts every slice's Annex B bytes](../../mp4_parser.v#L578)
+before sizing the upload buffer; several short MP4 length prefixes can expand
+into several four-byte start codes.
+It [checks each later slice](../../mp4_parser.v#L131) against the first slice's
+picture identity. The [four-slice fixture test](../../video_player_test.v#L504)
+exercises a complete access unit.
 
 ## Two orders, two jobs
 
@@ -38,14 +69,27 @@ flowchart LR
     B --> C[Display: 0, 1, 2, 3, 4, 5, 6]
 ```
 
-[`parse_mp4_data`](../../mp4_parser.v#L501) assigns a display order to each
+[the display-order pass](../../mp4_parser.v#L728) assigns a display order to each
 picture while preserving decode order for the decoder. The DPB retains
 reference pictures for the codec; the output-image queue retains decoded
 pictures waiting for presentation. Those are different lifetimes. The
-[`presentation_buffer_size`](../../video_player.v#L253) calculation looks at the
+[`presentation_buffer_size`](../../video_player.v#L397) calculation looks at the
 stream's display-order sequence to bound the waiting queue. The fixture-based
-tests assert the [early sequence](../../video_player_test.v#L192) and
+tests assert the [early sequence](../../video_player_test.v#L520) and
 [required queue depth](../../playback_timeline_test.v#L59).
+
+An H.264 MMCO 5 picture resets reference-picture numbering after it is decoded.
+The parser [detects the operation](../../mp4_parser.v#L190) and
+[starts a new display-order group](../../mp4_parser.v#L221), while retaining
+the picture's original count for the decode command. The
+[ordering test](../../video_player_test.v#L300) covers a reset followed by a
+picture-order-count wrap. This separation matters whenever a codec resets its
+reference state without starting a new file or decoder session.
+
+The parser also computes [POC type 1](../../mp4_parser.v#L157) from the SPS
+reference cycle, reference status, and slice deltas. The
+[unit case](../../video_player_test.v#L219) shows why a nonreference picture can
+have a different count from a reference picture with the same frame number.
 
 **Invariant:** decode input advances in codec order; presentation advances
 only when the next display-order picture is ready. The next display-order

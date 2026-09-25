@@ -5,32 +5,22 @@ import antono2.vkmemalloc as vkmem
 import antono2.glfw
 import math
 
-// import bindings.volk
-
-// #flag linux -I$env('VULKAN_SDK')/include
-// #flag windows -I$env('VULKAN_SDK')/Include
-// #flag windows -I$env('VULKAN_SDK')/Include/Volk
-
-// #flag -DVOLK_IMPLEMENTATION
-// #include "volk.h"
 struct DeviceContext {
 mut:
-	vk_debug_utils               vk.DebugUtilsMessengerEXT = unsafe { nil }
-	use_gpu_index                int
-	gpus                         []vk.PhysicalDevice
-	queue_families               []QueueFamilyProperties
-	queue_family_indices         []u32
-	video_decode_family          u32      = vk.queue_family_ignored
-	graphics_queue               vk.Queue = unsafe { nil }
-	video_decode_queue           vk.Queue = unsafe { nil }
-	physical_device_memory_props []vk.PhysicalDeviceMemoryProperties2
-	features2                    vk.PhysicalDeviceFeatures2        = vk.PhysicalDeviceFeatures2{}
-	vulkan12_features            vk.PhysicalDeviceVulkan12Features = vk.PhysicalDeviceVulkan12Features{}
-	vulkan13_features            vk.PhysicalDeviceVulkan13Features = vk.PhysicalDeviceVulkan13Features{}
-	video_profile_info           vk.VideoProfileInfoKHR
-	video_decode_h264            VideoDecodeH264
-	video_capabilities           vk.VideoCapabilitiesKHR = vk.VideoCapabilitiesKHR{}
-	video_decode_capabilities    vk.VideoDecodeCapabilitiesKHR
+	vk_debug_utils            vk.DebugUtilsMessengerEXT = unsafe { nil }
+	use_gpu_index             int
+	gpus                      []vk.PhysicalDevice
+	queue_families            []QueueFamilyProperties
+	video_decode_family       u32                               = vk.queue_family_ignored
+	graphics_queue            vk.Queue                          = unsafe { nil }
+	video_decode_queue        vk.Queue                          = unsafe { nil }
+	features2                 vk.PhysicalDeviceFeatures2        = vk.PhysicalDeviceFeatures2{}
+	vulkan12_features         vk.PhysicalDeviceVulkan12Features = vk.PhysicalDeviceVulkan12Features{}
+	vulkan13_features         vk.PhysicalDeviceVulkan13Features = vk.PhysicalDeviceVulkan13Features{}
+	video_profile_info        vk.VideoProfileInfoKHR
+	video_decode_h264         VideoDecodeH264
+	video_capabilities        vk.VideoCapabilitiesKHR = vk.VideoCapabilitiesKHR{}
+	video_decode_capabilities vk.VideoDecodeCapabilitiesKHR
 pub mut:
 	vk_instance                      vk.Instance = unsafe { nil }
 	vk_device                        vk.Device   = unsafe { nil }
@@ -48,51 +38,63 @@ mut:
 	capabilities vk.VideoDecodeH264CapabilitiesKHR = vk.VideoDecodeH264CapabilitiesKHR{}
 }
 
+struct VideoDecodeRequirements {
+	profile_idc u32
+	level_idc   u32
+	width       u32
+	height      u32
+	dpb_slots   u32
+	references  u32
+}
+
+// H.264 stores the level number in the SPS (40 means level 4.0), while
+// StdVideoH264LevelIdc is an ordinal enum (level 4.0 is 10).
+fn std_h264_level_idc(level_idc u32) vk.StdVideoH264LevelIdc {
+	return match level_idc {
+		10 { ._1_0 }
+		11 { ._1_1 }
+		12 { ._1_2 }
+		13 { ._1_3 }
+		20 { ._2_0 }
+		21 { ._2_1 }
+		22 { ._2_2 }
+		30 { ._3_0 }
+		31 { ._3_1 }
+		32 { ._3_2 }
+		40 { ._4_0 }
+		41 { ._4_1 }
+		42 { ._4_2 }
+		50 { ._5_0 }
+		51 { ._5_1 }
+		52 { ._5_2 }
+		60 { ._6_0 }
+		61 { ._6_1 }
+		62 { ._6_2 }
+		else { .invalid }
+	}
+}
+
+fn h264_level_issue(required u32, supported vk.StdVideoH264LevelIdc) string {
+	level := std_h264_level_idc(required)
+	if level == .invalid {
+		return 'H.264 level_idc ${required} is unsupported'
+	}
+	if u32(supported) > u32(vk.StdVideoH264LevelIdc._6_2) {
+		return 'device reported an invalid H.264 level limit'
+	}
+	if u32(level) > u32(supported) {
+		levels := [u32(10), 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41, 42, 50, 51, 52, 60, 61,
+			62]
+		maximum := levels[int(u32(supported))]
+		return 'video requires H.264 level ${required / 10}.${required % 10}; device supports up to ${maximum / 10}.${maximum % 10}'
+	}
+	return ''
+}
+
 struct QueueFamilyProperties {
 mut:
 	properties       vk.QueueFamilyProperties2
 	properties_video vk.QueueFamilyVideoPropertiesKHR
-}
-
-struct GPUBufferDesc {
-pub mut:
-	size            vk.DeviceSize
-	usage           vk.BufferUsageFlags
-	memory_property vk.MemoryPropertyFlagBits = vk.MemoryPropertyFlagBits.device_local
-}
-
-struct GPUImageDesc {
-pub mut:
-	extent          vk.Extent3D
-	array_size      u32          = 1
-	mip_levels      u32          = 1
-	image_type      vk.ImageType = vk.ImageType._2d
-	format          vk.Format    = vk.Format.undefined
-	sample_count    u32          = 1
-	usage           vk.ImageUsageFlags
-	memory_property vk.MemoryPropertyFlagBits = vk.MemoryPropertyFlagBits.device_local
-}
-
-struct GPUBuffer {
-pub mut:
-	buffer         vk.Buffer       = unsafe { nil }
-	memory         vk.DeviceMemory = unsafe { nil }
-	device_address vk.DeviceAddress
-	p_mapped       voidptr = unsafe { nil }
-
-	desc GPUBufferDesc
-}
-
-struct GPUImage {
-pub mut:
-	image      vk.Image        = unsafe { nil }
-	image_view vk.ImageView    = unsafe { nil }
-	memory     vk.DeviceMemory = unsafe { nil }
-
-	device_address vk.DeviceAddress
-	p_mapped       voidptr = unsafe { nil }
-
-	desc GPUImageDesc
 }
 
 enum QueueType {
@@ -117,7 +119,8 @@ fn (mut ctx DeviceContext) shutdown() {
 		ctx.swapchain.shutdown()
 	}
 	if !isnil(ctx.sampler_ycbcr_conversion) {
-		vk.destroy_sampler_ycbcr_conversion(ctx.vk_device, ctx.sampler_ycbcr_conversion, unsafe { nil })
+		vk.destroy_sampler_ycbcr_conversion(ctx.vk_device, ctx.sampler_ycbcr_conversion,
+			unsafe { nil })
 		ctx.sampler_ycbcr_conversion = unsafe { nil }
 	}
 	ctx.memory_allocator.destroy()
@@ -137,7 +140,8 @@ fn (mut ctx DeviceContext) shutdown_instance_resources() {
 	}
 	$if debug ? {
 		if !isnil(ctx.vk_debug_utils) {
-			vk.destroy_debug_utils_messenger_ext(ctx.vk_instance, ctx.vk_debug_utils, unsafe { nil })
+			vk.destroy_debug_utils_messenger_ext(ctx.vk_instance, ctx.vk_debug_utils,
+				unsafe { nil })
 			ctx.vk_debug_utils = unsafe { nil }
 		}
 	}
@@ -175,19 +179,21 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 
 		queue_family := ctx.queue_families[i].properties.queueFamilyProperties
 		mut supports_present := vk.Bool32(0)
-		vk.get_physical_device_surface_support_khr(gpu, u32(i), ctx.swapchain.surface, &supports_present)
-		if queue_family.queueCount > 0 && (queue_family.queueFlags & vk.QueueFlags(vk.QueueFlagBits.graphics)) != 0 && supports_present == vk._true {
+		vk.get_physical_device_surface_support_khr(gpu, u32(i), ctx.swapchain.surface,
+			&supports_present)
+		if queue_family.queueCount > 0
+			&& (queue_family.queueFlags & vk.QueueFlags(vk.QueueFlagBits.graphics)) != 0
+			&& supports_present == vk._true {
 			if ctx.graphics_family == vk.queue_family_ignored {
 				ctx.graphics_family = u32(i)
-				ctx.queue_family_indices << ctx.graphics_family
 			}
 		}
-		if queue_family.queueCount > 0 && (queue_family.queueFlags & vk.QueueFlags(vk.QueueFlagBits.video_decode)) != 0 {
+		if queue_family.queueCount > 0
+			&& (queue_family.queueFlags & vk.QueueFlags(vk.QueueFlagBits.video_decode)) != 0 {
 			if ctx.video_decode_family == vk.queue_family_ignored {
 				// H264
 				if (int(ctx.queue_families[i].properties_video.videoCodecOperations) & int(vk.VideoCodecOperationFlagBitsKHR.decode_h264)) != 0 {
 					ctx.video_decode_family = u32(i)
-					ctx.queue_family_indices << ctx.video_decode_family
 				}
 			}
 		}
@@ -221,9 +227,8 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 		}
 	}
 
-	mut active_device_extensions := [vk.khr_swapchain_extension_name,
-		vk.khr_video_queue_extension_name, vk.khr_video_decode_queue_extension_name,
-		vk.khr_video_decode_h264_extension_name]
+	mut active_device_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
+		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
 	memory_budget_supported := vkmem.supports_memory_budget(gpu)
 	if memory_budget_supported {
 		active_device_extensions << vk.ext_memory_budget_extension_name
@@ -277,13 +282,16 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 
 	ctx.video_decode_capabilities.pNext = &ctx.video_decode_h264.capabilities
 
-	capabilities_result := vk.get_physical_device_video_capabilities_khr(gpu, &ctx.video_profile_info, mut &ctx.video_capabilities)
+	capabilities_result := vk.get_physical_device_video_capabilities_khr(gpu,
+		&ctx.video_profile_info, mut &ctx.video_capabilities)
 	if capabilities_result != .success {
 		panic('Could not query selected GPU H.264 video capabilities: ${capabilities_result}')
 	}
 
-	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment, ctx.video_capabilities.minBitstreamBufferOffsetAlignment)
-	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment, ctx.video_capabilities.minBitstreamBufferSizeAlignment)
+	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment,
+		ctx.video_capabilities.minBitstreamBufferOffsetAlignment)
+	ctx.video_decode_bitstream_alignment = math.max(ctx.video_decode_bitstream_alignment,
+		ctx.video_capabilities.minBitstreamBufferSizeAlignment)
 
 	allocator_create_info := vkmem.AllocatorCreateInfo{
 		physical_device:       ctx.get_gpu_current()
@@ -297,7 +305,8 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 		pProfiles:    &ctx.video_profile_info
 	}
 	decode_output_usage := vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.transfer_src))
-	decode_output_format := query_video_format(ctx.get_gpu_current(), &profile_list, decode_output_usage) or {
+	decode_output_format := query_video_format(ctx.get_gpu_current(), &profile_list,
+		decode_output_usage) or {
 		panic('No Vulkan Video decode-output format supports transfer to the display image')
 	}
 
@@ -321,7 +330,8 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 		forceExplicitReconstruction: 0
 	}
 
-	conversion_result := vk.create_sampler_ycbcr_conversion(ctx.vk_device, &sampler_ycbcr_conversion_ci, unsafe { nil }, &ctx.sampler_ycbcr_conversion)
+	conversion_result := vk.create_sampler_ycbcr_conversion(ctx.vk_device,
+		&sampler_ycbcr_conversion_ci, unsafe { nil }, &ctx.sampler_ycbcr_conversion)
 	if conversion_result != .success {
 		panic('Could not create metadata-aware Vulkan YCbCr conversion: ${conversion_result}')
 	}
@@ -402,11 +412,11 @@ fn missing_device_extensions(gpu vk.PhysicalDevice, required_extensions []&u8) [
 	return missing
 }
 
-fn (ctx DeviceContext) h264_decode_gpu_diagnostics(h264_profile_idc u32) []string {
-	return ctx.h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc, .automatic)
+fn (ctx DeviceContext) h264_decode_gpu_diagnostics(requirements VideoDecodeRequirements) []string {
+	return ctx.h264_decode_gpu_diagnostics_for_output_mode(requirements, .automatic)
 }
 
-fn (ctx DeviceContext) h264_decode_gpu_diagnostics_for_output_mode(h264_profile_idc u32,
+fn (ctx DeviceContext) h264_decode_gpu_diagnostics_for_output_mode(requirements VideoDecodeRequirements,
 	output_mode DecodeOutputMode) []string {
 	required_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
 		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
@@ -421,14 +431,18 @@ fn (ctx DeviceContext) h264_decode_gpu_diagnostics_for_output_mode(h264_profile_
 		missing := missing_device_extensions(gpu, required_extensions)
 		if missing.len > 0 {
 			diagnostics << '${name}: missing ${missing.join(', ')}'
-		} else if !gpu_supports_h264_profile(gpu, h264_profile_idc) {
-			diagnostics << '${name}: H.264 ${h264_profile_name(h264_profile_idc)} Profile, 8-bit 4:2:0 progressive decode is not supported'
-		} else if !gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode) {
-			diagnostics << '${name}: requested ${decode_output_mode_name(output_mode)} DPB/output mode is unavailable; supports ${gpu_h264_output_mode_names(gpu, h264_profile_idc)}'
-		} else if device_has_required_queues(ctx, gpu) {
-			diagnostics << '${name}: compatible (DPB/output: ${gpu_h264_output_mode_names(gpu, h264_profile_idc)})'
-		} else {
+		} else if !gpu_supports_h264_profile(gpu, requirements.profile_idc) {
+			diagnostics << '${name}: H.264 ${h264_profile_name(requirements.profile_idc)} Profile, 8-bit 4:2:0 progressive decode is not supported'
+		} else if !gpu_supports_h264_output_mode(gpu, requirements.profile_idc, output_mode) {
+			diagnostics << '${name}: requested ${decode_output_mode_name(output_mode)} DPB/output mode is unavailable; supports ${gpu_h264_output_mode_names(gpu,
+				requirements.profile_idc)}'
+		} else if !device_has_required_queues(ctx, gpu) {
 			diagnostics << '${name}: required extensions/profile exist, but no compatible graphics, presentation, and decode queue combination was found'
+		} else if gpu_h264_stream_issue(gpu, requirements, output_mode) != '' {
+			diagnostics << '${name}: ${gpu_h264_stream_issue(gpu, requirements, output_mode)}'
+		} else {
+			diagnostics << '${name}: compatible (DPB/output: ${gpu_h264_output_mode_names(gpu,
+				requirements.profile_idc)})'
 		}
 	}
 	return diagnostics
@@ -438,12 +452,12 @@ fn (ctx DeviceContext) gpu_count() int {
 	return ctx.gpus.len
 }
 
-fn (ctx DeviceContext) is_h264_decode_gpu_compatible(gpu_index int, h264_profile_idc u32) bool {
-	return ctx.is_h264_decode_gpu_compatible_for_output_mode(gpu_index, h264_profile_idc, .automatic)
+fn (ctx DeviceContext) is_h264_decode_gpu_compatible(gpu_index int, requirements VideoDecodeRequirements) bool {
+	return ctx.is_h264_decode_gpu_compatible_for_output_mode(gpu_index, requirements, .automatic)
 }
 
 fn (ctx DeviceContext) is_h264_decode_gpu_compatible_for_output_mode(gpu_index int,
-	h264_profile_idc u32,
+	requirements VideoDecodeRequirements,
 	output_mode DecodeOutputMode) bool {
 	if gpu_index < 0 || gpu_index >= ctx.gpus.len {
 		return false
@@ -453,8 +467,9 @@ fn (ctx DeviceContext) is_h264_decode_gpu_compatible_for_output_mode(gpu_index i
 		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
 	return device_supports_extensions(gpu, required_extensions)
 		&& device_has_required_queues(ctx, gpu)
-		&& gpu_supports_h264_profile(gpu, h264_profile_idc)
-		&& gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode)
+		&& gpu_supports_h264_profile(gpu, requirements.profile_idc)
+		&& gpu_supports_h264_output_mode(gpu, requirements.profile_idc, output_mode)
+		&& gpu_h264_stream_issue(gpu, requirements, output_mode) == ''
 }
 
 fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
@@ -464,7 +479,9 @@ fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 	mut video_props := []vk.QueueFamilyVideoPropertiesKHR{len: int(family_count), init: vk.QueueFamilyVideoPropertiesKHR{}}
 	mut family_props := []vk.QueueFamilyProperties2{len: int(family_count), init: vk.QueueFamilyProperties2{}}
 	for i in 0 .. family_count {
-		unsafe { family_props[i].pNext = &video_props[i] }
+		unsafe {
+			family_props[i].pNext = &video_props[i]
+		}
 	}
 	mut props_data := family_props.data
 	vk.get_physical_device_queue_family_properties2(gpu, &family_count, mut props_data)
@@ -476,26 +493,25 @@ fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 			continue
 		}
 		mut supports_present := vk.Bool32(0)
-		vk.get_physical_device_surface_support_khr(gpu, u32(i), ctx.swapchain.surface, &supports_present)
-		has_graphics_and_present = has_graphics_and_present || ((queue.queueFlags & vk.QueueFlags(vk.QueueFlagBits.graphics)) != 0 && supports_present == vk._true)
-		has_h264_decode = has_h264_decode || ((queue.queueFlags & vk.QueueFlags(vk.QueueFlagBits.video_decode)) != 0 && (video_props[i].videoCodecOperations & vk.VideoCodecOperationFlagsKHR(vk.VideoCodecOperationFlagBitsKHR.decode_h264)) != 0)
+		vk.get_physical_device_surface_support_khr(gpu, u32(i), ctx.swapchain.surface,
+			&supports_present)
+		has_graphics_and_present = has_graphics_and_present
+			|| ((queue.queueFlags & vk.QueueFlags(vk.QueueFlagBits.graphics)) != 0
+			&& supports_present == vk._true)
+		has_h264_decode = has_h264_decode
+			|| ((queue.queueFlags & vk.QueueFlags(vk.QueueFlagBits.video_decode)) != 0&& (video_props[i].videoCodecOperations & vk.VideoCodecOperationFlagsKHR(vk.VideoCodecOperationFlagBitsKHR.decode_h264)) != 0)
 	}
 	return has_graphics_and_present && has_h264_decode
 }
 
-fn (ctx DeviceContext) find_h264_decode_gpu(h264_profile_idc u32) ?u32 {
-	return ctx.find_h264_decode_gpu_for_output_mode(h264_profile_idc, .automatic)
+fn (ctx DeviceContext) find_h264_decode_gpu(requirements VideoDecodeRequirements) ?u32 {
+	return ctx.find_h264_decode_gpu_for_output_mode(requirements, .automatic)
 }
 
-fn (ctx DeviceContext) find_h264_decode_gpu_for_output_mode(h264_profile_idc u32,
+fn (ctx DeviceContext) find_h264_decode_gpu_for_output_mode(requirements VideoDecodeRequirements,
 	output_mode DecodeOutputMode) ?u32 {
-	required_extensions := [vk.khr_swapchain_extension_name, vk.khr_video_queue_extension_name,
-		vk.khr_video_decode_queue_extension_name, vk.khr_video_decode_h264_extension_name]
-	for gpu_index, gpu in ctx.gpus {
-		if device_supports_extensions(gpu, required_extensions)
-			&& device_has_required_queues(ctx, gpu)
-			&& gpu_supports_h264_profile(gpu, h264_profile_idc)
-			&& gpu_supports_h264_output_mode(gpu, h264_profile_idc, output_mode) {
+	for gpu_index, _ in ctx.gpus {
+		if ctx.is_h264_decode_gpu_compatible_for_output_mode(gpu_index, requirements, output_mode) {
 			return u32(gpu_index)
 		}
 	}
@@ -505,6 +521,69 @@ fn (ctx DeviceContext) find_h264_decode_gpu_for_output_mode(h264_profile_idc u32
 fn gpu_supports_h264_profile(gpu vk.PhysicalDevice, h264_profile_idc u32) bool {
 	_ := gpu_h264_decode_capability_flags(gpu, h264_profile_idc) or { return false }
 	return true
+}
+
+fn gpu_h264_stream_issue(gpu vk.PhysicalDevice, requirements VideoDecodeRequirements,
+	requested_mode DecodeOutputMode) string {
+	mut h264_profile := vk.VideoDecodeH264ProfileInfoKHR{
+		stdProfileIdc: unsafe { vk.StdVideoH264ProfileIdc(requirements.profile_idc) }
+		pictureLayout: .progressive
+	}
+	mut profile := vk.VideoProfileInfoKHR{
+		pNext:               &h264_profile
+		videoCodecOperation: .decode_h264
+		chromaSubsampling:   vk.VideoChromaSubsamplingFlagsKHR(vk.VideoChromaSubsamplingFlagBitsKHR._420)
+		lumaBitDepth:        vk.VideoComponentBitDepthFlagsKHR(vk.VideoComponentBitDepthFlagBitsKHR._8)
+		chromaBitDepth:      vk.VideoComponentBitDepthFlagsKHR(vk.VideoComponentBitDepthFlagBitsKHR._8)
+	}
+	mut h264_caps := vk.VideoDecodeH264CapabilitiesKHR{}
+	mut decode_caps := vk.VideoDecodeCapabilitiesKHR{
+		pNext: &h264_caps
+	}
+	mut caps := vk.VideoCapabilitiesKHR{
+		pNext: &decode_caps
+	}
+	if vk.get_physical_device_video_capabilities_khr(gpu, &profile, mut &caps) != .success {
+		return 'could not query H.264 decode capabilities'
+	}
+	level_issue := h264_level_issue(requirements.level_idc, h264_caps.maxLevelIdc)
+	if level_issue != '' {
+		return level_issue
+	}
+	if requirements.width < caps.minCodedExtent.width
+		|| requirements.height < caps.minCodedExtent.height
+		|| requirements.width > caps.maxCodedExtent.width
+		|| requirements.height > caps.maxCodedExtent.height {
+		return 'coded extent ${requirements.width}x${requirements.height} is outside supported ${caps.minCodedExtent.width}x${caps.minCodedExtent.height}–${caps.maxCodedExtent.width}x${caps.maxCodedExtent.height}'
+	}
+	if requirements.dpb_slots > caps.maxDpbSlots {
+		return 'video requires ${requirements.dpb_slots} DPB slots; device supports ${caps.maxDpbSlots}'
+	}
+	if requirements.references > caps.maxActiveReferencePictures {
+		return 'video requires ${requirements.references} active references; device supports ${caps.maxActiveReferencePictures}'
+	}
+	supports_coincident := (decode_caps.flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0
+	supports_distinct := (decode_caps.flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_distinct)) != 0
+	mode := select_decode_output_mode(requested_mode, supports_coincident, supports_distinct) or {
+		return 'requested DPB/output mode is unavailable'
+	}
+	profile_list := vk.VideoProfileListInfoKHR{
+		profileCount: 1
+		pProfiles:    &profile
+	}
+	output_usage := vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.transfer_src))
+	_ := query_video_format(gpu, &profile_list, output_usage) or {
+		return 'no decode-output format supports transfer to the display image'
+	}
+	dpb_usage := if mode == .coincident {
+		vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.video_decode_dpb) | u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.transfer_src))
+	} else {
+		vk.ImageUsageFlags(vk.ImageUsageFlagBits.video_decode_dpb)
+	}
+	_ := query_video_format(gpu, &profile_list, dpb_usage) or {
+		return 'no DPB format supports the selected decode mode'
+	}
+	return ''
 }
 
 fn gpu_h264_decode_capability_flags(gpu vk.PhysicalDevice,
@@ -566,112 +645,6 @@ fn (mut ctx DeviceContext) initialize_swapchain(window_p &glfw.Window, desired_f
 	return ctx.swapchain.initialize(window_p, desired_format)
 }
 
-fn (ctx DeviceContext) create_buffer(desc &GPUBufferDesc, buffer &GPUBuffer) {
-	// TODO
-	panic('Not implemented')
-}
-
-fn (mut ctx DeviceContext) create_image(desc &GPUImageDesc, mut image &GPUImage) {
-	mut n := unsafe { nil }
-	mut image_ci := vk.ImageCreateInfo{
-		flags:                 0
-		imageType:             desc.image_type
-		format:                desc.format
-		extent:                desc.extent
-		mipLevels:             desc.mip_levels
-		arrayLayers:           desc.array_size
-		samples:               vk.SampleCountFlagBits._1
-		tiling:                vk.ImageTiling.optimal
-		usage:                 u32(desc.usage)
-		sharingMode:           vk.SharingMode.exclusive
-		queueFamilyIndexCount: 0
-		pQueueFamilyIndices:   unsafe { nil }
-		initialLayout:         vk.ImageLayout.undefined
-	}
-	image_ci.usage = vk.ImageUsageFlags(u32(vk.BufferUsageFlagBits.transfer_src) | u32(vk.BufferUsageFlagBits.transfer_dst))
-
-	mut profile_list_info := vk.VideoProfileListInfoKHR{
-		profileCount: 1
-		pProfiles:    &ctx.video_profile_info
-	}
-	if desc.usage & (u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.video_decode_src) | u32(vk.ImageUsageFlagBits.video_decode_dpb)) != 0 {
-		image_ci.pNext = &profile_list_info
-
-		mut video_format_info := vk.PhysicalDeviceVideoFormatInfoKHR{
-			pNext:      &profile_list_info
-			imageUsage: image_ci.usage
-		}
-		mut format_count := u32(0)
-		vk.get_physical_device_video_format_properties_khr(ctx.get_gpu_current(), &video_format_info, &format_count, mut n)
-		if format_count > 0 {
-			mut video_formats := []vk.VideoFormatPropertiesKHR{len: int(format_count)}
-			res := vk.get_physical_device_video_format_properties_khr(ctx.get_gpu_current(), &video_format_info, &format_count, mut video_formats[0])
-			if res != vk.Result.success {
-				panic('Could not get device video format properties')
-			}
-		}
-	}
-
-	if ctx.queue_family_indices.len > 1 {
-		image_ci.sharingMode = vk.SharingMode.concurrent
-		image_ci.queueFamilyIndexCount = u32(ctx.queue_family_indices.len)
-		image_ci.pQueueFamilyIndices = ctx.queue_family_indices.data
-	}
-
-	vk.create_image(ctx.vk_device, &image_ci, unsafe { nil }, &image.image)
-
-	mut reqs := vk.MemoryRequirements2{}
-	mut info := vk.ImageMemoryRequirementsInfo2{
-		image: image.image
-	}
-	vk.get_image_memory_requirements2(ctx.vk_device, &info, mut &reqs)
-
-	mut alloc_info := vk.MemoryAllocateInfo{
-		allocationSize:  reqs.memoryRequirements.size
-		memoryTypeIndex: ctx.get_memory_type_index(reqs, vk.MemoryPropertyFlags(desc.memory_property))
-	}
-	vk.allocate_memory(ctx.vk_device, &alloc_info, unsafe { nil }, &image.memory)
-	vk.bind_image_memory(ctx.vk_device, image.image, image.memory, 0)
-
-	mut view_ci := vk.ImageViewCreateInfo{
-		flags:            0
-		image:            image.image
-		viewType:         vk.ImageViewType._2d
-		format:           image_ci.format
-		// NOTE: int(identity) = 0
-		components:       vk.ComponentMapping{
-			r: vk.ComponentSwizzle.identity
-			g: vk.ComponentSwizzle.identity
-			b: vk.ComponentSwizzle.identity
-			a: vk.ComponentSwizzle.identity
-		}
-		subresourceRange: vk.ImageSubresourceRange{
-			aspectMask:     vk.ImageAspectFlags(vk.ImageAspectFlagBits.color)
-			baseMipLevel:   0
-			levelCount:     image_ci.mipLevels
-			baseArrayLayer: 0
-			layerCount:     image_ci.arrayLayers
-		}
-	}
-
-	view_ci.viewType = match desc.image_type {
-		._1d {
-			vk.ImageViewType._1d
-		}
-		._2d {
-			vk.ImageViewType._2d
-		}
-		._3d {
-			vk.ImageViewType._3d
-		}
-		else {
-			vk.ImageViewType._2d
-		}
-	}
-
-	vk.create_image_view(ctx.vk_device, &view_ci, unsafe { nil }, &image.image_view)
-}
-
 fn (ctx DeviceContext) submit(queue_type QueueType, mut p_submit_info vk.SubmitInfo, mut wait_fence vk.Fence) {
 	mut queue := match queue_type {
 		.graphics { ctx.graphics_queue }
@@ -714,7 +687,8 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	mut instance_extensions := []vk.ExtensionProperties{len: int(instance_extension_count)}
 	// Temporary variable to make data mutable
 	mut instance_extensions_data := instance_extensions.data
-	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut instance_extensions_data)
+	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut
+		instance_extensions_data)
 
 	mut active_instance_extensions := []&u8{}
 	mut glfw_required_count := u32(0)
@@ -767,7 +741,8 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	}
 	C.volkLoadInstance(ctx.vk_instance)
 	$if debug ? {
-		resdbg := vk.create_debug_utils_messenger_ext(ctx.vk_instance, &debug_utils_create_info, unsafe { nil }, &ctx.vk_debug_utils)
+		resdbg := vk.create_debug_utils_messenger_ext(ctx.vk_instance, &debug_utils_create_info,
+			unsafe { nil }, &ctx.vk_debug_utils)
 		if resdbg != vk.Result.success {
 			panic('Could not create DebugUtilsMessengerEXT')
 		}
@@ -782,35 +757,6 @@ fn (mut ctx DeviceContext) enumerate_gpus() {
 	int_gpu_count := int(gpu_count)
 	ctx.gpus = unsafe { []vk.PhysicalDevice{len: int_gpu_count} }
 	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, ctx.gpus.data)
-
-	ctx.physical_device_memory_props = []vk.PhysicalDeviceMemoryProperties2{len: int(gpu_count), init: vk.PhysicalDeviceMemoryProperties2{
-		memoryProperties: vk.PhysicalDeviceMemoryProperties{
-			memoryTypes: [vk.max_memory_types]vk.MemoryType{}
-			memoryHeaps: [vk.max_memory_heaps]vk.MemoryHeap{}
-		}
-	}}
-	for i in 0 .. gpu_count {
-		vk.get_physical_device_memory_properties2(ctx.gpus[i], mut &ctx.physical_device_memory_props[i])
-	}
-}
-
-fn (ctx DeviceContext) get_memory_type_index(reqs vk.MemoryRequirements2, flags vk.MemoryPropertyFlags) u32 {
-	mut request_bits := reqs.memoryRequirements.memoryTypeBits
-	memory_props := ctx.physical_device_memory_props[ctx.use_gpu_index].memoryProperties
-	for i in 0 .. memory_props.memoryTypeCount {
-		// Match wanted memory properties
-		if (int(request_bits) & 1) != 0 {
-			if (memory_props.memoryTypes[i].propertyFlags & flags) == flags {
-				return i
-			}
-		}
-		request_bits >>= 1
-	}
-	return max_u32
-}
-
-fn (ctx DeviceContext) get_gpu(gpu_index int) vk.PhysicalDevice {
-	return ctx.gpus[gpu_index]
 }
 
 fn (ctx DeviceContext) get_gpu_current() vk.PhysicalDevice {
@@ -818,7 +764,6 @@ fn (ctx DeviceContext) get_gpu_current() vk.PhysicalDevice {
 	return ctx.gpus[ctx.use_gpu_index]
 }
 
-// TODO: Do we want getters/setters?
 fn (ctx DeviceContext) get_vk_device() vk.Device {
 	return ctx.vk_device
 }

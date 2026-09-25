@@ -40,11 +40,11 @@ flowchart LR
 ```
 
 The application enters at [`main`](../main.v#L71). The drawing loop is
-[`VideoDecodeApp.run`](../app.v#L355), and GPU selection is in
-[`find_h264_decode_gpu_for_output_mode`](../device_context.v#L490).
-[`parse_mp4_data`](../mp4_parser.v#L100) reads the input,
+[`VideoDecodeApp.run`](../app.v#L367), and GPU selection is in
+[`find_h264_decode_gpu_for_output_mode`](../device_context.v#L511).
+[`parse_mp4_data`](../mp4_parser.v#L252) reads the input,
 [`update_decode_video`](../player_decode.v#L7) records decode work, and
-[`update_presentation`](../player_presentation.v#L72) manages output images.
+[`update_presentation`](../player_presentation.v#L73) manages output images.
 [`PlaybackTimeline`](../playback_timeline.v#L10) tracks media time. These are
 source file responsibilities within one V package, not public modules.
 
@@ -65,18 +65,18 @@ the idea understandable without reading every Vulkan call.
 
 ## A route through one picture
 
-1. [`prepare`](../video_player.v#L415) calls the
-   [MP4 parser](../mp4_parser.v#L100), which rejects unsupported streams.
+1. [`prepare`](../video_player.v#L579) calls the
+   [MP4 parser](../mp4_parser.v#L252), which rejects unsupported streams.
    Its profile and dimensions inform GPU selection.
-2. [`initialize_device`](../device_context.v#L150) selects graphics and H.264
+2. [`initialize_device`](../device_context.v#L154) selects graphics and H.264
    decode queues, queries the video profile, and chooses a compatible format.
 3. [`Decoder.initialize`](../decoder_session.v#L8) creates the session,
-   bitstream buffer, and DPB images. [`VideoPlayer.initialize`](../video_player.v#L521)
+   bitstream buffer, and DPB images. [`VideoPlayer.initialize`](../video_player.v#L626)
    allocates the bounded output-image pool.
 4. [`update_decode_video`](../player_decode.v#L7) uploads an access unit, records
    decode and copy commands, and tags the copied output with display order.
-5. [`update_presentation`](../player_presentation.v#L72) chooses the next display-order
-   image when its duration is due. [`VideoDecodeApp.run`](../app.v#L355) samples it
+5. [`update_presentation`](../player_presentation.v#L73) chooses the next display-order
+   image when its duration is due. [`VideoDecodeApp.run`](../app.v#L367) samples it
    and presents the swapchain image.
 
 The [queue submission trace](guide/04-synchronization.md#follow-one-submission)

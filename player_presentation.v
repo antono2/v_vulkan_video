@@ -65,6 +65,7 @@ fn (mut vp VideoPlayer) restart_decode_cycle() {
 	vp.decode_finished = false
 	vp.waiting_for_loop_start = true
 	vp.dpb.reference_usage.clear()
+	vp.dpb.max_long_term_index = -1
 	vp.flags |= u32(VideoPlayerFlags.e_decoder_reset)
 	vp.playback_timeline.reset()
 }
@@ -144,8 +145,12 @@ fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_elapse
 	}
 	vp.update_presentation()
 
-	vk.cmd_wait_events(graphics_cmd_buffer, 1, &vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands), vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands), 0, unsafe { nil }, 0, unsafe { nil }, 0, unsafe { nil })
-	vk.cmd_reset_event(graphics_cmd_buffer, vp.event_video_player, vk.PipelineStageFlags(vk.PipelineStageFlagBits.bottom_of_pipe))
+	vk.cmd_wait_events(graphics_cmd_buffer, 1, &vp.event_video_player,
+		vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands),
+		vk.PipelineStageFlags(vk.PipelineStageFlagBits.all_commands), 0, unsafe { nil }, 0,
+		unsafe { nil }, 0, unsafe { nil })
+	vk.cmd_reset_event(graphics_cmd_buffer, vp.event_video_player,
+		vk.PipelineStageFlags(vk.PipelineStageFlagBits.bottom_of_pipe))
 
 	// Finish recording the command buffer and submit
 	dev_ctx := vp.app.device_context
@@ -165,7 +170,8 @@ fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_elapse
 		pSignalSemaphores:    &semaphore
 	}
 	upload_fence := vp.video_frames[vp.current_upload_index].in_flight_fence
-	res_video := vk.queue_submit(dev_ctx.get_queue(.video_decode), 1, &sumbit_info_video, upload_fence)
+	res_video := vk.queue_submit(dev_ctx.get_queue(.video_decode), 1, &sumbit_info_video,
+		upload_fence)
 	check_vk(res_video, 'Could not submit Vulkan Video decode command')
 
 	mut sumbit_info_graphics := vk.SubmitInfo{
@@ -175,6 +181,10 @@ fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_elapse
 		commandBufferCount: 1
 		pCommandBuffers:    &command_buffer_info.graphics_command_buffer
 	}
-	res_graphics := vk.queue_submit(dev_ctx.get_queue(.graphics), 1, &sumbit_info_graphics, unsafe { nil })
+	res_graphics := vk.queue_submit(dev_ctx.get_queue(.graphics), 1, &sumbit_info_graphics,
+		unsafe { nil })
 	check_vk(res_graphics, 'Could not submit decoded frame for graphics use')
+	if vp.decode_finished {
+		vp.finish_frame_readback() or { panic('Could not save decoded frames: ${err}') }
+	}
 }

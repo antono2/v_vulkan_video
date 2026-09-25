@@ -4,6 +4,7 @@ import antono2.vulkan as vk
 import os
 import math
 import antono2.vkmemalloc as vkmem
+import antono2.h264
 
 const max_texture_count = 64
 const slot_count = 17
@@ -61,6 +62,9 @@ mut:
 	current_frame             int
 	flags                     u32
 	video_frames              []VideoPlayerDecodeStreamFrame
+	frame_readbacks           []FrameReadback
+	frame_readback_dir        string
+	frame_readback_done       bool
 	decode_output_image       Image
 	decode_output_state       DPBResourceState
 	playback_timeline         PlaybackTimeline
@@ -137,20 +141,22 @@ enum VideoPlayerFlags as u32 {
 
 struct DPB {
 pub mut:
-	image            [slot_count]Image
-	resource_state   [slot_count]DPBResourceState
-	poc_status       [slot_count]int
-	frame_num_status [slot_count]int
-	reference_usage  []u8
-	next_ref         u8
-	next_slot        u8
-	current_slot     u8
+	image               [slot_count]Image
+	resource_state      [slot_count]DPBResourceState
+	poc_status          [slot_count]int
+	bottom_poc_status   [slot_count]int
+	frame_num_status    [slot_count]int
+	reference_usage     []u8
+	long_term           [slot_count]bool
+	long_term_index     [slot_count]int
+	max_long_term_index int = -1
+	next_ref            u8
+	next_slot           u8
+	current_slot        u8
 }
 
 // Choose a slot which is not referenced by the picture being decoded. When all
-// slots are references, expire the oldest short-term reference first (the H.264
-// sliding-window default). Explicit MMCO and long-term references are handled
-// separately as stream metadata becomes available.
+// slots are references, expire the oldest short-term reference first.
 fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 	assert slot_limit > 0 && slot_limit <= slot_count
 	for slot in 0 .. slot_limit {
@@ -162,6 +168,138 @@ fn (mut dpb DPB) acquire_decode_slot(slot_limit int) u8 {
 	expired_slot := dpb.reference_usage[0]
 	dpb.reference_usage.delete(0)
 	return expired_slot
+}
+
+fn (mut dpb DPB) finish_mmco5() {
+	dpb.reference_usage.clear()
+	dpb.max_long_term_index = -1
+	minimum := math.min(dpb.poc_status[dpb.current_slot], dpb.bottom_poc_status[dpb.current_slot])
+	dpb.poc_status[dpb.current_slot] -= minimum
+	dpb.bottom_poc_status[dpb.current_slot] -= minimum
+	dpb.frame_num_status[dpb.current_slot] = 0
+}
+
+fn (mut dpb DPB) remove_reference(slot u8) {
+	for i, active in dpb.reference_usage {
+		if active == slot {
+			dpb.reference_usage.delete(i)
+			break
+		}
+	}
+	dpb.long_term[slot] = false
+}
+
+fn (mut dpb DPB) remove_long_term_index(index int) {
+	for slot in dpb.reference_usage.clone() {
+		if dpb.long_term[slot] && dpb.long_term_index[slot] == index {
+			dpb.remove_reference(slot)
+		}
+	}
+}
+
+fn (dpb &DPB) short_term_slot(pic_num int, curr_frame_num int, max_frame_num int) ?u8 {
+	for slot in dpb.reference_usage {
+		if dpb.long_term[slot] {
+			continue
+		}
+		frame_num := dpb.frame_num_status[slot]
+		frame_num_wrap := if frame_num > curr_frame_num {
+			frame_num - max_frame_num
+		} else {
+			frame_num
+		}
+		if frame_num_wrap == pic_num {
+			return slot
+		}
+	}
+	return none
+}
+
+fn (mut dpb DPB) mark_after_decode(header &h264.SliceHeader, is_idr bool,
+	is_reference bool, max_references int, max_frame_num int) ! {
+	if !is_reference {
+		return
+	}
+	dpb.long_term[dpb.current_slot] = false
+	if is_idr {
+		dpb.reference_usage.clear()
+		dpb.max_long_term_index = if header.drpm.long_term_reference_flag != 0 { 0 } else { -1 }
+		if header.drpm.long_term_reference_flag != 0 {
+			dpb.long_term[dpb.current_slot] = true
+			dpb.long_term_index[dpb.current_slot] = 0
+		}
+	} else if header.drpm.adaptive_ref_pic_marking_mode_flag != 0 {
+		for i in 0 .. header.drpm.memory_management_control_operation.len {
+			op := header.drpm.memory_management_control_operation[i]
+			if op == 0 {
+				break
+			}
+			pic_num_x := int(header.frame_num) - int(header.drpm.difference_of_pic_nums_minus1[i]) -
+				1
+			if op in [u32(1), 3] {
+				if pic_num_x < -max_frame_num {
+					return error('invalid H.264 MMCO short-term picture number')
+				}
+			}
+			match op {
+				1 {
+					if slot := dpb.short_term_slot(pic_num_x, int(header.frame_num), max_frame_num) {
+						dpb.remove_reference(slot)
+					}
+				}
+				2 {
+					dpb.remove_long_term_index(int(header.drpm.long_term_pic_num[i]))
+				}
+				3 {
+					slot := dpb.short_term_slot(pic_num_x, int(header.frame_num), max_frame_num) or {
+						return error('H.264 MMCO 3 refers to an unavailable short-term picture')
+					}
+					index := int(header.drpm.long_term_frame_idx[i])
+					if index > dpb.max_long_term_index {
+						return error('H.264 MMCO 3 long-term index ${index} exceeds ${dpb.max_long_term_index}')
+					}
+					dpb.remove_long_term_index(index)
+					dpb.long_term[slot] = true
+					dpb.long_term_index[slot] = index
+				}
+				4 {
+					dpb.max_long_term_index = int(header.drpm.max_long_term_frame_idx_plus1[i]) - 1
+					for slot in dpb.reference_usage.clone() {
+						if dpb.long_term[slot]
+							&& dpb.long_term_index[slot] > dpb.max_long_term_index {
+							dpb.remove_reference(slot)
+						}
+					}
+				}
+				5 {
+					dpb.finish_mmco5()
+				}
+				6 {
+					index := int(header.drpm.long_term_frame_idx[i])
+					if index > dpb.max_long_term_index {
+						return error('H.264 MMCO 6 long-term index ${index} exceeds ${dpb.max_long_term_index}')
+					}
+					dpb.remove_long_term_index(index)
+					dpb.long_term[dpb.current_slot] = true
+					dpb.long_term_index[dpb.current_slot] = index
+				}
+				else {
+					return error('invalid H.264 MMCO ${op} at frame_num ${header.frame_num}, operation ${i}')
+				}
+			}
+		}
+	} else if dpb.reference_usage.len >= max_references {
+		for slot in dpb.reference_usage {
+			if !dpb.long_term[slot] {
+				dpb.remove_reference(slot)
+				break
+			}
+		}
+	}
+	dpb.reference_usage << dpb.current_slot
+	if dpb.reference_usage.len > max_references {
+		return error('H.264 reference marking exceeds ${max_references} active pictures')
+	}
 }
 
 struct DPBResourceState {
@@ -222,8 +360,10 @@ pub mut:
 	frame_bytes_num        u64
 	size                   u64
 	poc                    int
-	bottom_field_order_cnt u32
-	top_field_order_cnt    u32
+	decode_poc             int
+	has_mmco5              bool
+	bottom_field_order_cnt int
+	top_field_order_cnt    int
 	gop                    int
 	display_order          int
 	decode_time_ns         i64
@@ -236,12 +376,16 @@ pub mut:
 }
 
 fn compare_frame_display_order(a &DecoderVideoDataFrameInfo, b &DecoderVideoDataFrameInfo) int {
-	key_a := u64(a.gop) << 32 | u64(a.poc)
-	key_b := u64(b.gop) << 32 | u64(b.poc)
-	if key_a < key_b {
+	if a.gop < b.gop {
 		return -1
 	}
-	if key_a > key_b {
+	if a.gop > b.gop {
+		return 1
+	}
+	if a.poc < b.poc {
+		return -1
+	}
+	if a.poc > b.poc {
 		return 1
 	}
 	return 0
@@ -267,16 +411,19 @@ fn presentation_buffer_size(display_orders []int) int {
 
 struct DecoderVideoFileProperties {
 pub mut:
-	file               os.File
-	file_open          bool
-	h264_profile_idc   u32
-	width_padd         u32
-	height_padd        u32
-	width              u32
-	height             u32
-	sps_count          u32
-	pps_count          u32
-	slice_header_count u32
+	file              os.File
+	file_open         bool
+	h264_profile_idc  u32
+	h264_level_idc    u32
+	width_padd        u32
+	height_padd       u32
+	width             u32
+	height            u32
+	sps_count         u32
+	pps_count         u32
+	nal_length_size   u32
+	sps_storage_index [32]u8
+	pps_storage_index [256]u16
 
 	frame_infos                 []DecoderVideoDataFrameInfo
 	max_memory_frame_size_bytes u64
@@ -290,6 +437,20 @@ pub mut:
 
 	total_duration i64
 	metadata       VideoMetadata
+}
+
+fn (data &DecoderVideoFileProperties) sps_storage_offset(id u32) !int {
+	if id >= u32(data.sps_storage_index.len) || data.sps_storage_index[id] == 0 {
+		return error('H.264 references missing SPS ${id}')
+	}
+	return int(data.sps_storage_index[id] - 1) * int(sizeof(h264.SequenceParameterSet))
+}
+
+fn (data &DecoderVideoFileProperties) pps_storage_offset(id u32) !int {
+	if id >= u32(data.pps_storage_index.len) || data.pps_storage_index[id] == 0 {
+		return error('H.264 references missing PPS ${id}')
+	}
+	return int(data.pps_storage_index[id] - 1) * int(sizeof(h264.PictureParameterSet))
 }
 
 struct VideoMetadata {
@@ -375,10 +536,8 @@ fn (mut metadata VideoMetadata) update_display_dimensions() {
 
 struct DecoderDpbImage {
 pub mut:
-	image vk.Image
-	view  vk.ImageView
-	// TODO: Refactor Allocator to Decoder
-	allocator       vkmem.Allocator
+	image           vk.Image
+	view            vk.ImageView
 	allocation_info vkmem.AllocationInfo
 }
 
@@ -396,9 +555,15 @@ pub mut:
 	poc                 [2]int
 	current_dpb         u32
 	dpb_reference_count u32
-	dpb_reference_slots &u8  = unsafe { nil }
-	dpb_poc             &int = unsafe { nil }
-	dpb_frame_num       &int = unsafe { nil }
+	dpb_reference_slots &u8   = unsafe { nil }
+	dpb_poc             &int  = unsafe { nil }
+	dpb_bottom_poc      &int  = unsafe { nil }
+	dpb_frame_num       &int  = unsafe { nil }
+	dpb_long_term       &bool = unsafe { nil }
+	dpb_long_term_index &int  = unsafe { nil }
+	current_long_term   bool
+	current_long_index  int
+	current_mmco5       bool
 	dpb_slot_num        u32
 	p_dpbs              vk.Image
 	p_dpb_views         vk.ImageView
@@ -411,7 +576,6 @@ enum DecoderVideoDecodeOperationFlags {
 	e_session_reset = 1
 }
 
-// TODO: May be worth to use interface types, but interfaces IApp containg sub interface IDeviceContext "error: `&video_decode_app.VideoDecodeApp` incorrectly implements field `device_context` of interface `examples.video_decode_app.video_player.IApp`, expected `video_player.IDeviceContext`, got `video_decode_app.DeviceContext`", no matter what's in the interface
 fn (mut vp VideoPlayer) prepare(path string) ! {
 	// Do not propagate parser errors from inside the lock: cleanup must be able
 	// to reacquire it and close a partially opened input file.
@@ -436,6 +600,20 @@ fn (mut vp VideoPlayer) close_input() {
 fn (vp &VideoPlayer) h264_profile_idc() u32 {
 	rlock vp.decoder {
 		return vp.decoder.video_data.h264_profile_idc
+	}
+}
+
+fn (vp &VideoPlayer) decode_requirements() VideoDecodeRequirements {
+	rlock vp.decoder {
+		data := vp.decoder.video_data
+		return VideoDecodeRequirements{
+			profile_idc: data.h264_profile_idc
+			level_idc:   data.h264_level_idc
+			width:       data.width_padd
+			height:      data.height_padd
+			dpb_slots:   data.num_dpb_slots
+			references:  data.num_dpb_slots - 1
+		}
 	}
 }
 
@@ -468,7 +646,8 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 				allocation_info: image.allocation_info
 			}
 		}
-		vp.presentation_buffer_count = presentation_buffer_size(vp.decoder.video_data.frame_infos.map(it.display_order))
+		vp.presentation_buffer_count =
+			presentation_buffer_size(vp.decoder.video_data.frame_infos.map(it.display_order))
 	}
 
 	vk_device := app.device_context.vk_device
@@ -476,17 +655,20 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 		fence_ci := vk.FenceCreateInfo{
 			flags: vk.FenceCreateFlags(vk.FenceCreateFlagBits.signaled)
 		}
-		res := vk.create_fence(vk_device, &fence_ci, unsafe { nil }, &vp.video_frames[i].in_flight_fence)
+		res := vk.create_fence(vk_device, &fence_ci, unsafe { nil },
+			&vp.video_frames[i].in_flight_fence)
 		check_vk(res, 'Could not create video-frame fence ${i}')
 	}
 	mut command_pool_ci := vk.CommandPoolCreateInfo{
 		flags: vk.CommandPoolCreateFlags(vk.CommandPoolCreateFlagBits.reset_command_buffer)
 	}
 	command_pool_ci.queueFamilyIndex = app.device_context.graphics_family
-	mut res := vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &vp.graphics_command_pool)
+	mut res := vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil },
+		&vp.graphics_command_pool)
 	check_vk(res, 'Could not create video-player graphics command pool')
 	command_pool_ci.queueFamilyIndex = app.device_context.get_decoder_queue_family_index()
-	res = vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil }, &vp.video_command_pool)
+	res = vk.create_command_pool(vk_device, &command_pool_ci, unsafe { nil },
+		&vp.video_command_pool)
 	check_vk(res, 'Could not create video-decode command pool')
 
 	vp.command_buffer_infos = []CommandBufferInfo{len: app.device_context.swapchain.image_views.len}
@@ -521,6 +703,7 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 	for _ in 0 .. output_texture_count {
 		vp.create_output_image()
 	}
+	vp.initialize_frame_readback()
 	println('Presentation queue: ${vp.presentation_buffer_count} reorder images, ${output_texture_count} images total')
 	if !vp.decoder.properties.dpb_and_output_coincide {
 		vp.create_decode_output_image()
@@ -531,7 +714,8 @@ fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 	vk_device := vp.app.device_context.vk_device
 	for mut info in vp.command_buffer_infos {
 		if !isnil(info.graphics_command_buffer) {
-			vk.free_command_buffers(vk_device, vp.graphics_command_pool, 1, &info.graphics_command_buffer)
+			vk.free_command_buffers(vk_device, vp.graphics_command_pool, 1,
+				&info.graphics_command_buffer)
 		}
 		if !isnil(info.video_command_buffer) {
 			vk.free_command_buffers(vk_device, vp.video_command_pool, 1, &info.video_command_buffer)
@@ -547,12 +731,14 @@ fn (mut vp VideoPlayer) recreate_swapchain_resources() {
 			commandBufferCount: 1
 			commandPool:        vp.graphics_command_pool
 		}
-		mut result := vk.allocate_command_buffers(vk_device, &alloc_info, &info.graphics_command_buffer)
+		mut result := vk.allocate_command_buffers(vk_device, &alloc_info,
+			&info.graphics_command_buffer)
 		check_vk(result, 'Could not reallocate video-player graphics command buffer')
 		alloc_info.commandPool = vp.video_command_pool
 		result = vk.allocate_command_buffers(vk_device, &alloc_info, &info.video_command_buffer)
 		check_vk(result, 'Could not reallocate video-decode command buffer')
-		result = vk.create_semaphore(vk_device, &vk.SemaphoreCreateInfo{}, unsafe { nil }, &info.sem_video_to_gfx)
+		result = vk.create_semaphore(vk_device, &vk.SemaphoreCreateInfo{}, unsafe { nil },
+			&info.sem_video_to_gfx)
 		check_vk(result, 'Could not recreate video-to-graphics semaphore')
 	}
 	// The caller waits for device idle before rebuilding the swapchain, so every
@@ -598,6 +784,7 @@ fn (mut vp VideoPlayer) shutdown() {
 			frame.in_flight_fence = unsafe { nil }
 		}
 	}
+	vp.release_frame_readback()
 	lock vp.decoder {
 		for mut output in vp.output_textures {
 			if !isnil(output.texture.view) {
@@ -622,7 +809,8 @@ fn (mut vp VideoPlayer) shutdown() {
 			vk.destroy_image(vk_device, vp.decode_output_image.image, unsafe { nil })
 			vp.decode_output_image.image = unsafe { nil }
 		}
-		_ = vp.app.device_context.memory_allocator.release(mut vp.decode_output_image.allocation_info)
+		_ =
+			vp.app.device_context.memory_allocator.release(mut vp.decode_output_image.allocation_info)
 		for mut dpb in vp.decoder.info.images_dpb {
 			if !isnil(dpb.view) {
 				vk.destroy_image_view(vk_device, dpb.view, unsafe { nil })
@@ -641,7 +829,8 @@ fn (mut vp VideoPlayer) shutdown() {
 		}
 		_ = vp.app.device_context.memory_allocator.release(mut vp.decoder.gpu_bitstream_allocation)
 		if !isnil(vp.decoder.video_session_parameters) {
-			vk.destroy_video_session_parameters_khr(vk_device, vp.decoder.video_session_parameters, unsafe { nil })
+			vk.destroy_video_session_parameters_khr(vk_device, vp.decoder.video_session_parameters,
+				unsafe { nil })
 			vp.decoder.video_session_parameters = unsafe { nil }
 		}
 		if !isnil(vp.decoder.video_session) {
@@ -724,8 +913,8 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 		imageType:             ._2d
 		format:                vp.decoder.properties.format_props.format
 		extent:                vk.Extent3D{
-			width:  vp.decoder.video_data.width
-			height: vp.decoder.video_data.height
+			width:  vp.decoder.video_data.width_padd
+			height: vp.decoder.video_data.height_padd
 			depth:  1
 		}
 		mipLevels:             1
@@ -752,7 +941,8 @@ fn (mut vp VideoPlayer) create_decode_output_image() {
 			layerCount: 1
 		}
 	}
-	result = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil }, &vp.decode_output_image.view)
+	result = vk.create_image_view(dev_ctx.vk_device, &view_ci, unsafe { nil },
+		&vp.decode_output_image.view)
 	check_vk(result, 'Could not create distinct video decode-output image view')
 }
 
@@ -764,13 +954,15 @@ fn query_video_format(gpu vk.PhysicalDevice, profile_list &vk.VideoProfileListIn
 	}
 	mut count := u32(0)
 	mut no_formats := unsafe { nil }
-	mut result := vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut no_formats)
+	mut result := vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
+		no_formats)
 	if result != .success || count == 0 {
 		return none
 	}
 	mut formats := []vk.VideoFormatPropertiesKHR{len: int(count), init: vk.VideoFormatPropertiesKHR{}}
 	mut formats_data := formats.data
-	result = vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut formats_data)
+	result = vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
+		formats_data)
 	if result != .success || count == 0 {
 		return none
 	}

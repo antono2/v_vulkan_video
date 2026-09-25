@@ -16,11 +16,3 @@ fn C.vv_set_h264_reference_info(voidptr, u16, i32, i32)
 $if windows {
 	#define VK_USE_PLATFORM_WIN32_KHR
 }
-/*
-#include "Volk/volk.h"
-
-// TODO: Check if needed
-#undef ERROR
-#undef min
-#undef max
-*/

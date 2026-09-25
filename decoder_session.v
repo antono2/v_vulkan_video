@@ -28,7 +28,8 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	}
 	d.properties.caps.pNext = &d.properties.decode_caps
 
-	mut res := vk.get_physical_device_video_capabilities_khr(dev_ctx.get_gpu_current(), &d.settings.profile_info, mut &d.properties.caps)
+	mut res := vk.get_physical_device_video_capabilities_khr(dev_ctx.get_gpu_current(),
+		&d.settings.profile_info, mut &d.properties.caps)
 	if res != vk.Result.success {
 		panic('Vulkan device does not expose H.264 ${h264_profile_name(d.video_data.h264_profile_idc)} Profile decode capabilities: ${res}')
 	}
@@ -45,7 +46,8 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	capability_flags := d.properties.decode_caps.flags
 	supports_coincide := (capability_flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_coincide)) != 0
 	supports_distinct := (capability_flags & vk.VideoDecodeCapabilityFlagsKHR(vk.VideoDecodeCapabilityFlagBitsKHR.dpb_and_output_distinct)) != 0
-	selected_output_mode := select_decode_output_mode(app.decode_output_mode, supports_coincide, supports_distinct) or { panic(err) }
+	selected_output_mode := select_decode_output_mode(app.decode_output_mode, supports_coincide,
+		supports_distinct) or { panic(err) }
 	d.properties.dpb_and_output_coincide = selected_output_mode == .coincident
 	println('Decode image mode: ${if d.properties.dpb_and_output_coincide {
 		'coincident DPB/output'
@@ -53,7 +55,8 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 		'distinct DPB/output'
 	}}')
 	output_usage := vk.ImageUsageFlags(u32(vk.ImageUsageFlagBits.video_decode_dst) | u32(vk.ImageUsageFlagBits.transfer_src))
-	d.properties.format_props = query_video_format(dev_ctx.get_gpu_current(), &d.settings.profile_list_info, output_usage) or {
+	d.properties.format_props = query_video_format(dev_ctx.get_gpu_current(),
+		&d.settings.profile_list_info, output_usage) or {
 		panic('No Vulkan Video decode-output format supports transfer to the display image')
 	}
 	dpb_usage := if d.properties.dpb_and_output_coincide {
@@ -61,14 +64,17 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	} else {
 		vk.ImageUsageFlags(vk.ImageUsageFlagBits.video_decode_dpb)
 	}
-	d.properties.dpb_format_props = query_video_format(dev_ctx.get_gpu_current(), &d.settings.profile_list_info, dpb_usage) or {
+	d.properties.dpb_format_props = query_video_format(dev_ctx.get_gpu_current(),
+		&d.settings.profile_list_info, dpb_usage) or {
 		panic('No Vulkan Video DPB format supports the required decode mode')
 	}
 	d.properties.usage_dpb = dpb_usage
 
 	num_memory_frames := u64(d.video_data.num_dpb_slots)
-	mut aligned_frame_size := U64(d.video_data.max_memory_frame_size_bytes).align_to(d.properties.caps.minBitstreamBufferOffsetAlignment)
-	aligned_frame_size = U64(aligned_frame_size).align_to(d.properties.caps.minBitstreamBufferSizeAlignment)
+	mut aligned_frame_size :=
+		U64(d.video_data.max_memory_frame_size_bytes).align_to(d.properties.caps.minBitstreamBufferOffsetAlignment)
+	aligned_frame_size =
+		U64(aligned_frame_size).align_to(d.properties.caps.minBitstreamBufferSizeAlignment)
 	d.video_data.max_memory_frame_size_bytes = aligned_frame_size
 	video_decoder_queue_family_index := dev_ctx.get_decoder_queue_family_index()
 	buffer_size := d.video_data.max_memory_frame_size_bytes * num_memory_frames
@@ -108,26 +114,29 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 		pVideoProfile:              &d.settings.profile_info
 		pictureFormat:              d.properties.format_props.format
 		maxCodedExtent:             vk.Extent2D{
-			width:  math.min(d.video_data.width, d.properties.caps.maxCodedExtent.width)
-			height: math.min(d.video_data.height, d.properties.caps.maxCodedExtent.height)
+			width:  d.video_data.width_padd
+			height: d.video_data.height_padd
 		}
 		referencePictureFormat:     d.properties.dpb_format_props.format
 		maxDpbSlots:                d.video_data.num_dpb_slots
 		maxActiveReferencePictures: d.video_data.max_reference_pictures
 		pStdHeaderVersion:          &d.properties.caps.stdHeaderVersion
 	}
-	res = vk.create_video_session_khr(dev_ctx.vk_device, &session_ci, unsafe { nil }, &d.video_session)
+	res = vk.create_video_session_khr(dev_ctx.vk_device, &session_ci, unsafe { nil },
+		&d.video_session)
 	if res != vk.Result.success {
 		panic('Could not create the Vulkan Video H.264 decode session: ${res}')
 	}
 
 	mut requirement_count := u32(0)
 	mut n := unsafe { nil }
-	vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session, &requirement_count, mut n)
+	vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session,
+		&requirement_count, mut n)
 	mut requirements := []vk.VideoSessionMemoryRequirementsKHR{len: int(requirement_count), init: vk.VideoSessionMemoryRequirementsKHR{}}
 
 	mut requirements_data := requirements.data
-	res = vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session, &requirement_count, mut requirements_data)
+	res = vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session,
+		&requirement_count, mut requirements_data)
 	if res != vk.Result.success {
 		panic('Could not query Vulkan Video session memory requirements: ${res}')
 	}
@@ -140,7 +149,8 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 		// Video-session memory is opaque driver storage. The requirement's
 		// memoryTypeBits is authoritative; some drivers expose a dedicated type
 		// without VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT for this binding.
-		memory_type_index := dev_ctx.memory_allocator.get_memory_type(req.memoryRequirements.memoryTypeBits, vk.MemoryPropertyFlags(0))
+		memory_type_index := dev_ctx.memory_allocator.get_memory_type(req.memoryRequirements.memoryTypeBits,
+			vk.MemoryPropertyFlags(0))
 		if memory_type_index == max_u32 {
 			panic('No compatible Vulkan memory type exists for video-session binding ${req.memoryBindIndex}')
 		}
@@ -166,11 +176,13 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	// Resolve this extension command from the device directly. When another
 	// shared object links libvulkan, ELF symbol interposition can otherwise
 	// make Volk's same-named global dispatch slot unreliable.
-	bind_session_memory_fn := vk.PFN_vkBindVideoSessionMemoryKHR(vk.get_device_proc_addr(dev_ctx.vk_device, c'vkBindVideoSessionMemoryKHR'))
+	bind_session_memory_fn := vk.PFN_vkBindVideoSessionMemoryKHR(vk.get_device_proc_addr(dev_ctx.vk_device,
+		c'vkBindVideoSessionMemoryKHR'))
 	if isnil(voidptr(bind_session_memory_fn)) {
 		panic('vkGetDeviceProcAddr returned null for vkBindVideoSessionMemoryKHR')
 	}
-	res = bind_session_memory_fn(dev_ctx.vk_device, d.video_session, u32(bind_session_memory_infos.len), bind_session_memory_infos.data)
+	res = bind_session_memory_fn(dev_ctx.vk_device, d.video_session,
+		u32(bind_session_memory_infos.len), bind_session_memory_infos.data)
 	if res != vk.Result.success {
 		panic('Could not bind Vulkan Video session memory: ${res}')
 	}
@@ -228,8 +240,8 @@ fn (mut d Decoder) prepare_decoded_picture_buffer(device vk.Device, mut allocato
 		imageType:             vk.ImageType._2d
 		format:                d.properties.dpb_format_props.format
 		extent:                vk.Extent3D{
-			width:  d.video_data.width
-			height: d.video_data.height
+			width:  d.video_data.width_padd
+			height: d.video_data.height_padd
 			depth:  1
 		}
 		mipLevels:             1
@@ -301,12 +313,20 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		for j in 0 .. pps.use_default_scaling_matrix_4x4_flag.len {
 			video_scaling_list_pps[i].use_default_scaling_matrix_mask |= u16(pps.use_default_scaling_matrix_4x4_flag[j]) << j
 		}
+		for j in 0 .. pps.use_default_scaling_matrix_8x8_flag.len {
+			video_scaling_list_pps[i].use_default_scaling_matrix_mask |= u16(pps.use_default_scaling_matrix_8x8_flag[j]) << (
+				j + 6)
+		}
 		mut list_idx := 0
 		mut el_idx := 0
-		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists && list_idx < pps.scaling_list_4x4.len {
-			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements && el_idx < pps.scaling_list_4x4[0].len {
+		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists
+			&& list_idx < pps.scaling_list_4x4.len {
+			el_idx = 0
+			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements
+				&& el_idx < pps.scaling_list_4x4[0].len {
 				unsafe {
-					C.vv_set_h264_scaling_list_4x4(&video_scaling_list_pps[i], u32(list_idx), u32(el_idx), u8(pps.scaling_list_4x4[list_idx][el_idx]))
+					C.vv_set_h264_scaling_list_4x4(&video_scaling_list_pps[i], u32(list_idx),
+						u32(el_idx), u8(pps.scaling_list_4x4[list_idx][el_idx]))
 				}
 				el_idx++
 			}
@@ -314,10 +334,14 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		}
 		list_idx = 0
 		el_idx = 0
-		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists && list_idx < pps.scaling_list_8x8.len {
-			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements && el_idx < pps.scaling_list_8x8[0].len {
+		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists
+			&& list_idx < pps.scaling_list_8x8.len {
+			el_idx = 0
+			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements
+				&& el_idx < pps.scaling_list_8x8[0].len {
 				unsafe {
-					C.vv_set_h264_scaling_list_8x8(&video_scaling_list_pps[i], u32(list_idx), u32(el_idx), u8(pps.scaling_list_8x8[list_idx][el_idx]))
+					C.vv_set_h264_scaling_list_8x8(&video_scaling_list_pps[i], u32(list_idx),
+						u32(el_idx), u8(pps.scaling_list_8x8[list_idx][el_idx]))
 				}
 				el_idx++
 			}
@@ -368,7 +392,7 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		sps := unsafe { &h264.SequenceParameterSet(&d.video_data.sps_bytes[sps_offset]) }
 
 		video_sequence_parameter_set[i] = vk.StdVideoH264SequenceParameterSet{
-			flags:                                 vk.StdVideoH264SpsFlags{
+			flags: vk.StdVideoH264SpsFlags{
 				constraint_set0_flag:                 sps.constraint_set0_flag
 				constraint_set1_flag:                 sps.constraint_set1_flag
 				constraint_set2_flag:                 sps.constraint_set2_flag
@@ -388,8 +412,9 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 			}
 			// Note: There is no 0 in StdVideoH264ProfileIdc enum
 			profile_idc:                           unsafe { vk.StdVideoH264ProfileIdc(sps.profile_idc) }
-			level_idc:                             unsafe { vk.StdVideoH264LevelIdc(sps.level_idc) }
-			chroma_format_idc:                     get_chroma_format(sps.profile_idc, sps.chroma_format_idc)
+			level_idc:                             std_h264_level_idc(sps.level_idc)
+			chroma_format_idc:                     get_chroma_format(sps.profile_idc,
+				sps.chroma_format_idc)
 			seq_parameter_set_id:                  u8(sps.seq_parameter_set_id)
 			bit_depth_luma_minus8:                 u8(sps.bit_depth_luma_minus8)
 			bit_depth_chroma_minus8:               u8(sps.bit_depth_chroma_minus8)
@@ -449,9 +474,9 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 
 		hrd := &sps.hrd
 		video_hrd_parameters[i] = vk.StdVideoH264HrdParameters{
-			cpb_cnt_minus1:                          u8(hrd.cpb_cnt_minus1)
-			bit_rate_scale:                          u8(hrd.bit_rate_scale)
-			cpb_size_scale:                          u8(hrd.cpb_size_scale)
+			cpb_cnt_minus1: u8(hrd.cpb_cnt_minus1)
+			bit_rate_scale: u8(hrd.bit_rate_scale)
+			cpb_size_scale: u8(hrd.cpb_size_scale)
 			// reserved1: u8(0)
 			// bit_rate_value_minus1: [u32(0)]
 			// cpb_size_value_minus1: [u32(0)]
@@ -476,13 +501,21 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		for j in 0 .. sps.use_default_scaling_matrix_4x4_flag.len {
 			video_scaling_list_sps[i].use_default_scaling_matrix_mask |= u16(sps.use_default_scaling_matrix_4x4_flag[j]) << j
 		}
+		for j in 0 .. sps.use_default_scaling_matrix_8x8_flag.len {
+			video_scaling_list_sps[i].use_default_scaling_matrix_mask |= u16(sps.use_default_scaling_matrix_8x8_flag[j]) << (
+				j + 6)
+		}
 
 		mut list_idx := 0
 		mut el_idx := 0
-		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists && list_idx < sps.scaling_list_4x4.len {
-			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements && el_idx < sps.scaling_list_4x4[0].len {
+		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists
+			&& list_idx < sps.scaling_list_4x4.len {
+			el_idx = 0
+			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements
+				&& el_idx < sps.scaling_list_4x4[0].len {
 				unsafe {
-					C.vv_set_h264_scaling_list_4x4(&video_scaling_list_sps[i], u32(list_idx), u32(el_idx), u8(sps.scaling_list_4x4[list_idx][el_idx]))
+					C.vv_set_h264_scaling_list_4x4(&video_scaling_list_sps[i], u32(list_idx),
+						u32(el_idx), u8(sps.scaling_list_4x4[list_idx][el_idx]))
 				}
 				el_idx++
 			}
@@ -491,10 +524,14 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 
 		list_idx = 0
 		el_idx = 0
-		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists && list_idx < sps.scaling_list_8x8.len {
-			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements && el_idx < sps.scaling_list_8x8[0].len {
+		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists
+			&& list_idx < sps.scaling_list_8x8.len {
+			el_idx = 0
+			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements
+				&& el_idx < sps.scaling_list_8x8[0].len {
 				unsafe {
-					C.vv_set_h264_scaling_list_8x8(&video_scaling_list_sps[i], u32(list_idx), u32(el_idx), u8(sps.scaling_list_8x8[list_idx][el_idx]))
+					C.vv_set_h264_scaling_list_8x8(&video_scaling_list_sps[i], u32(list_idx),
+						u32(el_idx), u8(sps.scaling_list_8x8[list_idx][el_idx]))
 				}
 				el_idx++
 			}
@@ -520,7 +557,8 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		videoSession:                   d.video_session
 	}
 
-	res := vk.create_video_session_parameters_khr(device, &video_session_parameters_ci, unsafe { nil }, &d.video_session_parameters)
+	res := vk.create_video_session_parameters_khr(device, &video_session_parameters_ci,
+		unsafe { nil }, &d.video_session_parameters)
 	if res != vk.Result.success {
 		panic('Could not create H.264 video-session parameters: ${res}')
 	}
