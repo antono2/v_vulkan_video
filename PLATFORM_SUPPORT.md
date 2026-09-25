@@ -45,9 +45,13 @@ The DPB applies sliding-window marking and explicit MMCO 1–6, including
 long-term references. The bundled 360p stream exercises MMCO 1 on the tested
 Linux GPU. The external `MR2_TANDBERG_E` conformance stream exercises MMCO 5
 and long-term operations 3, 4, and 6; `FRExt_MMCO4_Sony_B` exercises long-term
-operations 2, 3, 4, and 6. Both played on the Linux GTX 1060 in a debug build
-for eight seconds without reported validation errors. This is a playback smoke
-check; decoded frame pixels were not compared with a reference decoder.
+operations 2, 3, 4, and 6. On the Linux GTX 1060, decoded NV12 output matched
+FFmpeg byte for byte for all 300 Tandberg frames and all 60 Sony frames. The
+bundled four-slice and ID-7 fixtures also matched for all 24 and 5 frames.
+The Sony comparison exposed a scaling-list bug: the pinned H.264 parser set
+the SPS list-presence flags but left the list values at zero. The player now
+[fills the validated lists](h264_parameter_sets.v#L77) before creating
+[Vulkan session parameters](decoder_session.v#L303).
 
 AVC samples with 1, 2, or 4 byte NAL length prefixes are accepted. The parser
 skips metadata-only samples, checks every slice in a sample belongs to the
@@ -113,6 +117,24 @@ ffmpeg -r 25 -i FRExt_MMCO4_Sony_B.264 -c:v copy FRExt_MMCO4_Sony_B.mp4
 The files are external conformance media and are not included in the repository.
 Inspect `memory_management_control_operation` with FFmpeg's `trace_headers`
 bitstream filter to confirm which operations each stream contains.
+
+To compare decoded pixels, set `VV_DUMP_NV12_DIR` to an empty directory before
+running the player. The [readback path](frame_readback.v#L48) copies the first
+playback loop's decoded images to display-order `N.nv12` files. Run the
+[comparison script](scripts/compare_nv12.py#L25) against the original H.264
+elementary stream for the Sony case: FFmpeg's MP4 remux has nonmonotonic
+timestamps and drops frames when exporting raw video.
+
+```sh
+VV_DUMP_NV12_DIR=/tmp/sony-nv12 ./v_vulkan_video FRExt_MMCO4_Sony_B.mp4
+python3 scripts/compare_nv12.py FRExt_MMCO4_Sony_B.264 /tmp/sony-nv12
+```
+
+The readback waits for decode fences, invalidates mapped memory, and writes
+only the first playback loop. It costs extra GPU memory and stalls that loop;
+leave the environment variable unset for normal playback. An exact match
+checks decoded NV12 bytes and display order on this GPU. It does not verify
+the YCbCr-to-RGB rendering or another driver's decode implementation.
 
 Before calling a platform supported for release, run at least:
 

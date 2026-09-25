@@ -8,7 +8,7 @@ The chosen MP4 may require a profile that another file does not.
 ## The selection path
 
 After parsing, [`VideoDecodeApp.initialize`](../../app.v#L147) obtains the stream's
-[decode requirements](../../video_player.v#L603): profile, level, coded extent,
+[decode requirements](../../video_player.v#L606): profile, level, coded extent,
 DPB slots, and active references. It asks
 [`h264_decode_gpu_diagnostics_for_output_mode`](../../device_context.v#L419)
 for diagnostics for every GPU. [`--list-gpus`](../../app.v#L187) exposes those
@@ -33,8 +33,8 @@ creating a session.
 The [SPS macroblock dimensions](../../mp4_parser.v#L143) supply the coded
 extent, which can be larger than the visible image after H.264 cropping.
 The [session extent](../../decoder_session.v#L116) and
-[decode picture resources](../../player_decode.v#L467) use those coded
-dimensions; the [display copy](../../player_decode.v#L271) uses the visible
+[decode picture resources](../../player_decode.v#L469) use those coded
+dimensions; the [display copy](../../player_decode.v#L272) uses the visible
 dimensions.
 
 [`initialize_device`](../../device_context.v#L154) then chooses queue families and
@@ -50,8 +50,8 @@ the decoded output is a DPB image. In *distinct* mode, the output and DPB
 images are separate. `auto` prefers coincident and falls back to distinct;
 forced modes aid driver validation and fail if unsupported. The choice is made
 by [`select_decode_output_mode`](../../video_player.v#L18), with software tests
-for [automatic fallback](../../video_player_test.v#L333) and
-[forced modes](../../video_player_test.v#L338).
+for [automatic fallback](../../video_player_test.v#L334) and
+[forced modes](../../video_player_test.v#L339).
 
 ```mermaid
 flowchart TD

@@ -329,6 +329,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		nal_payload_bs.init(nal_payload_rbsp_data)
 		mut sps := h264.SequenceParameterSet{}
 		sps.read_sps(mut nal_payload_bs)
+		populate_sps_scaling_lists(nal_payload_rbsp_data, mut sps)!
 		for prior in sps_array {
 			if prior.seq_parameter_set_id == sps.seq_parameter_set_id {
 				return error('duplicate H.264 SPS id ${sps.seq_parameter_set_id}')
@@ -429,6 +430,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 
 		mut pps := h264.PictureParameterSet{}
 		pps.read_pps(mut pps_payload_bs)
+		populate_pps_scaling_lists(pps_payload_rbsp_data, mut pps)!
 		for prior in pps_array {
 			if prior.pic_parameter_set_id == pps.pic_parameter_set_id {
 				return error('duplicate H.264 PPS id ${pps.pic_parameter_set_id}')

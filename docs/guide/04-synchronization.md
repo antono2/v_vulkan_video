@@ -35,8 +35,8 @@ sequenceDiagram
     Graphics->>Graphics: Sample image and render swapchain
 ```
 
-Image barriers in [`video_decode_pre_barrier`](../../player_decode.v#L357) and
-[`copy_decoded_frame_to_output`](../../player_decode.v#L204) describe access and
+Image barriers in [`video_decode_pre_barrier`](../../player_decode.v#L359) and
+[`copy_decoded_frame_to_output`](../../player_decode.v#L205) describe access and
 layout transitions. The semaphore orders work between queues. These solve
 different problems: a layout name alone does not wait for a prior queue's
 writes, and a semaphore alone does not describe the next image layout.

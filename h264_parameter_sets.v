@@ -1,5 +1,7 @@
 module main
 
+import antono2.h264
+
 // The pinned H.264 parser reads past truncated RBSPs as zero bits and has
 // fixed-size arrays for POC cycles and HRD entries. Check those boundaries
 // before passing untrusted MP4 parameter sets to it.
@@ -48,6 +50,115 @@ fn (mut bits CheckedH264Bits) scaling_list(size int) ! {
 			next = (last + bits.se()! + 256) % 256
 		}
 		last = if next == 0 { last } else { next }
+	}
+}
+
+fn (mut bits CheckedH264Bits) scaling_list_values(size int) !([]u8, bool) {
+	mut values := []u8{len: size}
+	mut last := 8
+	mut next := 8
+	mut use_default := false
+	for i in 0 .. size {
+		if next != 0 {
+			next = (last + bits.se()! + 256) % 256
+			if i == 0 && next == 0 {
+				use_default = true
+			}
+		}
+		values[i] = u8(if next == 0 { last } else { next })
+		last = int(values[i])
+	}
+	return values, use_default
+}
+
+// The pinned parser records scaling-list presence but its fixed-array slice
+// writes do not persist the list values. Re-read the validated syntax into the
+// actual SPS arrays used to build Vulkan session parameters.
+fn populate_sps_scaling_lists(payload []u8, mut sps h264.SequenceParameterSet) ! {
+	mut bits := CheckedH264Bits{
+		data: payload
+	}
+	profile := bits.read(8)!
+	_ = bits.read(16)!
+	_ = bits.ue()!
+	if profile != 100 {
+		return
+	}
+	chroma := bits.ue()!
+	if chroma == 3 {
+		_ = bits.read(1)!
+	}
+	_ = bits.ue()!
+	_ = bits.ue()!
+	_ = bits.read(1)!
+	if bits.read(1)! == 0 {
+		return
+	}
+	for i in 0 .. 8 {
+		if bits.read(1)! == 0 {
+			continue
+		}
+		values, use_default := bits.scaling_list_values(if i < 6 { 16 } else { 64 })!
+		if i < 6 {
+			for j, value in values {
+				sps.scaling_list_4x4[i][j] = int(value)
+			}
+			sps.use_default_scaling_matrix_4x4_flag[i] = if use_default { u32(1) } else { u32(0) }
+		} else {
+			for j, value in values {
+				sps.scaling_list_8x8[i - 6][j] = int(value)
+			}
+			sps.use_default_scaling_matrix_8x8_flag[i - 6] = if use_default {
+				u32(1)
+			} else {
+				u32(0)
+			}
+		}
+	}
+}
+
+fn populate_pps_scaling_lists(payload []u8, mut pps h264.PictureParameterSet) ! {
+	mut bits := CheckedH264Bits{
+		data: payload
+	}
+	_ = bits.ue()!
+	_ = bits.ue()!
+	_ = bits.read(2)!
+	_ = bits.ue()! // slice groups: preflight rejected nonzero values
+	_ = bits.ue()!
+	_ = bits.ue()!
+	_ = bits.read(3)!
+	_ = bits.se()!
+	_ = bits.se()!
+	_ = bits.se()!
+	_ = bits.read(3)!
+	if !bits.has_more_rbsp_data()! {
+		return
+	}
+	transform_8x8 := bits.read(1)!
+	if bits.read(1)! == 0 {
+		return
+	}
+	for i in 0 .. 6 + int(transform_8x8) * 2 {
+		if bits.read(1)! == 0 {
+			continue
+		}
+		values, use_default := bits.scaling_list_values(if i < 6 { 16 } else { 64 })!
+		if i < 6 {
+			for j, value in values {
+				pps.scaling_list_4x4[i][j] = int(value)
+			}
+			pps.use_default_scaling_matrix_4x4_flag[i] = if use_default { u32(1) } else { u32(0) }
+		} else {
+			for j, value in values {
+				pps.scaling_list_8x8[i - 6][j] = int(value)
+			}
+			pps.use_default_scaling_matrix_8x8_flag[i - 6] = if use_default {
+				u32(1)
+			} else {
+				u32(0)
+			}
+		}
 	}
 }
 

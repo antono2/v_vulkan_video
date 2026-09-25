@@ -30,7 +30,7 @@ reordered image can cause a burst of frames when it arrives.
 ## Color and geometry are media data
 
 [the MP4 track parse](../../mp4_parser.v#L304) stores the track matrix and
-[H.264 video usability metadata](../../mp4_parser.v#L378).
+[H.264 video usability metadata](../../mp4_parser.v#L379).
 [`ycbcr_model_for_video`](../../device_context.v#L348)
 chooses a Vulkan YCbCr model from signaled matrix coefficients, with a
 resolution-based fallback when no description is present. The Vulkan sampler
@@ -42,10 +42,10 @@ not encoded as sRGB a second time.
 letterboxing based on display dimensions. Those dimensions incorporate sample
 aspect ratio before rotation. The picture can therefore have a coded width,
 a display width, and a window width that differ. Tests cover
-[track matrices](../../video_player_test.v#L422),
-[sample aspect ratio](../../video_player_test.v#L377),
-[conversion choices](../../video_player_test.v#L394), and
-[portrait letterboxing](../../video_player_test.v#L656).
+[track matrices](../../video_player_test.v#L423),
+[sample aspect ratio](../../video_player_test.v#L378),
+[conversion choices](../../video_player_test.v#L395), and
+[portrait letterboxing](../../video_player_test.v#L657).
 
 ```mermaid
 flowchart LR

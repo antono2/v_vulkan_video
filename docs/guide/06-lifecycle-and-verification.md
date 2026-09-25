@@ -50,11 +50,20 @@ every parser or timing change, then use short media fixtures with B-frames,
 rotation, and different color metadata on an actual decode-capable GPU.
 The [four-slice fixture](../../res/README.md#test-media) exercises access-unit
 assembly and picture-consistency checks; its
-[parser test](../../video_player_test.v#L503) runs without a GPU.
+[parser test](../../video_player_test.v#L504) runs without a GPU.
 The [reference-marking conformance streams](../../PLATFORM_SUPPORT.md#hardware-validation-checklist)
 exercise MMCO 5 and long-term operations on real hardware after remuxing to
-MP4. A clean validation-layer run checks API use; a frame-by-frame comparison
-with a reference decoder is still needed to establish pixel correctness.
+MP4. The optional [NV12 readback](../../frame_readback.v#L48) and
+[comparison script](../../scripts/compare_nv12.py#L25) test decoded bytes
+against FFmpeg in display order. This exposed custom H.264 scaling lists
+whose values were lost by the pinned parser; the player now
+[populates those lists](../../h264_parameter_sets.v#L77), and a
+[software test](../../video_player_test.v#L695) covers SPS and PPS examples.
+The four Linux GPU comparisons in
+[Platform Support](../../PLATFORM_SUPPORT.md#supported-media-and-failure-behavior)
+matched byte for byte. A clean validation-layer run checks API use; pixel
+comparison checks those decoded streams on the tested GPU. Neither establishes
+correctness on all drivers or in the final color-converted window image.
 
 ## Transfer the approach
 

@@ -88,6 +88,7 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 	upload_fence := vp.video_frames[use_frame_index].in_flight_fence
 	res_wait := vk.wait_for_fences(dev_ctx.vk_device, 1, &upload_fence, vk._true, max_u64)
 	check_vk(res_wait, 'Could not wait for decoded-frame fence')
+	vp.write_frame_readback(use_frame_index)!
 	res_reset := vk.reset_fences(dev_ctx.vk_device, 1, &upload_fence)
 	check_vk(res_reset, 'Could not reset decoded-frame fence')
 	vp.video_frames[use_frame_index].gpu_bitstream_size = 0
@@ -299,6 +300,7 @@ fn (mut vp VideoPlayer) copy_decoded_frame_to_output(command_buffer vk.CommandBu
 		pRegions:       regions.data
 	}
 	vk.cmd_copy_image2(command_buffer, &copy_info)
+	vp.record_frame_readback(command_buffer, source_image)
 	output.layout = .transfer_dst_optimal
 	output.is_new = false
 

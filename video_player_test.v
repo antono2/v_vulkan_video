@@ -2,6 +2,7 @@ module main
 
 import antono2.minimp4
 import antono2.h264
+import encoding.hex
 import os
 import antono2.vulkan as vk
 
@@ -689,4 +690,33 @@ fn test_parser_keeps_nonzero_parameter_set_ids_for_runtime_lookup() {
 		}
 		assert header.pic_parameter_set_id == 7
 	}
+}
+
+fn test_custom_h264_scaling_lists_reach_vulkan_parameter_structs() {
+	// SPS from the FRExt_MMCO4_Sony_B conformance stream. Its eight custom
+	// lists exposed the pinned parser's fixed-array slice-write bug.
+	sps_nal :=
+		hex.decode('2764001fad9464763b8ac4444a323b1dc5622225191d8ee2b11114222b373669a844566e6cd35088acdcd9a69444cd1b9bc57c9f93f9bf27c9e4e4cd251a4689c9ebe4fd7f27ebe4f5c9a906c694160964')!
+	sps_rbsp := unsafe { remove_emulation_prevention_bytes(byteptr(sps_nal.data) + 1,
+		sps_nal.len - 1) }
+	validate_sps_rbsp(sps_rbsp)!
+	mut sps_bits := h264.Bitstream{}
+	sps_bits.init(sps_rbsp)
+	mut sps := h264.SequenceParameterSet{}
+	sps.read_sps(mut sps_bits)
+	populate_sps_scaling_lists(sps_rbsp, mut sps)!
+	assert sps.scaling_list_4x4[0][..4] == [i32(6), 12, 12, 19]
+	assert sps.scaling_list_8x8[0][..4] == [i32(6), 10, 10, 13]
+	assert sps.scaling_list_8x8[1][0] != 0
+
+	// A minimal PPS with one custom 4x4 list of sixteen eights.
+	pps_rbsp := hex.decode('ce3c7fffe0c0')!
+	validate_pps_rbsp(pps_rbsp)!
+	mut pps_bits := h264.Bitstream{}
+	pps_bits.init(pps_rbsp)
+	mut pps := h264.PictureParameterSet{}
+	pps.read_pps(mut pps_bits)
+	populate_pps_scaling_lists(pps_rbsp, mut pps)!
+	assert pps.pic_scaling_matrix_present_flag == 1
+	assert pps.scaling_list_4x4[0][..4] == [i32(8), 8, 8, 8]
 }

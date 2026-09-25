@@ -313,10 +313,15 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		for j in 0 .. pps.use_default_scaling_matrix_4x4_flag.len {
 			video_scaling_list_pps[i].use_default_scaling_matrix_mask |= u16(pps.use_default_scaling_matrix_4x4_flag[j]) << j
 		}
+		for j in 0 .. pps.use_default_scaling_matrix_8x8_flag.len {
+			video_scaling_list_pps[i].use_default_scaling_matrix_mask |= u16(pps.use_default_scaling_matrix_8x8_flag[j]) << (
+				j + 6)
+		}
 		mut list_idx := 0
 		mut el_idx := 0
 		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists
 			&& list_idx < pps.scaling_list_4x4.len {
+			el_idx = 0
 			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements
 				&& el_idx < pps.scaling_list_4x4[0].len {
 				unsafe {
@@ -331,6 +336,7 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		el_idx = 0
 		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists
 			&& list_idx < pps.scaling_list_8x8.len {
+			el_idx = 0
 			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements
 				&& el_idx < pps.scaling_list_8x8[0].len {
 				unsafe {
@@ -495,11 +501,16 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		for j in 0 .. sps.use_default_scaling_matrix_4x4_flag.len {
 			video_scaling_list_sps[i].use_default_scaling_matrix_mask |= u16(sps.use_default_scaling_matrix_4x4_flag[j]) << j
 		}
+		for j in 0 .. sps.use_default_scaling_matrix_8x8_flag.len {
+			video_scaling_list_sps[i].use_default_scaling_matrix_mask |= u16(sps.use_default_scaling_matrix_8x8_flag[j]) << (
+				j + 6)
+		}
 
 		mut list_idx := 0
 		mut el_idx := 0
 		for list_idx < vk.std_video_h264_scaling_list_4x4_num_lists
 			&& list_idx < sps.scaling_list_4x4.len {
+			el_idx = 0
 			for el_idx < vk.std_video_h264_scaling_list_4x4_num_elements
 				&& el_idx < sps.scaling_list_4x4[0].len {
 				unsafe {
@@ -515,6 +526,7 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 		el_idx = 0
 		for list_idx < vk.std_video_h264_scaling_list_8x8_num_lists
 			&& list_idx < sps.scaling_list_8x8.len {
+			el_idx = 0
 			for el_idx < vk.std_video_h264_scaling_list_8x8_num_elements
 				&& el_idx < sps.scaling_list_8x8[0].len {
 				unsafe {

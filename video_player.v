@@ -62,6 +62,9 @@ mut:
 	current_frame             int
 	flags                     u32
 	video_frames              []VideoPlayerDecodeStreamFrame
+	frame_readbacks           []FrameReadback
+	frame_readback_dir        string
+	frame_readback_done       bool
 	decode_output_image       Image
 	decode_output_state       DPBResourceState
 	playback_timeline         PlaybackTimeline
@@ -700,6 +703,7 @@ fn (mut vp VideoPlayer) initialize(mut app VideoDecodeApp) {
 	for _ in 0 .. output_texture_count {
 		vp.create_output_image()
 	}
+	vp.initialize_frame_readback()
 	println('Presentation queue: ${vp.presentation_buffer_count} reorder images, ${output_texture_count} images total')
 	if !vp.decoder.properties.dpb_and_output_coincide {
 		vp.create_decode_output_image()
@@ -780,6 +784,7 @@ fn (mut vp VideoPlayer) shutdown() {
 			frame.in_flight_fence = unsafe { nil }
 		}
 	}
+	vp.release_frame_readback()
 	lock vp.decoder {
 		for mut output in vp.output_textures {
 			if !isnil(output.texture.view) {

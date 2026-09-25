@@ -184,4 +184,7 @@ fn (mut vp VideoPlayer) update(graphics_cmd_buffer vk.CommandBuffer, time_elapse
 	res_graphics := vk.queue_submit(dev_ctx.get_queue(.graphics), 1, &sumbit_info_graphics,
 		unsafe { nil })
 	check_vk(res_graphics, 'Could not submit decoded frame for graphics use')
+	if vp.decode_finished {
+		vp.finish_frame_readback() or { panic('Could not save decoded frames: ${err}') }
+	}
 }
