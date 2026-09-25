@@ -136,6 +136,15 @@ leave the environment variable unset for normal playback. An exact match
 checks decoded NV12 bytes and display order on this GPU. It does not verify
 the YCbCr-to-RGB rendering or another driver's decode implementation.
 
+The rendered window was checked separately on the same GPU. An X11 capture of
+the bundled ID-7 color-bar fixture (BT.601 limited-range fallback) was compared
+with FFmpeg's RGB output at nine interior pixels. A generated H.264
+`smptehdbars` clip signaling BT.709 and full range was compared at eight
+interior pixels, with FFmpeg's scale filter explicitly set to BT.709/full
+input. The largest per-channel difference was 2 in 8-bit RGB in both checks.
+These spot checks cover the two indicated conversion paths, not every output
+pixel, chroma edge, display compositor, or GPU driver.
+
 Before calling a platform supported for release, run at least:
 
 - playback through multiple loops;
