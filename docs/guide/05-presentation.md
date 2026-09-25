@@ -30,7 +30,7 @@ reordered image can cause a burst of frames when it arrives.
 ## Color and geometry are media data
 
 [the MP4 track parse](../../mp4_parser.v#L304) stores the track matrix and
-[H.264 video usability metadata](../../mp4_parser.v#L374).
+[H.264 video usability metadata](../../mp4_parser.v#L378).
 [`ycbcr_model_for_video`](../../device_context.v#L348)
 chooses a Vulkan YCbCr model from signaled matrix coefficients, with a
 resolution-based fallback when no description is present. The Vulkan sampler

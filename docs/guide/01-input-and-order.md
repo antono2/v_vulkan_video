@@ -35,14 +35,14 @@ does not have to equal its position in the MP4 parameter-set list.
 MP4 AVC samples store each NAL with a length prefix. The demux binding does
 not expose the avcC prefix width, so the parser [detects a complete 1, 2, or
 4 byte layout](../../mp4_parser.v#L90) in the first sample and uses that width
-for both [parsing](../../mp4_parser.v#L516) and
+for both [parsing](../../mp4_parser.v#L524) and
 [GPU upload](../../player_decode.v#L560). Samples containing only metadata
-are [left out of the picture list](../../mp4_parser.v#L698), keeping slice
+are [left out of the picture list](../../mp4_parser.v#L710), keeping slice
 headers aligned with decode indices. The
 [checked slice reader](../../h264_slice.v#L122) honors weighted prediction
 reference counts and rejects invalid reference marking; the pinned H.264
 dependency's reader does not consume the full weighted table.
-The parser [counts every slice's Annex B bytes](../../mp4_parser.v#L562)
+The parser [counts every slice's Annex B bytes](../../mp4_parser.v#L574)
 before sizing the upload buffer; several short MP4 length prefixes can expand
 into several four-byte start codes.
 It [checks each later slice](../../mp4_parser.v#L131) against the first slice's
@@ -62,7 +62,7 @@ flowchart LR
     B --> C[Display: 0, 1, 2, 3, 4, 5, 6]
 ```
 
-[the display-order pass](../../mp4_parser.v#L712) assigns a display order to each
+[the display-order pass](../../mp4_parser.v#L724) assigns a display order to each
 picture while preserving decode order for the decoder. The DPB retains
 reference pictures for the codec; the output-image queue retains decoded
 pictures waiting for presentation. Those are different lifetimes. The

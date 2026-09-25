@@ -313,6 +313,10 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		if num_bytes_sps <= 1 {
 			return error('H.264 track contains an invalid sequence parameter set')
 		}
+		sps_header := unsafe { byteptr(data_sps)[0] }
+		if sps_header & 0x80 != 0 || sps_header & 0x1f != 7 {
+			return error('H.264 track contains an invalid SPS NAL header')
+		}
 		mut nal := h264.NetworkAbstractionLayerHeader{}
 		mut nal_header_bs := h264.Bitstream{}
 		nal_header_bs.init(unsafe { data_sps.vbytes(1) })
@@ -406,6 +410,10 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 	for !isnil(data_pps) {
 		if size_pps <= 1 {
 			return error('H.264 track contains an invalid picture parameter set')
+		}
+		pps_header := unsafe { byteptr(data_pps)[0] }
+		if pps_header & 0x80 != 0 || pps_header & 0x1f != 8 {
+			return error('H.264 track contains an invalid PPS NAL header')
 		}
 		mut nal := h264.NetworkAbstractionLayerHeader{}
 		mut nal_header_bs := h264.Bitstream{}
@@ -523,6 +531,10 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			length_prefixed_data_size := nal_size
 			if length_prefixed_data_size <= 1 {
 				return error('MP4 sample ${sample_index} contains an empty H.264 NAL unit')
+			}
+			nal_header := src_buffer[length_prefixed_data_offset]
+			if nal_header & 0x80 != 0 || nal_header & 0x1f == 0 {
+				return error('MP4 sample ${sample_index} contains an invalid H.264 NAL header')
 			}
 
 			mut nal := h264.NetworkAbstractionLayerHeader{}
