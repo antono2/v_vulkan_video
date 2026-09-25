@@ -7,7 +7,7 @@ The application supports either a shared or static Dear ImGui binding. The
 shared configuration is the distribution default because it keeps C++ and
 Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
 
-Release candidate CI uses V 0.5.2, `antono2.vulkan@v2.0.0`, and fixed
+Release candidate CI uses V 0.5.2, `antono2.vulkan@v3.2.0`, and fixed
 revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
