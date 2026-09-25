@@ -40,7 +40,7 @@ fn (mut vp VideoPlayer) initialize_frame_readback() {
 		mut mapped := voidptr(unsafe { nil })
 		check_vk(vp.app.device_context.memory_allocator.map(mut frame.allocation, &mapped),
 			'Could not map decoded-frame readback buffer')
-		frame.mapped = byteptr(mapped)
+		frame.mapped = unsafe { byteptr(mapped) }
 	}
 	eprintln('Decoded NV12 readback enabled: ${vp.frame_readback_dir}')
 }
@@ -87,7 +87,7 @@ fn (mut vp VideoPlayer) record_frame_readback(command_buffer vk.CommandBuffer, s
 	}
 	vk.cmd_copy_image_to_buffer2(command_buffer, &copy_info)
 	family := vp.app.device_context.get_decoder_queue_family_index()
-	barrier := vk.BufferMemoryBarrier2{
+	mut barrier := vk.BufferMemoryBarrier2{
 		srcStageMask:        vk.pipeline_stage_2_transfer_bit
 		srcAccessMask:       vk.access_2_transfer_write_bit
 		dstStageMask:        vk.pipeline_stage_2_host_bit
