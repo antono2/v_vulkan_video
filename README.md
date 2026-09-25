@@ -86,10 +86,10 @@ and follow the chapters that match the problem you are solving.
 v test .
 ```
 
-The software-only tests cover MP4 metadata and validation, H.264 picture order,
-malformed and truncated inputs, playback timing, looping, and command-line
-parsing. Vulkan decode, synchronization, resize, and presentation still
-require hardware with Vulkan Video support.
+The software-only tests cover MP4 metadata and validation, H.264 parameter sets,
+multi-slice pictures, picture order, malformed and truncated inputs, playback
+timing, looping, and command-line parsing. Vulkan decode, synchronization,
+resize, and presentation still require hardware with Vulkan Video support.
 
 ## License
 

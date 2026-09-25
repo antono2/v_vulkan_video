@@ -124,13 +124,34 @@ fn validate_slice_parameter_sets(payload []u8, pps_array []h264.PictureParameter
 	bits.ue() // first_mb_in_slice
 	bits.ue() // slice_type
 	pps_id := bits.ue()
-	if pps_id >= u32(pps_array.len) {
-		return error('H.264 slice references missing PPS ${pps_id}')
+	pps := h264_pps_by_id(pps_array, pps_id)!
+	_ = h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
+}
+
+fn validate_same_picture(first &h264.SliceHeader, next &h264.SliceHeader,
+	first_nal &h264.NetworkAbstractionLayerHeader, next_nal &h264.NetworkAbstractionLayerHeader) ! {
+	if first.pic_parameter_set_id != next.pic_parameter_set_id || first.frame_num != next.frame_num
+		|| first.pic_order_cnt_lsb != next.pic_order_cnt_lsb
+		|| first.delta_pic_order_cnt_bottom != next.delta_pic_order_cnt_bottom
+		|| first.delta_pic_order_cnt != next.delta_pic_order_cnt
+		|| first.idr_pic_id != next.idr_pic_id || first_nal.type != next_nal.type
+		|| (first_nal.idc == .priority_disposable) != (next_nal.idc == .priority_disposable) {
+		return error('H.264 sample contains slices from different pictures')
 	}
-	sps_id := pps_array[pps_id].seq_parameter_set_id
-	if sps_id >= u32(sps_array.len) {
-		return error('H.264 PPS ${pps_id} references missing SPS ${sps_id}')
+}
+
+fn progressive_h264_dimensions(sps &h264.SequenceParameterSet) !(u32, u32, u32, u32) {
+	// This player only reaches here with progressive 4:2:0 SPSs, whose crop
+	// units are two luma samples in each direction.
+	padded_width := (u64(sps.pic_width_in_mbs_minus1) + 1) * 16
+	padded_height := (u64(sps.pic_height_in_map_units_minus1) + 1) * 16
+	crop_width := (u64(sps.frame_crop_left_offset) + u64(sps.frame_crop_right_offset)) * 2
+	crop_height := (u64(sps.frame_crop_top_offset) + u64(sps.frame_crop_bottom_offset)) * 2
+	if padded_width > 0xffffffff || padded_height > 0xffffffff || crop_width >= padded_width
+		|| crop_height >= padded_height {
+		return error('invalid H.264 SPS dimensions or crop offsets')
 	}
+	return u32(padded_width - crop_width), u32(padded_height - crop_height), u32(padded_width), u32(padded_height)
 }
 
 fn poc_type1_fields(sps &h264.SequenceParameterSet, header &h264.SliceHeader,
@@ -289,20 +310,33 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 	mut sps_array := []h264.SequenceParameterSet{}
 	mut data_sps := minimp4.mp4d_read_sps(&mp4, ntrack, count_sps, &num_bytes_sps)
 	for !isnil(data_sps) {
+		if num_bytes_sps <= 1 {
+			return error('H.264 track contains an invalid sequence parameter set')
+		}
 		mut nal := h264.NetworkAbstractionLayerHeader{}
 		mut nal_header_bs := h264.Bitstream{}
 		nal_header_bs.init(unsafe { data_sps.vbytes(1) })
 		nal.read_nal_header(mut &nal_header_bs)
-		if num_bytes_sps <= 1 {
-			return error('H.264 track contains an invalid sequence parameter set')
-		}
 		mut nal_payload_rbsp_data := unsafe {
 			remove_emulation_prevention_bytes(byteptr(data_sps) + 1, num_bytes_sps - 1)
 		}
+		validate_sps_rbsp(nal_payload_rbsp_data)!
 		mut nal_payload_bs := h264.Bitstream{}
 		nal_payload_bs.init(nal_payload_rbsp_data)
 		mut sps := h264.SequenceParameterSet{}
 		sps.read_sps(mut nal_payload_bs)
+		for prior in sps_array {
+			if prior.seq_parameter_set_id == sps.seq_parameter_set_id {
+				return error('duplicate H.264 SPS id ${sps.seq_parameter_set_id}')
+			}
+		}
+		if std_h264_level_idc(sps.level_idc) == .invalid {
+			return error('H.264 level_idc ${sps.level_idc} is unsupported')
+		}
+		if sps.level_idc == 11 && sps.constraint_set3_flag != 0 && sps.profile_idc in [u32(66), 77] {
+			return error('H.264 level 1b is unsupported')
+		}
+		d.video_data.h264_level_idc = math.max[u32](d.video_data.h264_level_idc, sps.level_idc)
 		if sps.profile_idc !in [u32(66), 77, 100] {
 			return error('H.264 profile_idc ${sps.profile_idc} is unsupported; supported profiles are Baseline, Main, and High 8-bit 4:2:0')
 		}
@@ -329,19 +363,14 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		if sps.log2_max_frame_num_minus4 > 12 || sps.log2_max_pic_order_cnt_lsb_minus4 > 12 {
 			return error('invalid H.264 frame or picture-order-count bit width')
 		}
-		// Data validation
-		// https://stackoverflow.com/questions/6394874/fetching-the-dimensions-of-a-h264video-stream
-		width := ((sps.pic_width_in_mbs_minus1 + 1) * 16) - (sps.frame_crop_left_offset * 2) -
-			(sps.frame_crop_right_offset * 2)
-		height := ((2 - sps.frame_mbs_only_flag) * (sps.pic_height_in_map_units_minus1 + 1) * 16) -
-			(sps.frame_crop_top_offset * 2) - (sps.frame_crop_bottom_offset * 2)
+		width, height, padded_width, padded_height := progressive_h264_dimensions(&sps)!
 		mp4_width := unsafe { track.sampleDescription.video.width }
 		mp4_height := unsafe { track.sampleDescription.video.height }
 		if mp4_width != width || mp4_height != height {
 			eprintln('Warning: MP4 dimensions ${mp4_width}x${mp4_height} differ from H.264 SPS display dimensions ${width}x${height}')
 		}
-		d.video_data.width_padd = (sps.pic_width_in_mbs_minus1 + 1) * 16
-		d.video_data.height_padd = (sps.pic_height_in_map_units_minus1 + 1) * 16
+		d.video_data.width_padd = padded_width
+		d.video_data.height_padd = padded_height
 		if sps.vui_parameters_present_flag != 0 {
 			d.video_data.metadata.sar_width, d.video_data.metadata.sar_height = sample_aspect_ratio(sps.vui.aspect_ratio_idc,
 				sps.vui.sar_width, sps.vui.sar_height)
@@ -375,21 +404,28 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 	mut data_pps := minimp4.mp4d_read_pps(&mp4, ntrack, count_pps, &size_pps)
 
 	for !isnil(data_pps) {
+		if size_pps <= 1 {
+			return error('H.264 track contains an invalid picture parameter set')
+		}
 		mut nal := h264.NetworkAbstractionLayerHeader{}
 		mut nal_header_bs := h264.Bitstream{}
 		nal_header_bs.init(unsafe { data_pps.vbytes(1) })
 		nal.read_nal_header(mut nal_header_bs)
-		if size_pps <= 1 {
-			return error('H.264 track contains an invalid picture parameter set')
-		}
 		pps_payload_rbsp_data := unsafe {
 			remove_emulation_prevention_bytes(byteptr(data_pps) + 1, size_pps - 1)
 		}
+		validate_pps_rbsp(pps_payload_rbsp_data)!
 		mut pps_payload_bs := h264.Bitstream{}
 		pps_payload_bs.init(pps_payload_rbsp_data)
 
 		mut pps := h264.PictureParameterSet{}
 		pps.read_pps(mut pps_payload_bs)
+		for prior in pps_array {
+			if prior.pic_parameter_set_id == pps.pic_parameter_set_id {
+				return error('duplicate H.264 PPS id ${pps.pic_parameter_set_id}')
+			}
+		}
+		_ = h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
 		d.video_data.pps_bytes.ensure_cap(d.video_data.pps_bytes.len + int(sizeof(pps)))
 		d.video_data.pps_bytes << unsafe { byteptr(&pps).vbytes(int(sizeof(pps))) }
 		pps_array << pps
@@ -471,6 +507,8 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		}
 		length_size := int(d.video_data.nal_length_size)
 		mut found_slice := false
+		mut first_slice_header := h264.SliceHeader{}
+		mut first_slice_nal := h264.NetworkAbstractionLayerHeader{}
 		for frame_bytes_num_to_do > 0 {
 			if frame_bytes_num_to_do < d.video_data.nal_length_size {
 				return error('MP4 sample ${sample_index} has a truncated H.264 NAL length')
@@ -523,6 +561,13 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			nal_start_code := h264.NalStartCode{}.value
 			data_frame.size += u64(nal_start_code.len) + u64(nal_size)
 			if found_slice {
+				validate_slice_parameter_sets(nal_payload_rbsp_data, pps_array, sps_array) or {
+					return error('MP4 sample ${sample_index}: ${err}')
+				}
+				next_slice_header := read_slice_header_checked(&nal, pps_array, sps_array, mut
+					nal_payload_bs) or { return error('MP4 sample ${sample_index}: ${err}') }
+				validate_same_picture(&first_slice_header, &next_slice_header, &first_slice_nal,
+					&nal) or { return error('MP4 sample ${sample_index}: ${err}') }
 				frame_bytes_num_to_do -= size
 				src_buffer_idx += int(size)
 				continue
@@ -539,15 +584,11 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			}
 			mut slice_header := read_slice_header_checked(&nal, pps_array, sps_array, mut
 				nal_payload_bs) or { return error('MP4 sample ${sample_index}: ${err}') }
+			first_slice_header = slice_header
+			first_slice_nal = nal
 			data_frame.has_mmco5 = slice_has_mmco5(&slice_header, is_idr, nal.idc)
-			if slice_header.pic_parameter_set_id >= u32(pps_array.len) {
-				return error('MP4 sample ${sample_index} references missing H.264 PPS ${slice_header.pic_parameter_set_id}')
-			}
-			pps := pps_array[slice_header.pic_parameter_set_id]
-			if pps.seq_parameter_set_id >= u32(sps_array.len) {
-				return error('MP4 sample ${sample_index} references missing H.264 SPS ${pps.seq_parameter_set_id}')
-			}
-			sps := sps_array[pps.seq_parameter_set_id]
+			pps := h264_pps_by_id(pps_array, slice_header.pic_parameter_set_id)!
+			sps := h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
 
 			max_frame_num := u32(1) << (sps.log2_max_frame_num_minus4 + 4)
 			max_pic_order_cnt_lsb := int(u32(1) << (sps.log2_max_pic_order_cnt_lsb_minus4 + 4))

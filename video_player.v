@@ -411,6 +411,7 @@ pub mut:
 	file             os.File
 	file_open        bool
 	h264_profile_idc u32
+	h264_level_idc   u32
 	width_padd       u32
 	height_padd      u32
 	width            u32
@@ -588,6 +589,7 @@ fn (vp &VideoPlayer) decode_requirements() VideoDecodeRequirements {
 		data := vp.decoder.video_data
 		return VideoDecodeRequirements{
 			profile_idc: data.h264_profile_idc
+			level_idc:   data.h264_level_idc
 			width:       data.width_padd
 			height:      data.height_padd
 			dpb_slots:   data.num_dpb_slots

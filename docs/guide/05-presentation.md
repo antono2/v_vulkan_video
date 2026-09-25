@@ -29,9 +29,9 @@ reordered image can cause a burst of frames when it arrives.
 
 ## Color and geometry are media data
 
-[the MP4 track parse](../../mp4_parser.v#L283) stores the track matrix and
-[H.264 video usability metadata](../../mp4_parser.v#L345).
-[`ycbcr_model_for_video`](../../device_context.v#L303)
+[the MP4 track parse](../../mp4_parser.v#L304) stores the track matrix and
+[H.264 video usability metadata](../../mp4_parser.v#L374).
+[`ycbcr_model_for_video`](../../device_context.v#L348)
 chooses a Vulkan YCbCr model from signaled matrix coefficients, with a
 resolution-based fallback when no description is present. The Vulkan sampler
 conversion uses the video's full or limited range. The app draws into an
@@ -42,10 +42,10 @@ not encoded as sRGB a second time.
 letterboxing based on display dimensions. Those dimensions incorporate sample
 aspect ratio before rotation. The picture can therefore have a coded width,
 a display width, and a window width that differ. Tests cover
-[track matrices](../../video_player_test.v#L218),
-[sample aspect ratio](../../video_player_test.v#L225),
-[conversion choices](../../video_player_test.v#L255), and
-[portrait letterboxing](../../video_player_test.v#L501).
+[track matrices](../../video_player_test.v#L308),
+[sample aspect ratio](../../video_player_test.v#L315),
+[conversion choices](../../video_player_test.v#L345), and
+[portrait letterboxing](../../video_player_test.v#L605).
 
 ```mermaid
 flowchart LR

@@ -406,7 +406,7 @@ fn (mut d Decoder) create_video_session_parameters(device vk.Device) {
 			}
 			// Note: There is no 0 in StdVideoH264ProfileIdc enum
 			profile_idc:                           unsafe { vk.StdVideoH264ProfileIdc(sps.profile_idc) }
-			level_idc:                             unsafe { vk.StdVideoH264LevelIdc(sps.level_idc) }
+			level_idc:                             std_h264_level_idc(sps.level_idc)
 			chroma_format_idc:                     get_chroma_format(sps.profile_idc,
 				sps.chroma_format_idc)
 			seq_parameter_set_id:                  u8(sps.seq_parameter_set_id)

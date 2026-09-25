@@ -48,9 +48,12 @@ Linux GPU. MMCO 5 and long-term reference playback still need dedicated
 hardware fixtures; their state transitions have software tests.
 
 AVC samples with 1, 2, or 4 byte NAL length prefixes are accepted. The parser
-skips metadata-only samples and reports invalid slice references before
-creating a Vulkan device. The pinned H.264 module's weighted-prediction reader
-is corrected in this application's checked slice reader.
+skips metadata-only samples, checks every slice in a sample belongs to the
+same picture, and reports invalid slice references before creating a Vulkan
+device. SPS/PPS preflight checks truncated syntax and the pinned parser's
+fixed-array limits. The pinned H.264 module's weighted-prediction reader is
+corrected in this application's checked slice reader. Device selection also
+checks the stream's H.264 level against the GPU's reported maximum.
 
 B-frame streams are decoded in codec order and retained in a bounded image
 queue until they become next in presentation order. The queue size is derived
@@ -61,9 +64,10 @@ have completed. The bundled Big Buck Bunny fixtures cover this path at 360p,
 
 Unsupported media, missing Vulkan Video extensions, and incompatible GPU
 profiles produce orderly diagnostics and a non-zero exit status. The pinned
-H.264 parser does not fully validate arbitrary corruption inside SPS/PPS
-bitstreams. Failures after Vulkan device creation (for example, allocation,
-swapchain, or queue-submission failures) remain fatal because teardown from
+H.264 parser and this application's preflight do not validate every semantic
+relationship inside arbitrarily corrupted SPS/PPS bitstreams. Failures after
+Vulkan device creation (for example, allocation, swapchain, or queue-submission
+failures) remain fatal because teardown from
 partially recorded or submitted command buffers is not yet modeled as
 recoverable. These driver/runtime failures are tracked as post-release
 lifecycle hardening rather than being conflated with malformed-input handling.

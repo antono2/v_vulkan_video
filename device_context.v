@@ -40,10 +40,55 @@ mut:
 
 struct VideoDecodeRequirements {
 	profile_idc u32
+	level_idc   u32
 	width       u32
 	height      u32
 	dpb_slots   u32
 	references  u32
+}
+
+// H.264 stores the level number in the SPS (40 means level 4.0), while
+// StdVideoH264LevelIdc is an ordinal enum (level 4.0 is 10).
+fn std_h264_level_idc(level_idc u32) vk.StdVideoH264LevelIdc {
+	return match level_idc {
+		10 { ._1_0 }
+		11 { ._1_1 }
+		12 { ._1_2 }
+		13 { ._1_3 }
+		20 { ._2_0 }
+		21 { ._2_1 }
+		22 { ._2_2 }
+		30 { ._3_0 }
+		31 { ._3_1 }
+		32 { ._3_2 }
+		40 { ._4_0 }
+		41 { ._4_1 }
+		42 { ._4_2 }
+		50 { ._5_0 }
+		51 { ._5_1 }
+		52 { ._5_2 }
+		60 { ._6_0 }
+		61 { ._6_1 }
+		62 { ._6_2 }
+		else { .invalid }
+	}
+}
+
+fn h264_level_issue(required u32, supported vk.StdVideoH264LevelIdc) string {
+	level := std_h264_level_idc(required)
+	if level == .invalid {
+		return 'H.264 level_idc ${required} is unsupported'
+	}
+	if u32(supported) > u32(vk.StdVideoH264LevelIdc._6_2) {
+		return 'device reported an invalid H.264 level limit'
+	}
+	if u32(level) > u32(supported) {
+		levels := [u32(10), 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41, 42, 50, 51, 52, 60, 61,
+			62]
+		maximum := levels[int(u32(supported))]
+		return 'video requires H.264 level ${required / 10}.${required % 10}; device supports up to ${maximum / 10}.${maximum % 10}'
+	}
+	return ''
 }
 
 struct QueueFamilyProperties {
@@ -500,6 +545,10 @@ fn gpu_h264_stream_issue(gpu vk.PhysicalDevice, requirements VideoDecodeRequirem
 	}
 	if vk.get_physical_device_video_capabilities_khr(gpu, &profile, mut &caps) != .success {
 		return 'could not query H.264 decode capabilities'
+	}
+	level_issue := h264_level_issue(requirements.level_idc, h264_caps.maxLevelIdc)
+	if level_issue != '' {
+		return level_issue
 	}
 	if requirements.width < caps.minCodedExtent.width
 		|| requirements.height < caps.minCodedExtent.height

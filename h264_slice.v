@@ -2,6 +2,24 @@ module main
 
 import antono2.h264
 
+fn h264_pps_by_id(pps_array []h264.PictureParameterSet, id u32) !h264.PictureParameterSet {
+	for pps in pps_array {
+		if pps.pic_parameter_set_id == id {
+			return pps
+		}
+	}
+	return error('H.264 slice references missing PPS ${id}')
+}
+
+fn h264_sps_by_id(sps_array []h264.SequenceParameterSet, id u32) !h264.SequenceParameterSet {
+	for sps in sps_array {
+		if sps.seq_parameter_set_id == id {
+			return sps
+		}
+	}
+	return error('H.264 PPS references missing SPS ${id}')
+}
+
 // The pinned h264 module omits the final weighted reference entry and ignores
 // slice-level reference-count overrides. Both shift the following MMCO syntax.
 fn read_weight_table(mut sh h264.SliceHeader, sps &h264.SequenceParameterSet,
@@ -108,14 +126,8 @@ fn read_slice_header_checked(nal &h264.NetworkAbstractionLayerHeader,
 	sh.first_mb_in_slice = bits.ue()
 	sh.slice_type = bits.ue()
 	sh.pic_parameter_set_id = bits.ue()
-	if sh.pic_parameter_set_id >= u32(pps_array.len) {
-		return error('H.264 slice references missing PPS ${sh.pic_parameter_set_id}')
-	}
-	pps := pps_array[sh.pic_parameter_set_id]
-	if pps.seq_parameter_set_id >= u32(sps_array.len) {
-		return error('H.264 PPS ${sh.pic_parameter_set_id} references missing SPS ${pps.seq_parameter_set_id}')
-	}
-	sps := sps_array[pps.seq_parameter_set_id]
+	pps := h264_pps_by_id(pps_array, sh.pic_parameter_set_id)!
+	sps := h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
 	sh.frame_num = bits.u(sps.log2_max_frame_num_minus4 + 4)
 	if sps.frame_mbs_only_flag == 0 {
 		sh.field_pic_flag = bits.u1()

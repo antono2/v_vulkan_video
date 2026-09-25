@@ -66,6 +66,84 @@ fn test_nal_length_prefixes_and_invalid_prefixes() {
 	}
 }
 
+fn test_h264_sps_levels_map_to_vulkan_ordinals() {
+	assert std_h264_level_idc(10) == ._1_0
+	assert std_h264_level_idc(31) == ._3_1
+	assert std_h264_level_idc(40) == ._4_0
+	assert std_h264_level_idc(62) == ._6_2
+	assert std_h264_level_idc(49) == .invalid
+	assert h264_level_issue(31, ._4_0) == ''
+	assert h264_level_issue(42, ._4_0).contains('requires H.264 level 4.2')
+}
+
+fn test_parameter_set_preflight_rejects_truncation_and_oversized_arrays() {
+	mut truncated := false
+	validate_sps_rbsp([u8(0x42), 0, 0x1f]) or {
+		assert err.msg().contains('truncated')
+		truncated = true
+	}
+	assert truncated
+	mut oversized := false
+	validate_sps_rbsp([u8(0x42), 0, 0x1f, 0xd3, 0, 0x81, 0x40]) or {
+		assert err.msg().contains('more than 256')
+		oversized = true
+	}
+	assert oversized
+	validate_pps_rbsp([u8(0xc5)]) or {
+		assert err.msg().contains('slice groups')
+		return
+	}
+	assert false, 'unsupported H.264 slice groups were accepted'
+}
+
+fn test_sps_dimensions_reject_overflow_and_crop_past_picture() {
+	mut sps := h264.SequenceParameterSet{
+		pic_width_in_mbs_minus1:        19
+		pic_height_in_map_units_minus1: 11
+	}
+	width, height, padded_width, padded_height := progressive_h264_dimensions(&sps) or {
+		panic(err)
+	}
+	assert width == 320 && height == 192
+	assert padded_width == 320 && padded_height == 192
+	sps.frame_crop_left_offset = 160
+	mut rejected := false
+	progressive_h264_dimensions(&sps) or {
+		assert err.msg().contains('crop offsets')
+		rejected = true
+	}
+	assert rejected
+	sps.frame_crop_left_offset = 0
+	sps.pic_width_in_mbs_minus1 = 0xffffffff
+	rejected = false
+	progressive_h264_dimensions(&sps) or {
+		assert err.msg().contains('dimensions')
+		rejected = true
+	}
+	assert rejected
+}
+
+fn test_extra_slice_must_belong_to_first_picture() {
+	first := h264.SliceHeader{
+		pic_parameter_set_id: 1
+		frame_num:            3
+		pic_order_cnt_lsb:    6
+	}
+	mut next := first
+	first_nal := h264.NetworkAbstractionLayerHeader{
+		idc:  .priority_high
+		type: .coded_slice_non_idr
+	}
+	next_nal := first_nal
+	validate_same_picture(&first, &next, &first_nal, &next_nal) or { panic(err) }
+	next.frame_num = 4
+	validate_same_picture(&first, &next, &first_nal, &next_nal) or {
+		assert err.msg().contains('different pictures')
+		return
+	}
+	assert false, 'a slice from another picture was accepted'
+}
+
 fn test_slice_parameter_set_references_are_validated_before_full_parse() {
 	mut pps := h264.PictureParameterSet{}
 	pps.seq_parameter_set_id = 0
@@ -74,6 +152,18 @@ fn test_slice_parameter_set_references_are_validated_before_full_parse() {
 		return
 	}
 	assert false, 'missing PPS was accepted'
+}
+
+fn test_slice_parameter_set_ids_need_not_match_array_offsets() {
+	pps := h264.PictureParameterSet{
+		pic_parameter_set_id: 3
+		seq_parameter_set_id: 7
+	}
+	sps := h264.SequenceParameterSet{
+		seq_parameter_set_id: 7
+	}
+	validate_slice_parameter_sets([u8(0xb2), 0], [pps], [sps]) or { panic(err) }
+	assert h264_pps_by_id([pps], 3)!.seq_parameter_set_id == 7
 }
 
 fn test_picture_order_count_type_one_uses_cycle_and_nonreference_offset() {
@@ -358,6 +448,20 @@ fn test_parser_accepts_supported_elephants_dream_720p_sample() {
 	assert ycbcr_model_for_video(decoder.video_data.metadata) == vk.SamplerYcbcrModelConversion.ycbcr709
 	for decode_index, frame in decoder.video_data.frame_infos {
 		assert frame.display_order == decode_index
+	}
+}
+
+fn test_parser_accepts_four_slices_per_picture() {
+	mut decoder := Decoder{}
+	decoder.parse_mp4_data('${v_modroot}/res/H264_multislice_320x180_1s.mp4') or { panic(err) }
+	defer {
+		decoder.video_data.file.close()
+	}
+	assert decoder.video_data.frame_infos.len == 24
+	assert decoder.video_data.h264_level_idc == 12
+	for frame in decoder.video_data.frame_infos {
+		assert frame.size > 0
+		assert frame.size <= decoder.video_data.max_memory_frame_size_bytes
 	}
 }
 

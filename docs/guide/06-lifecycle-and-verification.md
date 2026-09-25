@@ -37,7 +37,7 @@ flowchart TD
 
 | Check | What it establishes | What it cannot establish |
 | --- | --- | --- |
-| [`v test .`](../../README.md#tests) | CLI parsing, MP4 validation, metadata, reorder depth, and timeline rules for the test fixtures. | Driver video commands, image barriers, or visible output. |
+| [`v test .`](../../README.md#tests) | CLI parsing, MP4 and parameter-set validation, multi-slice access units, metadata, reorder depth, and timeline rules. | Driver video commands, image barriers, or visible output. |
 | [Root executable build](../../BUILDING.md#shared-dear-imgui-default) | V/C bindings, native linking, and package entry point. | Compatible hardware or correct playback. |
 | [`--list-gpus VIDEO`](../../README.md#run) | The current driver advertises the required capabilities for that stream. | That a full decode and resize session succeeds. |
 | [Playback and resize on a supported GPU](../../PLATFORM_SUPPORT.md#hardware-validation-checklist) | The tested media and driver complete the actual path. | Other codecs, GPUs, operating systems, or long-running stability. |
@@ -48,6 +48,9 @@ The [README](../../README.md#tests) has the software command;
 lists release checks. A useful development loop is to run software tests for
 every parser or timing change, then use short media fixtures with B-frames,
 rotation, and different color metadata on an actual decode-capable GPU.
+The [four-slice fixture](../../res/README.md#test-media) exercises access-unit
+assembly and picture-consistency checks; its
+[parser test](../../video_player_test.v#L454) runs without a GPU.
 
 ## Transfer the approach
 
