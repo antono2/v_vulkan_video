@@ -141,10 +141,14 @@ fn validate_sps_rbsp(payload []u8) ! {
 			}
 		}
 	}
-	_ = bits.ue()! // log2_max_frame_num_minus4
+	if bits.ue()! > 12 {
+		return error('invalid H.264 frame-number bit width')
+	}
 	poc_type := bits.ue()!
 	if poc_type == 0 {
-		_ = bits.ue()!
+		if bits.ue()! > 12 {
+			return error('invalid H.264 picture-order-count bit width')
+		}
 	} else if poc_type == 1 {
 		_ = bits.read(1)!
 		_ = bits.se()!
@@ -159,7 +163,9 @@ fn validate_sps_rbsp(payload []u8) ! {
 	} else if poc_type != 2 {
 		return error('invalid H.264 picture-order-count type ${poc_type}')
 	}
-	_ = bits.ue()! // num_ref_frames
+	if bits.ue()! >= slot_count {
+		return error('H.264 reference count exceeds decoder slots')
+	}
 	_ = bits.read(1)!
 	_ = bits.ue()! // width
 	_ = bits.ue()! // height
@@ -193,8 +199,9 @@ fn validate_pps_rbsp(payload []u8) ! {
 	if bits.ue()! != 0 {
 		return error('H.264 slice groups are not supported')
 	}
-	_ = bits.ue()! // L0 references
-	_ = bits.ue()! // L1 references
+	if bits.ue()! >= 64 || bits.ue()! >= 64 {
+		return error('H.264 reference-list count exceeds 64')
+	}
 	_ = bits.read(1)! // weighted prediction
 	_ = bits.read(2)! // weighted biprediction
 	_ = bits.se()! // initial QP

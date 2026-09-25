@@ -65,13 +65,13 @@ the idea understandable without reading every Vulkan call.
 
 ## A route through one picture
 
-1. [`prepare`](../video_player.v#L560) calls the
+1. [`prepare`](../video_player.v#L576) calls the
    [MP4 parser](../mp4_parser.v#L252), which rejects unsupported streams.
    Its profile and dimensions inform GPU selection.
 2. [`initialize_device`](../device_context.v#L154) selects graphics and H.264
    decode queues, queries the video profile, and chooses a compatible format.
 3. [`Decoder.initialize`](../decoder_session.v#L8) creates the session,
-   bitstream buffer, and DPB images. [`VideoPlayer.initialize`](../video_player.v#L607)
+   bitstream buffer, and DPB images. [`VideoPlayer.initialize`](../video_player.v#L623)
    allocates the bounded output-image pool.
 4. [`update_decode_video`](../player_decode.v#L7) uploads an access unit, records
    decode and copy commands, and tags the copied output with display order.

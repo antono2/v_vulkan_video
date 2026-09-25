@@ -8,7 +8,7 @@ The chosen MP4 may require a profile that another file does not.
 ## The selection path
 
 After parsing, [`VideoDecodeApp.initialize`](../../app.v#L147) obtains the stream's
-[decode requirements](../../video_player.v#L587): profile, level, coded extent,
+[decode requirements](../../video_player.v#L603): profile, level, coded extent,
 DPB slots, and active references. It asks
 [`h264_decode_gpu_diagnostics_for_output_mode`](../../device_context.v#L419)
 for diagnostics for every GPU. [`--list-gpus`](../../app.v#L187) exposes those
@@ -50,8 +50,8 @@ the decoded output is a DPB image. In *distinct* mode, the output and DPB
 images are separate. `auto` prefers coincident and falls back to distinct;
 forced modes aid driver validation and fail if unsupported. The choice is made
 by [`select_decode_output_mode`](../../video_player.v#L18), with software tests
-for [automatic fallback](../../video_player_test.v#L284) and
-[forced modes](../../video_player_test.v#L289).
+for [automatic fallback](../../video_player_test.v#L333) and
+[forced modes](../../video_player_test.v#L338).
 
 ```mermaid
 flowchart TD

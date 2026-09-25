@@ -46,11 +46,11 @@ fn (mut vp VideoPlayer) update_decode_video() ! {
 		}
 		pps = unsafe {
 			&h264.PictureParameterSet(byteptr(usize(vp.decoder.get_pps()) +
-				usize(slice_header.pic_parameter_set_id) * sizeof(h264.PictureParameterSet)))
+				usize(vp.decoder.video_data.pps_storage_offset(slice_header.pic_parameter_set_id)!)))
 		}
 		sps = unsafe {
 			&h264.SequenceParameterSet(byteptr(usize(vp.decoder.get_sps()) +
-				usize(pps.seq_parameter_set_id) * sizeof(h264.SequenceParameterSet)))
+				usize(vp.decoder.video_data.sps_storage_offset(pps.seq_parameter_set_id)!)))
 		}
 	}
 

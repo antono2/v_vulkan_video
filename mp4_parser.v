@@ -392,6 +392,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			1)
 		d.video_data.sps_bytes << unsafe { byteptr(&sps).vbytes(int(sizeof(sps))) }
 		sps_array << sps
+		d.video_data.sps_storage_index[sps.seq_parameter_set_id] = u8(sps_array.len)
 		d.video_data.sps_count++
 		count_sps++
 
@@ -437,6 +438,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		d.video_data.pps_bytes.ensure_cap(d.video_data.pps_bytes.len + int(sizeof(pps)))
 		d.video_data.pps_bytes << unsafe { byteptr(&pps).vbytes(int(sizeof(pps))) }
 		pps_array << pps
+		d.video_data.pps_storage_index[pps.pic_parameter_set_id] = u16(pps_array.len)
 		d.video_data.pps_count++
 		count_pps++
 

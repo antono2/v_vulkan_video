@@ -154,6 +154,18 @@ fn test_slice_parameter_set_references_are_validated_before_full_parse() {
 	assert false, 'missing PPS was accepted'
 }
 
+fn test_slice_reader_rejects_invalid_slice_type_before_parameter_lookup() {
+	mut bits := h264.Bitstream{}
+	bits.init([u8(0x8b)]) // first_mb_in_slice = 0, slice_type = 10
+	nal := h264.NetworkAbstractionLayerHeader{}
+	read_slice_header_checked(&nal, []h264.PictureParameterSet{}, []h264.SequenceParameterSet{}, mut
+		bits) or {
+		assert err.msg().contains('invalid H.264 slice type')
+		return
+	}
+	assert false, 'invalid slice type was accepted'
+}
+
 fn test_slice_parameter_set_ids_need_not_match_array_offsets() {
 	pps := h264.PictureParameterSet{
 		pic_parameter_set_id: 3
@@ -164,6 +176,43 @@ fn test_slice_parameter_set_ids_need_not_match_array_offsets() {
 	}
 	validate_slice_parameter_sets([u8(0xb2), 0], [pps], [sps]) or { panic(err) }
 	assert h264_pps_by_id([pps], 3)!.seq_parameter_set_id == 7
+	mut data := DecoderVideoFileProperties{}
+	data.sps_storage_index[7] = 2
+	data.pps_storage_index[3] = 2
+	assert data.sps_storage_offset(7)! == int(sizeof(h264.SequenceParameterSet))
+	assert data.pps_storage_offset(3)! == int(sizeof(h264.PictureParameterSet))
+	if _ := data.pps_storage_offset(1) {
+		assert false, 'missing PPS id resolved to a serialized offset'
+	}
+}
+
+fn test_parameter_set_preflight_handles_truncated_and_mutated_headers() {
+	sps_ebsp := [u8(0x64), 0, 0x0c, 0xac, 0xd9, 0x41, 0x41, 0x9f, 0x9f, 0x01, 0x10, 0, 0, 0x03,
+		0, 0x10, 0, 0, 0x03, 0x03, 0, 0xf1, 0x42, 0x99, 0x60]
+	sps := unsafe { remove_emulation_prevention_bytes(sps_ebsp.data, sps_ebsp.len) }
+	pps := [u8(0xef), 0x89, 0xcb]
+	validate_sps_rbsp(sps) or { panic(err) }
+	validate_pps_rbsp(pps) or { panic(err) }
+	for prefix in 0 .. sps.len {
+		if _ := validate_sps_rbsp(sps[..prefix]) {
+			assert false, 'truncated SPS prefix ${prefix} was accepted'
+		}
+	}
+	for prefix in 0 .. pps.len {
+		if _ := validate_pps_rbsp(pps[..prefix]) {
+			assert false, 'truncated PPS prefix ${prefix} was accepted'
+		}
+	}
+	for bit in 0 .. sps.len * 8 {
+		mut changed := sps.clone()
+		changed[bit / 8] ^= u8(1 << (bit % 8))
+		validate_sps_rbsp(changed) or { continue }
+	}
+	for bit in 0 .. pps.len * 8 {
+		mut changed := pps.clone()
+		changed[bit / 8] ^= u8(1 << (bit % 8))
+		validate_pps_rbsp(changed) or { continue }
+	}
 }
 
 fn test_picture_order_count_type_one_uses_cycle_and_nonreference_offset() {
@@ -459,6 +508,8 @@ fn test_parser_accepts_four_slices_per_picture() {
 	}
 	assert decoder.video_data.frame_infos.len == 24
 	assert decoder.video_data.h264_level_idc == 12
+	assert decoder.video_data.sps_storage_offset(0)! == 0
+	assert decoder.video_data.pps_storage_offset(0)! == 0
 	for frame in decoder.video_data.frame_infos {
 		assert frame.size > 0
 		assert frame.size <= decoder.video_data.max_memory_frame_size_bytes
@@ -615,4 +666,27 @@ fn test_render_transform_rotates_minus_90_and_letterboxes_portrait_video() {
 	assert transform.values[0..7] == [f32(0), 1, 0, 0, -1, 0, 1]
 	assert transform.values[8] > 0.31 && transform.values[8] < 0.32
 	assert transform.values[9] == 1
+}
+
+fn test_parser_keeps_nonzero_parameter_set_ids_for_runtime_lookup() {
+	mut decoder := Decoder{}
+	decoder.parse_mp4_data('${v_modroot}/res/H264_parameter_id_7_160x96_1s.mp4') or { panic(err) }
+	defer { decoder.video_data.file.close() }
+	assert decoder.video_data.frame_infos.len == 5
+	assert decoder.video_data.sps_count == 1
+	assert decoder.video_data.pps_count == 1
+	assert decoder.video_data.sps_storage_offset(7)! == 0
+	assert decoder.video_data.pps_storage_offset(7)! == 0
+	sps := unsafe { &h264.SequenceParameterSet(decoder.video_data.sps_bytes.data) }
+	pps := unsafe { &h264.PictureParameterSet(decoder.video_data.pps_bytes.data) }
+	assert sps.seq_parameter_set_id == 7
+	assert pps.pic_parameter_set_id == 7
+	assert pps.seq_parameter_set_id == 7
+	for i in 0 .. decoder.video_data.frame_infos.len {
+		header := unsafe {
+			&h264.SliceHeader(byteptr(decoder.video_data.slice_header_bytes.data) +
+				i * sizeof(h264.SliceHeader))
+		}
+		assert header.pic_parameter_set_id == 7
+	}
 }

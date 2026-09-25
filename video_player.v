@@ -408,17 +408,19 @@ fn presentation_buffer_size(display_orders []int) int {
 
 struct DecoderVideoFileProperties {
 pub mut:
-	file             os.File
-	file_open        bool
-	h264_profile_idc u32
-	h264_level_idc   u32
-	width_padd       u32
-	height_padd      u32
-	width            u32
-	height           u32
-	sps_count        u32
-	pps_count        u32
-	nal_length_size  u32
+	file              os.File
+	file_open         bool
+	h264_profile_idc  u32
+	h264_level_idc    u32
+	width_padd        u32
+	height_padd       u32
+	width             u32
+	height            u32
+	sps_count         u32
+	pps_count         u32
+	nal_length_size   u32
+	sps_storage_index [32]u8
+	pps_storage_index [256]u16
 
 	frame_infos                 []DecoderVideoDataFrameInfo
 	max_memory_frame_size_bytes u64
@@ -432,6 +434,20 @@ pub mut:
 
 	total_duration i64
 	metadata       VideoMetadata
+}
+
+fn (data &DecoderVideoFileProperties) sps_storage_offset(id u32) !int {
+	if id >= u32(data.sps_storage_index.len) || data.sps_storage_index[id] == 0 {
+		return error('H.264 references missing SPS ${id}')
+	}
+	return int(data.sps_storage_index[id] - 1) * int(sizeof(h264.SequenceParameterSet))
+}
+
+fn (data &DecoderVideoFileProperties) pps_storage_offset(id u32) !int {
+	if id >= u32(data.pps_storage_index.len) || data.pps_storage_index[id] == 0 {
+		return error('H.264 references missing PPS ${id}')
+	}
+	return int(data.pps_storage_index[id] - 1) * int(sizeof(h264.PictureParameterSet))
 }
 
 struct VideoMetadata {

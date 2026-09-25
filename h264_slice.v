@@ -125,6 +125,9 @@ fn read_slice_header_checked(nal &h264.NetworkAbstractionLayerHeader,
 	mut sh := h264.SliceHeader{}
 	sh.first_mb_in_slice = bits.ue()
 	sh.slice_type = bits.ue()
+	if sh.slice_type > 9 {
+		return error('invalid H.264 slice type ${sh.slice_type}')
+	}
 	sh.pic_parameter_set_id = bits.ue()
 	pps := h264_pps_by_id(pps_array, sh.pic_parameter_set_id)!
 	sps := h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
@@ -159,8 +162,14 @@ fn read_slice_header_checked(nal &h264.NetworkAbstractionLayerHeader,
 		sh.num_ref_idx_active_override_flag = bits.u1()
 		if sh.num_ref_idx_active_override_flag != 0 {
 			sh.num_ref_idx_l0_active_minus1 = bits.ue()
+			if sh.num_ref_idx_l0_active_minus1 >= 64 {
+				return error('H.264 L0 reference count exceeds 64')
+			}
 			if sh.is_slice_type(.b) {
 				sh.num_ref_idx_l1_active_minus1 = bits.ue()
+				if sh.num_ref_idx_l1_active_minus1 >= 64 {
+					return error('H.264 L1 reference count exceeds 64')
+				}
 			}
 		}
 	}

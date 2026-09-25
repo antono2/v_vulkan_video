@@ -22,7 +22,7 @@ is no longer needed as a reference may free a DPB slot even if its display
 time has not arrived. Conversely, a displayed picture may still be referenced
 by later decode operations. This is why the app copies decode results into a
 separate bounded pool of [`OutputImage`](../../video_player.v#L308) objects,
-[allocated after decoder setup](../../video_player.v#L684). The
+[allocated after decoder setup](../../video_player.v#L844). The
 graphics side samples that pool, not a DPB slot whose codec lifetime it does
 not control.
 
@@ -33,7 +33,7 @@ picture still sees the old references. MMCO 5 clears older references and
 renumbers the current picture. For a long-term reference, the
 [Vulkan slot information](../../player_decode.v#L474) carries its index in
 `FrameNum` and sets `used_for_long_term_reference`. The
-[software marking test](../../video_player_test.v#L189) covers removal,
+[software marking test](../../video_player_test.v#L238) covers removal,
 conversion, and long-term limits.
 
 Progressive H.264 pictures still have separate top and bottom order counts.
