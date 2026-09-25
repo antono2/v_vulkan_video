@@ -51,6 +51,10 @@ rotation, and different color metadata on an actual decode-capable GPU.
 The [four-slice fixture](../../res/README.md#test-media) exercises access-unit
 assembly and picture-consistency checks; its
 [parser test](../../video_player_test.v#L454) runs without a GPU.
+The [reference-marking conformance streams](../../PLATFORM_SUPPORT.md#hardware-validation-checklist)
+exercise MMCO 5 and long-term operations on real hardware after remuxing to
+MP4. A clean validation-layer run checks API use; a frame-by-frame comparison
+with a reference decoder is still needed to establish pixel correctness.
 
 ## Transfer the approach
 

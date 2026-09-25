@@ -11,10 +11,9 @@ A normal Vulkan graphics driver does not necessarily provide Vulkan Video.
 | Windows 10, x86-64 | Native build and unsupported-device startup tested | MSVC 19.50, Vulkan SDK 1.4.357, shared ImGui, and bundled GLFW 3.4 build successfully. Startup and clean capability rejection were tested on a GeForce GTX 765M; that Kepler GPU exposes no Vulkan Video extensions. Playback still requires validation on supported Windows hardware before publishing a general binary. |
 | macOS | Unsupported for video decode | The UI bindings can be built for macOS, but this application requires Vulkan Video H.264 decode. Do not treat a MoltenVK graphics-capable system as proof of Vulkan Video support. |
 
-Linux V3 compilation is tracked by CI as an experimental, non-release-gating
-job. V3 currently emits duplicate C type declarations when the complete ImGui,
-ImPlot, GLFW, and Vulkan module graph is compiled. Stable V remains the release
-compiler until that compiler/code-generation issue is resolved.
+Linux V3 compilation is tracked by CI as an experimental job. The pinned V3
+job passes; the advisory current-master toolchain has generated-C binding
+failures. Stable V remains the release compiler.
 
 ## TODO: Windows playback validation
 
@@ -44,8 +43,11 @@ Picture-order-count types 0, 1, and 2 are calculated for progressive frames.
 Separate top and bottom order counts are supplied to Vulkan references.
 The DPB applies sliding-window marking and explicit MMCO 1–6, including
 long-term references. The bundled 360p stream exercises MMCO 1 on the tested
-Linux GPU. MMCO 5 and long-term reference playback still need dedicated
-hardware fixtures; their state transitions have software tests.
+Linux GPU. The external `MR2_TANDBERG_E` conformance stream exercises MMCO 5
+and long-term operations 3, 4, and 6; `FRExt_MMCO4_Sony_B` exercises long-term
+operations 2, 3, 4, and 6. Both played on the Linux GTX 1060 in a debug build
+for eight seconds without reported validation errors. This is a playback smoke
+check; decoded frame pixels were not compared with a reference decoder.
 
 AVC samples with 1, 2, or 4 byte NAL length prefixes are accepted. The parser
 skips metadata-only samples, checks every slice in a sample belongs to the
@@ -94,6 +96,23 @@ commands. Decoded-picture-buffer operation, image transitions, queue
 synchronization, and presentation still require a real Vulkan Video device.
 
 ## Hardware validation checklist
+
+To repeat the H.264 reference-marking smoke check, download the
+[MR2 Tandberg stream](https://dev.gentoo.org/~lu_zero/fate/h264-conformance/MR2_TANDBERG_E.264)
+and the
+[FRExt Sony stream](https://dev.gentoo.org/~lu_zero/fate/h264-conformance/FRext/FRExt_MMCO4_Sony_B.264),
+then remux them to MP4 without transcoding:
+
+```sh
+ffmpeg -r 30 -i MR2_TANDBERG_E.264 -c:v copy MR2_TANDBERG_E.mp4
+ffmpeg -r 25 -i FRExt_MMCO4_Sony_B.264 -c:v copy FRExt_MMCO4_Sony_B.mp4
+./v_vulkan_video MR2_TANDBERG_E.mp4
+./v_vulkan_video FRExt_MMCO4_Sony_B.mp4
+```
+
+The files are external conformance media and are not included in the repository.
+Inspect `memory_management_control_operation` with FFmpeg's `trace_headers`
+bitstream filter to confirm which operations each stream contains.
 
 Before calling a platform supported for release, run at least:
 
