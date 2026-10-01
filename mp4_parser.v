@@ -707,8 +707,6 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			src_buffer_idx += int(size)
 		}
 
-		// x ^ ((x ^ y) & -(x < y)) // max(x, y)
-		// max_frame_size_bytes = max_frame_size_bytes ^ ((max_frame_size_bytes ^ data_frame.size) & -(u64(max_frame_size_bytes < data_frame.size)))
 		max_frame_size_bytes = math.max[u64](max_frame_size_bytes, data_frame.size)
 
 		if found_slice {
