@@ -270,7 +270,7 @@ jobs:
           make -C toolchain/v
           echo "$GITHUB_WORKSPACE/toolchain/v" >> "$GITHUB_PATH"
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
       - name: Install headers matching Vulkan master
         run: |
           set -euo pipefail
@@ -295,6 +295,9 @@ jobs:
           cd "$GITHUB_WORKSPACE/source/v_vulkan_video"
           v -new-compiler -cc tcc test .
           v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
+          timeout 20s xvfb-run -a "$RUNNER_TEMP/v_vulkan_video" --list-gpus res/20240917_095400.mp4 > "$RUNNER_TEMP/v3-gpus.log" 2>&1
+          cat "$RUNNER_TEMP/v3-gpus.log"
+          grep -F 'Vulkan devices for H.264' "$RUNNER_TEMP/v3-gpus.log"
 
   windows:
     name: Windows / ${{ matrix.compiler }}
@@ -418,6 +421,10 @@ jobs:
           $HelpText = (& .\dist\vkvideo-windows-x64\v_vulkan_video.exe --help | Out-String)
           if ($LASTEXITCODE -ne 0 -or $HelpText -notmatch 'Usage:') {
             throw 'The Windows player did not print its command-line help.'
+          }
+          $GpuText = (& .\dist\vkvideo-windows-x64\v_vulkan_video.exe --list-gpus .\dist\vkvideo-windows-x64\res\20240917_095400.mp4 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $GpuText -notmatch 'Vulkan devices for H.264') {
+            throw 'The Windows player could not enumerate Vulkan devices.'
           }
           $Flags = @('-cc', 'msvc', '-cflags', '/DWIN32_LEAN_AND_MEAN')
           if ($Compiler -eq 'v3') { $Flags += '-new-compiler' }

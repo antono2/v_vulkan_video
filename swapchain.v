@@ -168,7 +168,7 @@ fn (sc Swapchain) get_handle() vk.SwapchainKHR {
 	return sc.swapchain
 }
 
-fn (mut sc Swapchain) acquire_next_image(mut sem_present_complete vk.Semaphore) vk.Result {
+fn (mut sc Swapchain) acquire_next_image(sem_present_complete vk.Semaphore) vk.Result {
 	device_context := sc.app.device_context
 	mut vk_device := device_context.get_vk_device()
 	mut index := u32(0)

@@ -32,9 +32,10 @@ Install the [V compiler](https://github.com/vlang/v), then from this checkout:
 ```
 
 Use `./scripts/build_linux.sh --compiler v3` to build the full player with V3.
-Current V master builds the complete player with V3 and TinyCC on Linux, but V3
-playback has not yet been validated on supported hardware. Use the stable
-compiler for release builds. The V3 build uses TinyCC by default; pass
+Current V master builds the complete player with V3 and TinyCC on Linux, and
+the ID-7 and multislice fixtures have passed decoded-frame comparisons with
+FFmpeg on a GTX 1060. Broader V3 hardware coverage remains incomplete. Use the
+stable compiler for release builds. The V3 build uses TinyCC by default; pass
 `--cc gcc` if more detailed C diagnostics are needed. The wrapper also offers
 `--linkage static` and `--glfw bundled --glfw-version 3.4`; run it with `--help`
 for all choices.

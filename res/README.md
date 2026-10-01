@@ -1,5 +1,30 @@
 # Test media
 
+`H264_parameter_id_7_160x96_1s.mp4` is a five-frame generated test pattern
+whose SPS and PPS both use ID 7. It verifies that an H.264 parameter-set ID
+does not have to equal its position in the MP4 parameter-set list. Its SHA-256
+digest is `48b32703d0b4f9f1bdfabde4635d5ae8f5804acb97635950da22e57e7da8cd59`.
+Regenerate it with:
+
+```sh
+ffmpeg -f lavfi -i 'testsrc2=size=160x96:rate=5' -frames:v 5 \
+  -c:v libx264 -x264-params 'sps-id=7:keyint=5:min-keyint=5:scenecut=0' \
+  -pix_fmt yuv420p H264_parameter_id_7_160x96_1s.mp4
+```
+
+`H264_multislice_320x180_1s.mp4` is a generated test pattern with 24 frames
+and four H.264 slices per frame. It exercises complete access-unit upload and
+per-slice picture-consistency checks. Its SHA-256 digest is
+`04daf20c9a1a903cf3ba258696d7365446056732ec25f9b6745e309355124db8`.
+Regenerate it with:
+
+```sh
+ffmpeg -f lavfi -i 'testsrc2=size=320x180:rate=24:duration=1' \
+  -c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p \
+  -profile:v high -g 12 -bf 2 -x264-params 'slices=4:aud=1:scenecut=0' \
+  -an -movflags +faststart H264_multislice_320x180_1s.mp4
+```
+
 `20240917_095400.mp4` is a self-recorded video supplied by the project owner
 for use as the player's default and regression fixture. The published copy is
 a metadata-stripped transcode containing only the video stream. It preserves
