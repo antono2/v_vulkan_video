@@ -7,7 +7,7 @@ The application supports either a shared or static Dear ImGui binding. The
 shared configuration is the distribution default because it keeps C++ and
 Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
 
-Release candidate CI uses V 0.5.2, `antono2.vulkan@v2.0.0`, and fixed
+Release candidate CI uses V 0.5.2, `antono2.vulkan@v3.2.0`, and fixed
 revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
@@ -111,6 +111,11 @@ script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,
 compiles the player with MSVC, and creates
 `dist\vkvideo-windows-x64.zip`. It requires V 0.5.2+, CMake, Visual Studio C++
 x64 tools, and a Vulkan SDK selected through `VULKAN_SDK`.
+
+To test the V3 compiler from current V master, run
+`./scripts/build_windows.ps1 -Compiler v3` from a Visual Studio x64 developer
+PowerShell. The MSVC build defines `WIN32_LEAN_AND_MEAN` so Windows headers do
+not introduce legacy Winsock declarations before V's Winsock2 headers.
 
 Windows unit tests, the MSVC build, and the archive layout run in CI on a
 Windows Server 2022 runner. Startup and clean unsupported-device handling were

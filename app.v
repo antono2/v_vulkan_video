@@ -154,10 +154,8 @@ fn (mut app VideoDecodeApp) initialize() bool {
 	glfw.window_hint(glfw.client_api, glfw.no_api)
 	glfw.window_hint(glfw.resizable, glfw._true)
 
-	app.window_p = glfw.create_window(1280, 720, 'Vulkan Video Player', unsafe { nil },
-		unsafe { nil })
-	if isnil(app.window_p) {
-		println('app.window_p is nil')
+	app.window_p = glfw.create_windowed(1280, 720, 'Vulkan Video Player') or {
+		println('Could not create GLFW window: ${err}')
 		return false
 	}
 	glfw.set_window_user_pointer(app.window_p, &app)
@@ -502,9 +500,9 @@ fn (mut app VideoDecodeApp) run() {
 }
 
 fn (mut app VideoDecodeApp) recreate_swapchain() bool {
-	mut width := i32(0)
-	mut height := i32(0)
-	glfw.get_framebuffer_size(app.window_p, &width, &height)
+	framebuffer := glfw.framebuffer_size(app.window_p)
+	width := framebuffer.width
+	height := framebuffer.height
 	// A minimized window has no drawable surface. GLFW will deliver another
 	// resize/out-of-date event once it becomes visible again.
 	if width <= 0 || height <= 0 {
