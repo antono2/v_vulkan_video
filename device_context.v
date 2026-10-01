@@ -258,7 +258,7 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 		}
 		panic(error_msg)
 	}
-	C.volkLoadDevice(ctx.vk_device)
+	vk.load_device_commands(ctx.vk_device)
 
 	vk.get_device_queue(ctx.vk_device, ctx.graphics_family, 0, &ctx.graphics_queue)
 	if isnil(ctx.graphics_queue) {
@@ -678,8 +678,8 @@ fn (ctx DeviceContext) get_queue(type QueueType) vk.Queue {
 }
 
 fn (mut ctx DeviceContext) initialize_vk_instance() bool {
-	if C.volkInitialize() != vk.Result.success {
-		panic('Could not volkInitialize()')
+	if vk.initialize_loader() != vk.Result.success {
+		panic('Could not initialize Vulkan loader')
 	}
 	mut n := unsafe { nil }
 	mut instance_extension_count := u32(0)
@@ -739,7 +739,7 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	if res != .success {
 		panic('Could not create vkInstance')
 	}
-	C.volkLoadInstance(ctx.vk_instance)
+	vk.load_instance_commands(ctx.vk_instance)
 	$if debug ? {
 		resdbg := vk.create_debug_utils_messenger_ext(ctx.vk_instance, &debug_utils_create_info,
 			unsafe { nil }, &ctx.vk_debug_utils)

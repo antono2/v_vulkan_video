@@ -381,7 +381,7 @@ fn (mut app VideoDecodeApp) run() {
 		time_elapsed_ns := math.min(time.since(prev_time).nanoseconds(), i64(500_000_000))
 		prev_time = time.now()
 
-		mut res := app.device_context.swapchain.acquire_next_image(mut app.sem_present_complete)
+		mut res := app.device_context.swapchain.acquire_next_image(app.sem_present_complete)
 		if res == vk.Result.error_out_of_date_khr {
 			app.recreate_swapchain()
 			continue
