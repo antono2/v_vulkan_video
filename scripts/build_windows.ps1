@@ -97,6 +97,30 @@ Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $Pa
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $PackageDirectory -Force
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $PackageDirectory -Force
 
+function Get-SourceRevision([string]$Directory) {
+    if (Test-Path (Join-Path $Directory '.git')) {
+        $Revision = git -C $Directory rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) { throw "Could not record source revision: $Directory" }
+        return $Revision
+    }
+    $RevisionFile = Join-Path $Directory 'SOURCE_REVISION'
+    if (Test-Path $RevisionFile) { return (Get-Content $RevisionFile -Raw).Trim() }
+    return 'unrecorded source checkout'
+}
+$BuildInfo = @(
+    "Source revision: $(Get-SourceRevision $ProjectDirectory)"
+    "V compiler: $(& v version)"
+    "Compiler mode: $Compiler"
+    'C compiler: MSVC'
+    "Vulkan SDK: $env:VULKAN_SDK_VERSION"
+)
+foreach ($Module in @('vulkan', 'vkmemalloc', 'memory', 'imgui', 'glfw', 'minimp4', 'h264')) {
+    $ModulePath = Join-Path $Antono2ModulesDirectory $Module
+    $Revision = Get-SourceRevision $ModulePath
+    $BuildInfo += "Module ${Module}: $Revision"
+}
+$BuildInfo | Set-Content (Join-Path $PackageDirectory 'BUILD-INFO.txt') -Encoding utf8
+
 # Keep the unpacked output convenient for local testing, but always create the
 # release archive from the clean staging directory above. Files from an older
 # local build can therefore never leak into the ZIP.
@@ -105,4 +129,6 @@ Copy-Item (Join-Path $PackageDirectory "*") $OutputDirectory -Recurse -Force
 $ZipPath = "$OutputDirectory.zip"
 if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
 Compress-Archive -Path $PackageDirectory -DestinationPath $ZipPath
+$Hash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$Hash  $([IO.Path]::GetFileName($ZipPath))" | Set-Content "$ZipPath.sha256" -Encoding ascii
 Write-Host "Built Windows package with the $Compiler V compiler: $ZipPath"

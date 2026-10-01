@@ -14,7 +14,8 @@ mkdir -p "$stage_dir/$bundle_name/v_vulkan_video" "$stage_dir/$bundle_name/modul
 rsync -a --exclude '.git' --exclude '.build' --exclude 'build' --exclude 'dist' \
 	--exclude 'v_vulkan_video' --exclude '*.o' --exclude '*.so' --exclude '*.a' \
 	"$project_dir/" "$stage_dir/$bundle_name/v_vulkan_video/"
-for module in glfw h264 imgui minimp4 vkmemalloc vulkan; do
+git -C "$project_dir" rev-parse HEAD > "$stage_dir/$bundle_name/v_vulkan_video/SOURCE_REVISION"
+for module in glfw h264 imgui memory minimp4 vkmemalloc vulkan; do
 	module_path=antono2/$module
 	if [[ ! -d $modules_dir/$module_path && $module != vkmemalloc ]]; then
 		module_path=$module
@@ -26,6 +27,7 @@ for module in glfw h264 imgui minimp4 vkmemalloc vulkan; do
 	rsync -a --exclude '.git' --exclude '.build' --exclude 'build' --exclude 'lib' \
 		--exclude '*.o' --exclude '*.so' --exclude '*.a' \
 		"$modules_dir/$module_path/" "$stage_dir/$bundle_name/modules/antono2/$module/"
+	git -C "$modules_dir/$module_path" rev-parse HEAD > "$stage_dir/$bundle_name/modules/antono2/$module/SOURCE_REVISION"
 done
 
 (cd "$stage_dir" && zip -qr source.zip "$bundle_name")
