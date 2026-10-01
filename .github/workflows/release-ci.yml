@@ -154,12 +154,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: 42e6c381e37952ef07f4cd560c9996fd2435cd41
+          ref: 17d20c1c9e7bf27dd166df0727c83ec35d79f3e2
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.0
+          ref: a869e00b9697809863540cd7194177d105433314
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -169,7 +169,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: 26c8b67748675255885f2c79e609369c76283305
+          ref: 32bcb83f1967fa98a039230a0ae6e471afaf7d83
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -190,7 +190,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: vlang/v
-          ref: efae23e85b3772a28e62884d554c1e88f91f52f4
+          ref: b99970bd438a7bdcdfbe38f74d9364db801d5439
           path: toolchain/v
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -206,9 +206,34 @@ jobs:
         run: |
           make -C toolchain/v local=1
           echo "$GITHUB_WORKSPACE/toolchain/v" >> "$GITHUB_PATH"
-      - name: Check player with V3
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
+      - name: Install headers matching pinned Vulkan
+        run: |
+          set -euo pipefail
+          vulkan_root="$GITHUB_WORKSPACE/source/modules/antono2/vulkan"
+          registry_commit=$(tr -d '\r\n' < "$vulkan_root/REGISTRY_COMMIT")
+          headers_checkout="$RUNNER_TEMP/Vulkan-Headers"
+          git init -q "$headers_checkout"
+          git -C "$headers_checkout" remote add origin https://github.com/KhronosGroup/Vulkan-Headers.git
+          git -C "$headers_checkout" fetch --depth 1 origin "$registry_commit"
+          git -C "$headers_checkout" checkout --detach FETCH_HEAD
+          test "$(git -C "$headers_checkout" rev-parse HEAD)" = "$registry_commit"
+          sudo cp -R "$headers_checkout/include/." "$VULKAN_SDK/include/"
+          volk_commit=$(tr -d '\r\n' < "$vulkan_root/VOLK_COMMIT")
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/zeux/volk/$volk_commit/volk.h" \
+            --output "$RUNNER_TEMP/volk.h"
+          sudo install -m 0644 "$RUNNER_TEMP/volk.h" "$VULKAN_SDK/include/volk.h"
+      - name: Build native ImGui
+        working-directory: source/modules/antono2/imgui
+        run: v run build_vimgui.vsh --linkage shared --glfw system
+      - name: Build and test player with pinned V3 and TinyCC
         working-directory: source/v_vulkan_video
-        run: v -new-compiler -check .
+        run: |
+          v -new-compiler -cc tcc test .
+          v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
+          bash .github/scripts/smoke-vulkan-loader.sh "$RUNNER_TEMP/v_vulkan_video"
 
   linux-v-master:
     name: Advisory current V master and dependency masters
@@ -295,9 +320,7 @@ jobs:
           cd "$GITHUB_WORKSPACE/source/v_vulkan_video"
           v -new-compiler -cc tcc test .
           v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
-          timeout 20s xvfb-run -a "$RUNNER_TEMP/v_vulkan_video" --list-gpus res/20240917_095400.mp4 > "$RUNNER_TEMP/v3-gpus.log" 2>&1
-          cat "$RUNNER_TEMP/v3-gpus.log"
-          grep -F 'Vulkan devices for H.264' "$RUNNER_TEMP/v3-gpus.log"
+          bash .github/scripts/smoke-vulkan-loader.sh "$RUNNER_TEMP/v_vulkan_video"
 
   windows:
     name: Windows / ${{ matrix.compiler }}
