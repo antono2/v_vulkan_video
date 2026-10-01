@@ -7,6 +7,7 @@ Usage: build_linux.sh [options]
 
 Options:
   --compiler stable|v3       V compiler frontend (default: stable)
+  --cc tcc|gcc               C compiler (default: gcc for stable, tcc for v3)
   --linkage shared|static    Dear ImGui linkage (default: shared)
   --glfw system|bundled      GLFW provider (default: system)
   --glfw-version VERSION     Bundled GLFW release (default: 3.4)
@@ -15,6 +16,7 @@ EOF
 }
 
 compiler=stable
+c_compiler=
 linkage=shared
 glfw_provider=system
 glfw_version=3.4
@@ -22,6 +24,7 @@ install_modules=1
 while (($#)); do
 	case "$1" in
 		--compiler) compiler=$2; shift 2 ;;
+		--cc) c_compiler=$2; shift 2 ;;
 		--linkage) linkage=$2; shift 2 ;;
 		--glfw) glfw_provider=$2; shift 2 ;;
 		--glfw-version) glfw_version=$2; shift 2 ;;
@@ -32,6 +35,10 @@ while (($#)); do
 done
 
 [[ $compiler == stable || $compiler == v3 ]] || { echo 'compiler must be stable or v3' >&2; exit 2; }
+if [[ -z $c_compiler ]]; then
+	if [[ $compiler == v3 ]]; then c_compiler=tcc; else c_compiler=gcc; fi
+fi
+[[ $c_compiler == tcc || $c_compiler == gcc ]] || { echo 'cc must be tcc or gcc' >&2; exit 2; }
 [[ $linkage == shared || $linkage == static ]] || { echo 'linkage must be shared or static' >&2; exit 2; }
 [[ $glfw_provider == system || $glfw_provider == bundled ]] || { echo 'glfw must be system or bundled' >&2; exit 2; }
 
@@ -60,5 +67,5 @@ git -C "$imgui_dir" submodule update --init --recursive
 v_flags=()
 [[ $compiler == v3 ]] && v_flags+=(-new-compiler)
 [[ $linkage == static ]] && v_flags+=(-d imgui_static)
-"$v_bin" "${v_flags[@]}" -cc gcc -o v_vulkan_video .
-echo "Built $project_dir/v_vulkan_video with $compiler V compiler, $linkage ImGui, and $glfw_provider GLFW."
+"$v_bin" "${v_flags[@]}" -cc "$c_compiler" -o v_vulkan_video .
+echo "Built $project_dir/v_vulkan_video with $compiler V compiler, $c_compiler C compiler, $linkage ImGui, and $glfw_provider GLFW."
