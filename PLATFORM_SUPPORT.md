@@ -11,8 +11,11 @@ A normal Vulkan graphics driver does not necessarily provide Vulkan Video.
 | Windows 10, x86-64 | Native build and unsupported-device startup tested | MSVC 19.50, Vulkan SDK 1.4.357, shared ImGui, and bundled GLFW 3.4 build successfully. Startup and clean capability rejection were tested on a GeForce GTX 765M; that Kepler GPU exposes no Vulkan Video extensions. Playback still requires validation on supported Windows hardware before publishing a general binary. |
 | macOS | Unsupported for video decode | The UI bindings can be built for macOS, but this application requires Vulkan Video H.264 decode. Do not treat a MoltenVK graphics-capable system as proof of Vulkan Video support. |
 
-Linux V3 compilation is tracked by CI as an experimental, non-release-gating
-job. With V master at `b99970bd438a7bdcdfbe38f74d9364db801d5439`, the complete
+Linux V3 has a required pinned CI job that builds the complete player with
+TinyCC, runs the software tests, and checks `--help` and Vulkan device discovery
+under Xvfb with Lavapipe. An advisory job repeats those checks with current V
+and dependency masters. These software-driver checks do not test video decode.
+With V master at `b99970bd438a7bdcdfbe38f74d9364db801d5439`, the complete
 player builds with TinyCC and its three software-only test files pass. On the
 Linux GTX 1060, V3/TinyCC decoded the ID-7 fixture (5 frames) and multislice
 fixture (24 frames) byte-for-byte identically to FFmpeg and exited cleanly on
