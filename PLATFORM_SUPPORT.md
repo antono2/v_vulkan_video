@@ -16,13 +16,17 @@ job. With V master at `efae23e85b`, the complete player builds with TinyCC and i
 three software-only test files pass. Playback with V3 on supported hardware
 has not yet been validated, so stable V remains the release compiler.
 
+On Windows, source-built V master at `b99970bd438a7bdcdfbe38f74d9364db801d5439`
+passed the V3/MSVC package build, all three software test files, `--help`,
+`--list-gpus`, and archive verification. CI builds and tests stable and pinned
+V3 packages separately. The GTX 765M capability rejection confirms the
+unsupported-device path, not hardware decoding support.
+
 ## TODO: Windows playback validation
 
 Further Windows testing is deferred until a machine with a Vulkan
 Video-capable GPU is available. The remaining Windows work is:
 
-- enable and validate a full-player V3 build once the published Windows V
-  toolchain supports this project's `-new-compiler` invocation;
 - validate H.264 playback and timing over multiple loops;
 - resize and minimize repeatedly during active decoding;
 - validate rotated and non-rotated video metadata;
