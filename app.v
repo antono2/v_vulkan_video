@@ -10,21 +10,6 @@ import time
 import math
 import os
 
-// #flag -DCIMGUI_NO_EXPORT=no
-// #flag -DIMGUI_STATIC=yes
-// #flag -DIMGUI_DISABLE_WIN32_FUNCTIONS
-// #flag -DIMGUI_DISABLE_OSX_FUNCTIONS
-// #flag -DCIMGUI_DEFINE_ENUMS_AND_STRUCTS=yes
-// #flag -DIMGUI_USE_WCHAR32=yes
-// #flag -DIMGUI_DEFINE_MATH_OPERATORS
-// #flag -DIM_VEC2_CLASS_EXTRA=yes
-// #flag -DCIMGUI_USE_GLFW=yes
-// #flag -DIMGUI_HAS_DOCK=yes
-// #flag -DIMGUI_STATIC=yes
-// #flag -DCIMGUI_DEFINE_ENUMS_AND_STRUCTS=yes
-// #flag -DCIMGUI_NO_EXPORT=no
-// #flag -DIMGUI_DISABLE_WIN32_FUNCTIONS=yes
-// #flag -DIMGUI_DISABLE_OSX_FUNCTIONS=yes
 const v_modroot = @VMODROOT
 
 @[heap]
