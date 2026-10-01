@@ -82,7 +82,8 @@ Push-Location $ProjectDirectory
 try {
     $VArguments = @()
     if ($Compiler -eq "v3") { $VArguments += "-new-compiler" }
-    $VArguments += @("-subsystem", "console", "-cc", "msvc", "-cflags", "/MT", "-o", $Executable, ".")
+    # Prevent windows.h from loading legacy Winsock before V's Winsock2 headers.
+    $VArguments += @("-subsystem", "console", "-cc", "msvc", "-cflags", "/DWIN32_LEAN_AND_MEAN", "-cflags", "/MT", "-o", $Executable, ".")
     & v @VArguments
     if ($LASTEXITCODE -ne 0) { throw "V application build failed." }
 } finally {
