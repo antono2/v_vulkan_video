@@ -12,6 +12,7 @@ if (-not (Test-Path -LiteralPath $Archive -PathType Leaf)) {
 }
 
 $ExpectedFiles = @(
+    "BUILD-INFO.txt"
     "README.txt"
     "glfw3.dll"
     "res\20240917_095400.mp4"
@@ -23,6 +24,15 @@ $TemporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $ExtractDirectory = Join-Path $TemporaryRoot ("vkvideo-package-" + [guid]::NewGuid().ToString("N"))
 
 try {
+    $ChecksumPath = "$Archive.sha256"
+    if (-not (Test-Path -LiteralPath $ChecksumPath -PathType Leaf)) {
+        throw "Package checksum is missing: $ChecksumPath"
+    }
+    $ExpectedHash = ((Get-Content -LiteralPath $ChecksumPath -Raw).Trim() -split '\s+')[0]
+    $ActualHash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash
+    if ($ExpectedHash -notmatch '^[0-9a-fA-F]{64}$' -or $ActualHash -ne $ExpectedHash) {
+        throw 'Windows package checksum mismatch'
+    }
     Expand-Archive -LiteralPath $Archive -DestinationPath $ExtractDirectory
     $PackageDirectory = Join-Path $ExtractDirectory "vkvideo-windows-x64"
     if (-not (Test-Path -LiteralPath $PackageDirectory -PathType Container)) {
