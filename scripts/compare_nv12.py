@@ -39,7 +39,8 @@ def main() -> int:
         parser.error("dump directory must contain contiguous 0.nv12, 1.nv12, ... files")
 
     command = [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(args.reference),
+        # GPU readback contains coded pixels, before the display matrix is applied.
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-noautorotate", "-i", str(args.reference),
         "-fps_mode", "passthrough", "-pix_fmt", "nv12", "-f", "rawvideo", "pipe:1",
     ]
     mismatched = 0

@@ -139,6 +139,11 @@ playback loop's decoded images to display-order `N.nv12` files. Run the
 elementary stream for the Sony case: FFmpeg's MP4 remux has nonmonotonic
 timestamps and drops frames when exporting raw video.
 
+The comparison disables FFmpeg's display autorotation: NV12 readback contains
+coded-image pixels before the player's presentation transform. This also
+allows a rotated MP4 to be compared without confusing display orientation
+with a decode mismatch.
+
 ```sh
 VV_DUMP_NV12_DIR=/tmp/sony-nv12 ./v_vulkan_video FRExt_MMCO4_Sony_B.mp4
 python3 scripts/compare_nv12.py FRExt_MMCO4_Sony_B.264 /tmp/sony-nv12
