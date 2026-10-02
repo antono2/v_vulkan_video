@@ -18,6 +18,12 @@ conflicts with this player's `v3.2.0` requirement in a fresh VPM install.
 Published tags are not changed. Release CI continues checking its explicit
 dependency revisions independently of the developer manifest.
 
+Release CI now pins the approved, versioned sources for `minimp4` 2.0.0,
+`h264` 2.0.0, and `vkmemalloc` 2.6.1 by immutable commit. Their release tags
+are not published yet; do not use those tag names in `v install` until
+publication. The allocator source uses the corrected Vulkan requirement in
+both stable and V3 release builds.
+
 Use `antono2.minimp4` revision `6228ef3cf4f9703f15b87c42c3edd4225ef1d45d`
 or later. It declares MP4 I/O callback results as `i32`, matching C's 32-bit
 status result. Refresh older module checkouts before building this player;
