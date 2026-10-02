@@ -58,7 +58,7 @@ Install:
 - the LunarG Vulkan SDK; and
 - a current GPU driver with Vulkan Video H.264 decode support.
 
-Open **x64 Native Tools Command Prompt for VS 2022**, ensure `v`, `cmake`, and
+Open **Developer PowerShell for VS 2022** configured for x64, ensure `v`, `cmake`, and
 `VULKAN_SDK` are available, and run:
 
 ```powershell
