@@ -31,6 +31,32 @@ passed the V3/MSVC package build, all three software test files, `--help`,
 V3 packages separately. The GTX 765M capability rejection confirms the
 unsupported-device path, not hardware decoding support.
 
+## Linux release-candidate regression (2026-10-02)
+
+On the GTX 1060 6GB with NVIDIA driver 580.178.04, the stable V 0.5.2/GCC
+candidate using minimp4 v2.0.0, h264 v2.0.0, and vkmemalloc v2.6.1 matched
+FFmpeg exactly for the ID-7 (5 frames), multislice (24), landscape (240),
+360p B-frame (300), and rotated default (737) fixtures: 1,306 frames in total.
+NV12 comparisons use coded pixels, with FFmpeg display autorotation disabled.
+
+Managed isolated X11/Xvfb windows exercised looping, resize, minimize/restore,
+Escape shutdown, and window-manager close. Real NVIDIA Vulkan Video hardware
+performed the decode; these automated checks do not repeat the rendered-RGB
+spot comparisons described below or validate another compositor or driver.
+The diagnostic candidate loaded the Khronos validation layer and completed
+the short-fixture checks without reported Vulkan validation errors.
+
+V3/TinyCC at `0dc6a692ed5333cbe3f05ff63ae0766f0333038a` initially boxed an
+untyped null in the swapchain image-count query and failed during startup.
+With the explicit typed-null workaround, all 29 ID-7/multislice frames matched
+FFmpeg, and the managed-window lifecycle checks passed. The swapchain now also
+checks count/fill results rather than indexing an empty image array.
+
+This GPU supports coincident DPB/output images only. A forced distinct-image
+request was rejected cleanly with an explanatory diagnostic and exit code 1;
+that is not a validation of distinct-mode playback. The player has no
+user-facing seek control, so seeking is not part of this regression claim.
+
 ## TODO: Windows playback validation
 
 Further Windows testing is deferred until a machine with a Vulkan

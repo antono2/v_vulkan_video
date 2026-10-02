@@ -88,6 +88,12 @@ fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format
 	return sc.resize(swapchain_size)
 }
 
+// V3 can box an untyped nil passed to &Image as a non-null pointer to a null
+// handle. The count-only enumeration must receive a genuinely null pointer.
+fn swapchain_count_only_images() &vk.Image {
+	return unsafe { &vk.Image(nil) }
+}
+
 fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 	device_context := sc.app.device_context
 	mut surface_caps := vk.SurfaceCapabilitiesKHR{}
@@ -130,10 +136,15 @@ fn (mut sc Swapchain) resize(extent vk.Extent2D) bool {
 		vk.destroy_swapchain_khr(vk_device, old_swapchain, unsafe { nil })
 	}
 	mut image_count := u32(0)
-	vk.get_swapchain_images_khr(vk_device, sc.swapchain, &image_count, unsafe { nil })
+	count_result := vk.get_swapchain_images_khr(vk_device, sc.swapchain, &image_count, swapchain_count_only_images())
+	check_vk(count_result, 'Could not query swapchain image count')
+	if image_count == 0 {
+		panic('Swapchain reported no images')
+	}
 	sc.images = unsafe { []vk.Image{len: int(image_count)} }
 	sc.image_views = unsafe { []vk.ImageView{len: int(image_count)} }
-	vk.get_swapchain_images_khr(vk_device, sc.swapchain, &image_count, sc.images.data)
+	images_result := vk.get_swapchain_images_khr(vk_device, sc.swapchain, &image_count, sc.images.data)
+	check_vk(images_result, 'Could not enumerate swapchain images')
 	sc.image_count = image_count
 	for i in 0 .. image_count {
 		mut view_ci := vk.ImageViewCreateInfo{
