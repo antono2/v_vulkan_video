@@ -24,6 +24,10 @@ The launcher deliberately does not set LD_LIBRARY_PATH. Relative RUNPATHs load
 the bundled application libraries without overriding dependencies used by the
 installed Vulkan driver.
 
+BUILD-INFO.txt records the source/compiler/module revisions. LICENSE,
+MEDIA.txt, and licenses/ retain the project, test-media, and dependency
+notices. Check the archive's accompanying .sha256 file before extraction.
+
 The test machine must have:
 
 * Ubuntu 24.04 LTS on x86_64

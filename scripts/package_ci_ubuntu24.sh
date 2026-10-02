@@ -29,6 +29,7 @@ install -m 0755 /lib/x86_64-linux-gnu/libgcc_s.so.1 "$package_dir/lib/libgcc_s.s
 install -m 0644 "$project_dir/res/20240917_095400.mp4" "$package_dir/res/20240917_095400.mp4"
 install -m 0755 "$project_dir/packaging/ubuntu24/run.sh" "$package_dir/run.sh"
 install -m 0644 "$project_dir/packaging/ubuntu24/README.txt" "$package_dir/README.txt"
+PACKAGE_COMPILER_MODE=stable bash "$project_dir/scripts/write_linux_package_info.sh" "$package_dir"
 
 strip --strip-unneeded "$package_dir/v_vulkan_video" "$package_dir/lib/libvimgui.so"
 patchelf --set-rpath '$ORIGIN/lib' "$package_dir/v_vulkan_video"
@@ -36,5 +37,6 @@ patchelf --set-rpath '$ORIGIN' "$package_dir/lib/libvimgui.so"
 
 (cd "$stage_dir" && zip -qr package.zip "$package_name")
 install -m 0644 "$stage_dir/package.zip" "$output_zip"
+sha256sum "$output_zip" | awk -v name="$(basename "$output_zip")" '{print $1 "  " name}' > "$output_zip.sha256"
 "$project_dir/scripts/verify_ubuntu24_package.sh" "$output_zip"
 sha256sum "$output_zip"

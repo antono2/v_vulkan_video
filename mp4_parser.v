@@ -14,7 +14,7 @@ pub mut:
 	read_error  string
 }
 
-fn read_callback(offset i64, buffer &u8, size usize, user_data voidptr) int {
+fn read_callback(offset i64, buffer &u8, size usize, user_data voidptr) i32 {
 	mut data := unsafe { &CallbackUserData(user_data) }
 	if offset < 0 || offset >= data.file_size {
 		return 1
