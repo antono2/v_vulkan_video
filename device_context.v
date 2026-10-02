@@ -752,8 +752,10 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 
 fn (mut ctx DeviceContext) enumerate_gpus() {
 	mut gpu_count := u32(0)
-
-	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, unsafe { nil })
+	// Keep the count-only output a typed null pointer. Current V3 wraps an
+	// untyped nil argument in a non-null pointer to a null handle instead.
+	devices_count_only := unsafe { &vk.PhysicalDevice(nil) }
+	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, devices_count_only)
 	int_gpu_count := int(gpu_count)
 	ctx.gpus = unsafe { []vk.PhysicalDevice{len: int_gpu_count} }
 	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, ctx.gpus.data)
