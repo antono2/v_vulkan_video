@@ -678,6 +678,9 @@ fn test_parser_keeps_nonzero_parameter_set_ids_for_runtime_lookup() {
 	assert decoder.video_data.pps_count == 1
 	assert decoder.video_data.sps_storage_offset(7)! == 0
 	assert decoder.video_data.pps_storage_offset(7)! == 0
+	assert decoder.video_data.sps_bytes.len == int(sizeof(h264.SequenceParameterSet))
+	assert decoder.video_data.pps_bytes.len == int(sizeof(h264.PictureParameterSet))
+	assert decoder.video_data.slice_header_bytes.len == decoder.video_data.frame_infos.len * int(sizeof(h264.SliceHeader))
 	sps := unsafe { &h264.SequenceParameterSet(decoder.video_data.sps_bytes.data) }
 	pps := unsafe { &h264.PictureParameterSet(decoder.video_data.pps_bytes.data) }
 	assert sps.seq_parameter_set_id == 7
@@ -697,8 +700,9 @@ fn test_custom_h264_scaling_lists_reach_vulkan_parameter_structs() {
 	// lists exposed the pinned parser's fixed-array slice-write bug.
 	sps_nal :=
 		hex.decode('2764001fad9464763b8ac4444a323b1dc5622225191d8ee2b11114222b373669a844566e6cd35088acdcd9a69444cd1b9bc57c9f93f9bf27c9e4e4cd251a4689c9ebe4fd7f27ebe4f5c9a906c694160964')!
-	sps_rbsp := unsafe { remove_emulation_prevention_bytes(byteptr(sps_nal.data) + 1,
-		sps_nal.len - 1) }
+	sps_rbsp := unsafe {
+		remove_emulation_prevention_bytes(byteptr(sps_nal.data) + 1, sps_nal.len - 1)
+	}
 	validate_sps_rbsp(sps_rbsp)!
 	mut sps_bits := h264.Bitstream{}
 	sps_bits.init(sps_rbsp)
