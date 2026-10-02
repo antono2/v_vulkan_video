@@ -139,6 +139,10 @@ bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle'
 `build.bat` explicitly selects its bundled modules so an unrelated `VMODULES`
 setting cannot override the packaged stack.
 
+When installing modules on a different Windows drive, set `VTMP` to a writable
+directory on the same drive as `VMODULES` before `v install`; see the Windows
+quickstart. This avoids released VPM's cross-drive directory-move limitation.
+
 Extract it, open `v_vulkan_video\packaging\windows\build.bat`, and run it. The
 script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,
 compiles the player with MSVC, and creates

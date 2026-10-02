@@ -63,8 +63,10 @@ Open **x64 Native Tools Command Prompt for VS 2022**, ensure `v`, `cmake`, and
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\check_windows.ps1
-v install
 $modules = if ($env:VMODULES) { ($env:VMODULES -split ';')[0] } else { "$env:USERPROFILE\.vmodules" }
+$env:VMODULES = $modules
+$env:VTMP = Join-Path $modules '.vtmp'
+v install
 $imgui = Join-Path $modules 'antono2\imgui'
 git -C $imgui submodule update --init --recursive
 powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -ModulesDirectory $modules
@@ -73,6 +75,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -ModulesDirec
 The build script produces `dist\vkvideo-windows-x64.zip`. Windows compilation
 and unsupported-device diagnostics are tested; playback validation on a
 Vulkan-Video-capable Windows GPU remains a release TODO.
+
+The `VTMP` setting keeps VPM's temporary checkouts on the same drive as the
+module directory. Released VPM can fail to move directories across drives,
+for example from the default `C:` temporary directory to `VMODULES` on `D:`.
 
 Use the stable V compiler for release builds. A source-built V master at
 `b99970bd438a7bdcdfbe38f74d9364db801d5439` also passed the Windows V3/MSVC

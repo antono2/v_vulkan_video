@@ -71,6 +71,8 @@ jobs:
         run: |
           if (Test-Path $env:VMODULES) { throw 'Fresh module directory already exists' }
           New-Item -ItemType Directory $env:VMODULES | Out-Null
+          # Released VPM cannot move its temporary checkout directories across drives.
+          $env:VTMP = Join-Path $env:VMODULES '.vtmp'
           v install
           if ($LASTEXITCODE -ne 0) { throw 'Fresh VPM installation failed' }
           git -C (Join-Path $env:VMODULES 'antono2\imgui') submodule update --init --recursive
