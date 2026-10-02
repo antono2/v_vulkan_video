@@ -73,7 +73,7 @@ install -m 0644 "$project_dir/res/20240917_095400.mp4" "$build_dir/$package_name
 cp "$project_dir/packaging/ubuntu24/run.sh" "$build_dir/$package_name/run.sh"
 cp "$project_dir/packaging/ubuntu24/README.txt" "$build_dir/$package_name/README.txt"
 chmod 0755 "$build_dir/$package_name/run.sh"
-VMODULES="$vmodules_dir" V_BIN="$v_bin" PACKAGE_RUNTIME_ROOT="$rootfs" \
+VMODULES="$vmodules_dir" VIMGUI_DIR="$imgui_dir" V_BIN="$v_bin" PACKAGE_RUNTIME_ROOT="$rootfs" \
 	bash "$project_dir/scripts/write_linux_package_info.sh" "$build_dir/$package_name"
 
 (cd "$build_dir" && zip -qr package.zip "$package_name")
