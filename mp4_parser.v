@@ -391,7 +391,9 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		// d.video_data.num_dpb_slots = d.video_data.num_dpb_slots ^ ((d.video_data.num_dpb_slots ^ (sps.num_ref_frames * 2 + 1)) & -u32(d.video_data.num_dpb_slots < (sps.num_ref_frames * 2 + 1)))
 		d.video_data.num_dpb_slots = math.max[u32](d.video_data.num_dpb_slots, sps.num_ref_frames +
 			1)
-		d.video_data.sps_bytes << unsafe { byteptr(&sps).vbytes(int(sizeof(sps))) }
+		d.video_data.sps_bytes << unsafe {
+			byteptr(&sps).vbytes(int(sizeof(h264.SequenceParameterSet)))
+		}
 		sps_array << sps
 		d.video_data.sps_storage_index[sps.seq_parameter_set_id] = u8(sps_array.len)
 		d.video_data.sps_count++
@@ -437,8 +439,11 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			}
 		}
 		_ = h264_sps_by_id(sps_array, pps.seq_parameter_set_id)!
-		d.video_data.pps_bytes.ensure_cap(d.video_data.pps_bytes.len + int(sizeof(pps)))
-		d.video_data.pps_bytes << unsafe { byteptr(&pps).vbytes(int(sizeof(pps))) }
+		d.video_data.pps_bytes.ensure_cap(d.video_data.pps_bytes.len +
+			int(sizeof(h264.PictureParameterSet)))
+		d.video_data.pps_bytes << unsafe {
+			byteptr(&pps).vbytes(int(sizeof(h264.PictureParameterSet)))
+		}
 		pps_array << pps
 		d.video_data.pps_storage_index[pps.pic_parameter_set_id] = u16(pps_array.len)
 		d.video_data.pps_count++
@@ -700,7 +705,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 			data_frame.duration_ns = math.max[i64](1,
 				i64(f64(duration) * timescale_rcp * 1_000_000_000.0))
 			d.video_data.slice_header_bytes << unsafe {
-				byteptr(&slice_header).vbytes(int(sizeof(slice_header)))
+				byteptr(&slice_header).vbytes(int(sizeof(h264.SliceHeader)))
 			}
 			found_slice = true
 			frame_bytes_num_to_do -= size

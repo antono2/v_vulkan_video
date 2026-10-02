@@ -21,6 +21,11 @@ Use `antono2.h264` revision `2d9a4a509912b6c237109355676950bcc8093f31`
 or newer. It fixes custom scaling-list storage and the default-matrix flag's
 pointer handling, with stable and strict V3 regression coverage.
 
+Parameter-set and slice-header byte storage uses `sizeof` with the explicit
+struct type. Current V3 can emit a pointer size for `sizeof(variable)` after
+heap-promoting that variable; copying by the named type preserves the full
+record on both compiler paths.
+
 ## Shared Dear ImGui (default)
 
 ```sh
