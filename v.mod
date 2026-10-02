@@ -5,10 +5,10 @@ Module {
 	license: 'MIT'
 	dependencies: [
 		'antono2.glfw@v2.0.0',
-		'antono2.h264',
+		'antono2.h264@v2.0.0',
 		'antono2.imgui',
-		'antono2.minimp4',
+		'antono2.minimp4@v2.0.0',
 		'antono2.vulkan@v3.2.0',
-		'antono2.vkmemalloc',
+		'antono2.vkmemalloc@v2.6.1',
 	]
 }
