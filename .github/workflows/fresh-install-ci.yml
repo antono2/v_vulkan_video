@@ -65,7 +65,7 @@ jobs:
           Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
           Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
       - name: Install from an empty module directory and build outside bundle layout
-        shell: pwsh
+        shell: powershell
         env:
           VMODULES: ${{ github.workspace }}-fresh-modules
         run: |
