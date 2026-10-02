@@ -1,0 +1,95 @@
+name: Fresh installation CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vkvideo-fresh-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Fresh VPM / Linux / stable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      VULKAN_SDK: /usr
+      GLFW_INCLUDE: /usr/include
+      GLFW_LIB: /usr/lib/x86_64-linux-gnu
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
+        with:
+          version: 0.5.2
+      - name: Install native build and software Vulkan dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
+      - name: Install from an empty module directory and build
+        env:
+          VMODULES: ${{ github.workspace }}-fresh-modules
+        run: |
+          test ! -e "$VMODULES"
+          mkdir -p "$VMODULES"
+          bash scripts/build_linux.sh --cc tcc
+      - name: Test freshly installed modules and loader startup
+        env:
+          VMODULES: ${{ github.workspace }}-fresh-modules
+        run: |
+          export LD_LIBRARY_PATH="$VMODULES/antono2/imgui/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          v -cc tcc test .
+          bash .github/scripts/smoke-vulkan-loader.sh "$GITHUB_WORKSPACE/v_vulkan_video"
+
+  windows:
+    name: Fresh VPM / Windows / stable
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
+        with:
+          version: 0.5.2
+      - name: Install Vulkan SDK and software Vulkan device
+        shell: bash
+        run: bash .github/scripts/setup-vulkan-ci.sh 1.4.309.0 v1.2
+      - name: Install Volk headers
+        shell: pwsh
+        run: |
+          $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
+          New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
+      - name: Install from an empty module directory and build outside bundle layout
+        shell: powershell
+        env:
+          VMODULES: ${{ github.workspace }}-fresh-modules
+        run: |
+          if (Test-Path $env:VMODULES) { throw 'Fresh module directory already exists' }
+          New-Item -ItemType Directory $env:VMODULES | Out-Null
+          # Released VPM cannot move its temporary checkout directories across drives.
+          $env:VTMP = Join-Path $env:VMODULES '.vtmp'
+          v install
+          if ($LASTEXITCODE -ne 0) { throw 'Fresh VPM installation failed' }
+          git -C (Join-Path $env:VMODULES 'antono2\imgui') submodule update --init --recursive
+          if ($LASTEXITCODE -ne 0) { throw 'ImGui submodule installation failed' }
+          $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $InstallPath = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $InstallPath) { throw 'Visual Studio C++ tools were not found' }
+          Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          # A normal SDK installation only defines VULKAN_SDK, not this CI helper variable.
+          Remove-Item Env:VULKAN_SDK_VERSION
+          ./scripts/build_windows.ps1
+          $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
+          v -cc msvc -cflags '/DWIN32_LEAN_AND_MEAN' test .
+          if ($LASTEXITCODE -ne 0) { throw 'Fresh Windows player tests failed' }
+          $HelpText = (& ./dist/vkvideo-windows-x64/v_vulkan_video.exe --help | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $HelpText -notmatch 'Usage:') { throw 'Player help failed' }
+          $GpuText = (& ./dist/vkvideo-windows-x64/v_vulkan_video.exe --list-gpus ./dist/vkvideo-windows-x64/res/20240917_095400.mp4 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $GpuText -notmatch 'Vulkan devices for H.264') { throw 'Device enumeration failed' }
+          ./scripts/verify_windows_package.ps1

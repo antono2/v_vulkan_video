@@ -46,8 +46,11 @@ try {
         throw "The archive is missing its vkvideo-windows-x64 root directory"
     }
 
+    # GetRelativePath is unavailable in Windows PowerShell 5.1/.NET Framework.
+    # Every enumerated file is below this freshly extracted package root.
+    $PackagePrefix = $PackageDirectory.TrimEnd([char[]]'\/') + [IO.Path]::DirectorySeparatorChar
     $ActualFiles = Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File |
-        ForEach-Object { [IO.Path]::GetRelativePath($PackageDirectory, $_.FullName) } |
+        ForEach-Object { $_.FullName.Substring($PackagePrefix.Length) } |
         Sort-Object
     $ExpectedFiles = $ExpectedFiles | Sort-Object
     $Difference = Compare-Object -ReferenceObject $ExpectedFiles -DifferenceObject $ActualFiles
