@@ -68,7 +68,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: d93e2ae0d8794b59929361c03dca5ab019a21b66
+          ref: 2d9a4a509912b6c237109355676950bcc8093f31
           path: source/modules/antono2/h264
       - name: Set up released V compiler
         uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
@@ -202,7 +202,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: d93e2ae0d8794b59929361c03dca5ab019a21b66
+          ref: 2d9a4a509912b6c237109355676950bcc8093f31
           path: source/modules/antono2/h264
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -387,7 +387,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: d93e2ae0d8794b59929361c03dca5ab019a21b66
+          ref: 2d9a4a509912b6c237109355676950bcc8093f31
           path: source/modules/antono2/h264
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: matrix.compiler == 'stable'

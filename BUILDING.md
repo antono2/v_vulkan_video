@@ -17,6 +17,10 @@ or later. It declares MP4 I/O callback results as `i32`, matching C's 32-bit
 status result. Refresh older module checkouts before building this player;
 the player reader uses that explicit type so strict V3 can safely forward it.
 
+Use `antono2.h264` revision `2d9a4a509912b6c237109355676950bcc8093f31`
+or newer. It fixes custom scaling-list storage and the default-matrix flag's
+pointer handling, with stable and strict V3 regression coverage.
+
 ## Shared Dear ImGui (default)
 
 ```sh
