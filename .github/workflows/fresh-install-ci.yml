@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      VMODULES: ${{ runner.temp }}/vkvideo-fresh-modules
+      VMODULES: ${{ github.workspace }}-fresh-modules
       VULKAN_SDK: /usr
       GLFW_INCLUDE: /usr/include
       GLFW_LIB: /usr/lib/x86_64-linux-gnu
@@ -47,7 +47,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     env:
-      VMODULES: ${{ runner.temp }}\vkvideo-fresh-modules
+      VMODULES: ${{ github.workspace }}-fresh-modules
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
