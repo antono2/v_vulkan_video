@@ -32,5 +32,6 @@ done
 
 (cd "$stage_dir" && zip -qr source.zip "$bundle_name")
 install -m 0644 "$stage_dir/source.zip" "$output_zip"
+sha256sum "$output_zip" | awk -v name="$(basename "$output_zip")" '{print $1 "  " name}' > "$output_zip.sha256"
 unzip -t "$output_zip" >/dev/null
 sha256sum "$output_zip"

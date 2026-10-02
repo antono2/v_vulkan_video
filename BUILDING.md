@@ -12,6 +12,11 @@ revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
 
+Use `antono2.minimp4` revision `6228ef3cf4f9703f15b87c42c3edd4225ef1d45d`
+or later. It declares MP4 I/O callback results as `i32`, matching C's 32-bit
+status result. Refresh older module checkouts before building this player;
+the player reader uses that explicit type so strict V3 can safely forward it.
+
 ## Shared Dear ImGui (default)
 
 ```sh
@@ -73,6 +78,13 @@ bitstreams are not fully validated by the pinned H.264 parser.
 output-image mode; `auto` is the default.
 
 ## Ubuntu 24.04 binary package
+
+Linux and Windows binary archives retain `BUILD-INFO.txt` with source,
+compiler and module revisions, plus `LICENSE`, `MEDIA.txt`, and dependency
+notices under `licenses/`. Linux also includes the distribution copyright
+files for its bundled libstdc++ and libgcc runtimes. Binary and Windows source
+archives have accompanying `.sha256` files; binary package verifiers require
+a matching checksum and nonempty build/license records.
 
 The packaging script builds in the configured Ubuntu 24 root filesystem,
 sets relative runtime paths, bundles compatible C++/GLFW libraries, tests the

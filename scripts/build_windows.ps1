@@ -96,6 +96,16 @@ New-Item -ItemType Directory -Force (Join-Path $PackageDirectory "res") | Out-Nu
 Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $PackageDirectory "res\20240917_095400.mp4") -Force
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $PackageDirectory -Force
 Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $PackageDirectory -Force
+Copy-Item (Join-Path $ProjectDirectory 'LICENSE') $PackageDirectory -Force
+Copy-Item (Join-Path $ProjectDirectory 'res\README.md') (Join-Path $PackageDirectory 'MEDIA.txt') -Force
+$LicenseDirectory = Join-Path $PackageDirectory 'licenses'
+New-Item -ItemType Directory -Force $LicenseDirectory | Out-Null
+foreach ($Entry in Get-Content (Join-Path $ProjectDirectory 'packaging\licenses.manifest')) {
+    $Parts = $Entry -split '\s+'
+    if ($Parts.Count -ne 3) { throw "Invalid license entry: $Entry" }
+    $ModuleDirectory = Join-Path $Antono2ModulesDirectory $Parts[0]
+    Copy-Item (Join-Path $ModuleDirectory $Parts[1]) (Join-Path $LicenseDirectory $Parts[2]) -Force
+}
 
 function Get-SourceRevision([string]$Directory) {
     if (Test-Path (Join-Path $Directory '.git')) {

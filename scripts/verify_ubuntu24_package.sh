@@ -6,6 +6,14 @@ if [[ ! -f $archive ]]; then
 	echo "Package does not exist: $archive" >&2
 	exit 1
 fi
+checksum="$archive.sha256"
+[[ -f $checksum ]] || { echo "Package checksum is missing: $checksum" >&2; exit 1; }
+expected_hash=$(awk 'NR == 1 {print $1}' "$checksum")
+actual_hash=$(sha256sum "$archive" | awk '{print $1}')
+if [[ ! $expected_hash =~ ^[0-9a-fA-F]{64}$ || ${expected_hash,,} != "$actual_hash" ]]; then
+	echo 'Ubuntu package checksum mismatch' >&2
+	exit 1
+fi
 
 patchelf_bin=${PATCHELF:-}
 if [[ -z $patchelf_bin ]]; then
@@ -22,6 +30,9 @@ unzip -q "$archive" -d "$verify_dir"
 package_dir="$verify_dir/vkvideo-ubuntu24-amd64"
 
 required_files=(
+	"$package_dir/BUILD-INFO.txt"
+	"$package_dir/LICENSE"
+	"$package_dir/MEDIA.txt"
 	"$package_dir/run.sh"
 	"$package_dir/v_vulkan_video"
 	"$package_dir/lib/libvimgui.so"
@@ -30,11 +41,29 @@ required_files=(
 	"$package_dir/lib/libgcc_s.so.1"
 	"$package_dir/res/20240917_095400.mp4"
 )
+project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+while read -r module source destination; do
+	required_files+=("$package_dir/licenses/$destination")
+done < "$project_dir/packaging/licenses.manifest"
+required_files+=("$package_dir/licenses/libstdc++6.txt" "$package_dir/licenses/libgcc-s1.txt")
 for required in "${required_files[@]}"; do
-	if [[ ! -f $required ]]; then
+	if [[ ! -s $required ]]; then
 		echo "Package is missing: ${required#"$package_dir/"}" >&2
 		exit 1
 	fi
+done
+
+for label in 'Source revision' 'V compiler' 'Compiler mode' 'C compiler' 'Vulkan SDK'; do
+	grep -q "^$label: ." "$package_dir/BUILD-INFO.txt" || {
+		echo "Package build record is missing: $label" >&2
+		exit 1
+	}
+done
+for module in vulkan vkmemalloc memory imgui glfw minimp4 h264; do
+	grep -q "^Module $module: ." "$package_dir/BUILD-INFO.txt" || {
+		echo "Package build record is missing module: $module" >&2
+		exit 1
+	}
 done
 
 if ! file "$package_dir/v_vulkan_video" | grep -q 'ELF 64-bit.*x86-64'; then

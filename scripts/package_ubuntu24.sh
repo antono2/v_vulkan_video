@@ -73,9 +73,12 @@ install -m 0644 "$project_dir/res/20240917_095400.mp4" "$build_dir/$package_name
 cp "$project_dir/packaging/ubuntu24/run.sh" "$build_dir/$package_name/run.sh"
 cp "$project_dir/packaging/ubuntu24/README.txt" "$build_dir/$package_name/README.txt"
 chmod 0755 "$build_dir/$package_name/run.sh"
+VMODULES="$vmodules_dir" V_BIN="$v_bin" PACKAGE_RUNTIME_ROOT="$rootfs" \
+	bash "$project_dir/scripts/write_linux_package_info.sh" "$build_dir/$package_name"
 
 (cd "$build_dir" && zip -qr package.zip "$package_name")
 install -m 0644 "$build_dir/package.zip" "$output_zip"
+sha256sum "$output_zip" | awk -v name="$(basename "$output_zip")" '{print $1 "  " name}' > "$output_zip.sha256"
 unzip -t "$output_zip" >/dev/null
 PATCHELF="$rootfs/usr/bin/patchelf" \
 	"$project_dir/scripts/verify_ubuntu24_package.sh" "$output_zip"

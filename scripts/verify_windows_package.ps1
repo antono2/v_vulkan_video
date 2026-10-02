@@ -13,6 +13,8 @@ if (-not (Test-Path -LiteralPath $Archive -PathType Leaf)) {
 
 $ExpectedFiles = @(
     "BUILD-INFO.txt"
+    "LICENSE"
+    "MEDIA.txt"
     "README.txt"
     "glfw3.dll"
     "res\20240917_095400.mp4"
@@ -20,6 +22,11 @@ $ExpectedFiles = @(
     "v_vulkan_video.exe"
     "vimgui.dll"
 )
+foreach ($Entry in Get-Content (Join-Path $ProjectDirectory 'packaging\licenses.manifest')) {
+    $Parts = $Entry -split '\s+'
+    if ($Parts.Count -ne 3) { throw "Invalid license entry: $Entry" }
+    $ExpectedFiles += "licenses\$($Parts[2])"
+}
 $TemporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $ExtractDirectory = Join-Path $TemporaryRoot ("vkvideo-package-" + [guid]::NewGuid().ToString("N"))
 
@@ -51,6 +58,13 @@ try {
     foreach ($RelativePath in $ExpectedFiles) {
         $File = Get-Item -LiteralPath (Join-Path $PackageDirectory $RelativePath)
         if ($File.Length -eq 0) { throw "Packaged file is empty: $RelativePath" }
+    }
+    $BuildInfo = Get-Content (Join-Path $PackageDirectory 'BUILD-INFO.txt') -Raw
+    foreach ($Label in @('Source revision', 'V compiler', 'Compiler mode', 'C compiler', 'Vulkan SDK')) {
+        if ($BuildInfo -notmatch "(?m)^${Label}: .+") { throw "Missing build record: $Label" }
+    }
+    foreach ($Module in @('vulkan', 'vkmemalloc', 'memory', 'imgui', 'glfw', 'minimp4', 'h264')) {
+        if ($BuildInfo -notmatch "(?m)^Module ${Module}: .+") { throw "Missing module revision: $Module" }
     }
     Write-Output "Verified Windows package: $Archive"
 } finally {

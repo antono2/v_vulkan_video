@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: bfd69354dd11d1904783198657c3dcc8fb5dc99b
+          ref: 6228ef3cf4f9703f15b87c42c3edd4225ef1d45d
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -108,7 +108,16 @@ jobs:
         if: matrix.linkage == 'shared'
         with:
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip
+          # The checksum accompanies the archive in a separate artifact below.
           archive: false
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload Ubuntu package checksums
+        if: matrix.linkage == 'shared'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vkvideo-ubuntu24-checksums
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64.zip.sha256
           retention-days: 7
           if-no-files-found: error
       - name: Build diagnostic Ubuntu player
@@ -123,6 +132,14 @@ jobs:
         with:
           path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip
           archive: false
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload diagnostic Ubuntu package checksum
+        if: matrix.linkage == 'shared'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vkvideo-ubuntu24-debug-checksum
+          path: source/v_vulkan_video/vkvideo-ubuntu24-amd64-debug.zip.sha256
           retention-days: 7
           if-no-files-found: error
       - name: Package static Linux CI binary
@@ -180,7 +197,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: bfd69354dd11d1904783198657c3dcc8fb5dc99b
+          ref: 6228ef3cf4f9703f15b87c42c3edd4225ef1d45d
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -365,7 +382,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: bfd69354dd11d1904783198657c3dcc8fb5dc99b
+          ref: 6228ef3cf4f9703f15b87c42c3edd4225ef1d45d
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

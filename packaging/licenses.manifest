@@ -1,0 +1,14 @@
+imgui LICENSE antono2-imgui.txt
+imgui include/imgui/LICENSE.txt dear-imgui.txt
+imgui include/implot/LICENSE implot.txt
+glfw LICENSE antono2-glfw.txt
+glfw third_party/GLFW-LICENSE.md glfw.txt
+vulkan LICENSE antono2-vulkan.txt
+vulkan c/vendor/volk/volk.h volk-header.txt
+vulkan c/vendor/VULKAN_HEADERS_LICENSE.md vulkan-headers.txt
+vulkan c/vendor/LICENSES/Apache-2.0.txt vulkan-headers-apache-2.0.txt
+vulkan c/vendor/LICENSES/MIT.txt vulkan-headers-mit.txt
+vkmemalloc LICENSE antono2-vkmemalloc.txt
+memory LICENSE antono2-memory.txt
+minimp4 LICENSE antono2-minimp4.txt
+h264 LICENSE antono2-h264.txt
