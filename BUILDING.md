@@ -12,6 +12,12 @@ revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
 
+Developer `v install` uses the maintained allocator branch until its next
+release: the published `v2.6.0` manifest requests unversioned Vulkan, which
+conflicts with this player's `v3.2.0` requirement in a fresh VPM install.
+Published tags are not changed. Release CI continues checking its explicit
+dependency revisions independently of the developer manifest.
+
 Use `antono2.minimp4` revision `6228ef3cf4f9703f15b87c42c3edd4225ef1d45d`
 or later. It declares MP4 I/O callback results as `i32`, matching C's 32-bit
 status result. Refresh older module checkouts before building this player;
@@ -127,6 +133,12 @@ executable (the packaging script does this automatically from its rootfs).
 ## Windows x64 source bundle
 
 The Windows bundle contains the project and its exact V module dependencies.
+For an ordinary Git checkout, `v install` installs the developer dependencies;
+`build_windows.ps1` resolves `-ModulesDirectory`, then `VMODULES`, then a sibling
+bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's
+`build.bat` explicitly selects its bundled modules so an unrelated `VMODULES`
+setting cannot override the packaged stack.
+
 Extract it, open `v_vulkan_video\packaging\windows\build.bat`, and run it. The
 script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,
 compiles the player with MSVC, and creates

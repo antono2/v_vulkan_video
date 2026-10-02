@@ -64,9 +64,10 @@ Open **x64 Native Tools Command Prompt for VS 2022**, ensure `v`, `cmake`, and
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\check_windows.ps1
 v install
-$imgui = Join-Path ($env:VMODULES ?? "$env:USERPROFILE\.vmodules") 'antono2\imgui'
+$modules = if ($env:VMODULES) { ($env:VMODULES -split ';')[0] } else { "$env:USERPROFILE\.vmodules" }
+$imgui = Join-Path $modules 'antono2\imgui'
 git -C $imgui submodule update --init --recursive
-powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -ModulesDirectory $modules
 ```
 
 The build script produces `dist\vkvideo-windows-x64.zip`. Windows compilation

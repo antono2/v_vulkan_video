@@ -1,18 +1,29 @@
 param(
     [string]$OutputDirectory = "",
+    [string]$ModulesDirectory = "",
     [ValidateSet("stable", "v3")]
     [string]$Compiler = "stable"
 )
 
 $ErrorActionPreference = "Stop"
-Write-Host "vkvideo Windows build script revision 7"
+Write-Host "vkvideo Windows build script revision 8"
 $ProjectDirectory = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $BundleDirectory = Split-Path -Parent $ProjectDirectory
-$ModulesDirectory = Join-Path $BundleDirectory "modules"
+if (-not $ModulesDirectory) {
+    if ($env:VMODULES) {
+        $ModulesDirectory = ($env:VMODULES -split ';')[0]
+    } elseif (Test-Path (Join-Path $BundleDirectory 'modules\antono2\imgui\CMakeLists.txt')) {
+        $ModulesDirectory = Join-Path $BundleDirectory 'modules'
+    } else {
+        $ModulesDirectory = Join-Path $env:USERPROFILE '.vmodules'
+    }
+}
+$ModulesDirectory = [IO.Path]::GetFullPath($ModulesDirectory)
 $Antono2ModulesDirectory = Join-Path $ModulesDirectory "antono2"
 if (-not (Test-Path (Join-Path $Antono2ModulesDirectory "imgui\CMakeLists.txt"))) {
-    throw "Expected the bundled V modules at $ModulesDirectory"
+    throw "ImGui module not found at $ModulesDirectory; run v install or pass -ModulesDirectory."
 }
+Write-Host "Using V modules at $ModulesDirectory"
 if (-not $env:VULKAN_SDK -or -not (Test-Path (Join-Path $env:VULKAN_SDK "Include\vulkan\vulkan.h"))) {
     throw "Install the Vulkan SDK and run this from an environment where VULKAN_SDK is set."
 }
@@ -117,12 +128,16 @@ function Get-SourceRevision([string]$Directory) {
     if (Test-Path $RevisionFile) { return (Get-Content $RevisionFile -Raw).Trim() }
     return 'unrecorded source checkout'
 }
+$SdkVersion = $env:VULKAN_SDK_VERSION
+if (-not $SdkVersion) {
+    $SdkVersion = Split-Path -Leaf ($env:VULKAN_SDK.TrimEnd([char[]]'\/'))
+}
 $BuildInfo = @(
     "Source revision: $(Get-SourceRevision $ProjectDirectory)"
     "V compiler: $(& v version)"
     "Compiler mode: $Compiler"
     'C compiler: MSVC'
-    "Vulkan SDK: $env:VULKAN_SDK_VERSION"
+    "Vulkan SDK: $SdkVersion"
 )
 foreach ($Module in @('vulkan', 'vkmemalloc', 'memory', 'imgui', 'glfw', 'minimp4', 'h264')) {
     $ModulePath = Join-Path $Antono2ModulesDirectory $Module

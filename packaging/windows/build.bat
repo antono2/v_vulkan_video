@@ -12,5 +12,5 @@ if not defined VSROOT (
 )
 call "%VSROOT%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
 if errorlevel 1 exit /b %errorlevel%
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\scripts\build_windows.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\scripts\build_windows.ps1" -ModulesDirectory "%~dp0..\..\..\modules"
 exit /b %errorlevel%
