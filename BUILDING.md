@@ -12,25 +12,17 @@ revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
 
-Developer `v install` uses the maintained allocator branch until its next
-release: the published `v2.6.0` manifest requests unversioned Vulkan, which
-conflicts with this player's `v3.2.0` requirement in a fresh VPM install.
-Published tags are not changed. Release CI continues checking its explicit
-dependency revisions independently of the developer manifest.
+Developer `v install` and release CI use the published tags
+`antono2.minimp4@v2.0.0`, `antono2.h264@v2.0.0`, and
+`antono2.vkmemalloc@v2.6.1`. The allocator's corrected Vulkan requirement
+matches this player's `v3.2.0` pin, avoiding the fresh-install conflict in
+the old `v2.6.0` manifest. Older published tags are not changed.
 
-Release CI now pins the approved, versioned sources for `minimp4` 2.0.0,
-`h264` 2.0.0, and `vkmemalloc` 2.6.1 by immutable commit. Their release tags
-are not published yet; do not use those tag names in `v install` until
-publication. The allocator source uses the corrected Vulkan requirement in
-both stable and V3 release builds.
-
-Use `antono2.minimp4` revision `6228ef3cf4f9703f15b87c42c3edd4225ef1d45d`
-or later. It declares MP4 I/O callback results as `i32`, matching C's 32-bit
+`antono2.minimp4@v2.0.0` declares MP4 I/O callback results as `i32`, matching C's 32-bit
 status result. Refresh older module checkouts before building this player;
 the player reader uses that explicit type so strict V3 can safely forward it.
 
-Use `antono2.h264` revision `2d9a4a509912b6c237109355676950bcc8093f31`
-or newer. It fixes custom scaling-list storage and the default-matrix flag's
+`antono2.h264@v2.0.0` fixes custom scaling-list storage and the default-matrix flag's
 pointer handling, with stable and strict V3 regression coverage.
 
 Parameter-set and slice-header byte storage uses `sizeof` with the explicit

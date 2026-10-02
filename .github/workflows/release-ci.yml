@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: bc8213cddc906a2705451eff0055a0b7d39280d0 # vkmemalloc 2.6.1 release source (unpublished)
+          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -63,12 +63,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: 9e3e3962e552a82d11284027c152112f5dc6cccf # minimp4 2.0.0 release source (unpublished)
+          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: 6cdc70a6c83344462da05a1b75010928a0f23439 # h264 2.0.0 release source (unpublished)
+          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
           path: source/modules/antono2/h264
       - name: Set up released V compiler
         uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
@@ -84,7 +84,7 @@ jobs:
             <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' imgui.v | sort -u) \
             <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' implot/implot.v | sort -u))
           test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
-      - name: Test pinned Vulkan memory allocator 2.6.1 release source
+      - name: Test pinned Vulkan memory allocator v2.6.1
         if: matrix.linkage == 'shared'
         working-directory: source/modules/antono2/vkmemalloc
         run: v test .
@@ -176,7 +176,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: bc8213cddc906a2705451eff0055a0b7d39280d0 # vkmemalloc 2.6.1 release source (unpublished)
+          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -197,12 +197,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: 9e3e3962e552a82d11284027c152112f5dc6cccf # minimp4 2.0.0 release source (unpublished)
+          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: 6cdc70a6c83344462da05a1b75010928a0f23439 # h264 2.0.0 release source (unpublished)
+          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
           path: source/modules/antono2/h264
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -361,7 +361,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: bc8213cddc906a2705451eff0055a0b7d39280d0 # vkmemalloc 2.6.1 release source (unpublished)
+          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -382,12 +382,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: 9e3e3962e552a82d11284027c152112f5dc6cccf # minimp4 2.0.0 release source (unpublished)
+          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: 6cdc70a6c83344462da05a1b75010928a0f23439 # h264 2.0.0 release source (unpublished)
+          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
           path: source/modules/antono2/h264
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: matrix.compiler == 'stable'
