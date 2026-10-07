@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Checks the packaged Vulkan loader path before running the video player.
 set -euo pipefail
 
 player=${1:?Usage: smoke-vulkan-loader.sh PLAYER}

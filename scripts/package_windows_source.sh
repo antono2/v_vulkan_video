@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Assembles a Windows source distribution with build instructions and project inputs.
 set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)

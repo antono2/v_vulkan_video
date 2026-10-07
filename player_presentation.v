@@ -1,3 +1,4 @@
+// Selects ready decoded pictures in display order and retires output textures after use.
 module main
 
 import antono2.vulkan as vk

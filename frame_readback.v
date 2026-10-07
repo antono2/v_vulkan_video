@@ -1,3 +1,4 @@
+// Copies decoded frames to host-visible storage and writes reference-comparison dumps.
 module main
 
 import os

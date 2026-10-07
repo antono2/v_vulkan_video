@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Builds the distributable Ubuntu player package with runtime dependencies and assets.
 set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)

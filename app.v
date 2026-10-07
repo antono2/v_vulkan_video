@@ -1,3 +1,4 @@
+// Owns application setup, frame submission, UI, and video presentation transforms.
 module main
 
 import antono2.vulkan as vk

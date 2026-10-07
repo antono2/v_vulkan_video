@@ -1,3 +1,4 @@
+// Owns the window surface, swapchain images, and resize/acquire/present lifecycle.
 module main
 
 import antono2.vulkan as vk

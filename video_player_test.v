@@ -1,3 +1,4 @@
+// Checks H.264 metadata, picture ordering, decoded-picture state, and MP4 sample parsing.
 module main
 
 import antono2.minimp4

@@ -1,3 +1,4 @@
+// Writes H.264 scaling lists, picture-order data and bitfields through the native Vulkan Video ABI.
 #ifndef V_VULKAN_VIDEO_BRIDGE_H
 #define V_VULKAN_VIDEO_BRIDGE_H
 

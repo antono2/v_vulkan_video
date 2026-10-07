@@ -1,3 +1,4 @@
+# Reports missing Windows build prerequisites before compiling the player.
 $ErrorActionPreference = "Stop"
 $Missing = $false
 

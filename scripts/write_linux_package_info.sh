@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Writes dependency/build information used by the Linux distribution.
 set -euo pipefail
 
 package_dir=${1:?Usage: write_linux_package_info.sh PACKAGE_DIR}

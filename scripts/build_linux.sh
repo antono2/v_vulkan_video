@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Builds the Linux player against prepared V modules and native libraries.
 set -euo pipefail
 
 usage() {
