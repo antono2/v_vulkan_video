@@ -75,11 +75,14 @@ jobs:
         with:
           version: 0.5.2
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg python3 libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg python3 libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools
       - name: Test coded-pixel readback comparison
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: python3 -m unittest discover -s scripts -p 'test_compare_nv12.py'
+      - name: Check shader regeneration and failure preservation
+        working-directory: source/v_vulkan_video
+        run: python3 -m unittest discover -s scripts -p 'test_generate_shaders.py'
       - name: Verify generated binding ownership
         working-directory: source/modules/antono2/imgui
         run: |

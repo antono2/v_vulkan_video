@@ -103,10 +103,10 @@ coordinate frame timing and swapchain use. The purpose comments in each source
 identify parsing, GPU resources, readback and CPU-only tests. Build, package and
 validation scripts live under [`scripts/`](scripts/).
 
-`vertex_shader.v` and `fragment_shader.v` embed SPIR-V arrays. Preserve these
-compiled snapshots rather than editing their words by hand. The vertex snapshot
-records `video.vert` and `glslc` as its source; a pinned, end-to-end regeneration
-command for both snapshots is still missing. Until that pipeline exists, these
-arrays are exceptions to generator-owned file-introduction coverage. The local
+`vertex_shader.v` and `fragment_shader.v` embed SPIR-V arrays generated from
+[`video.vert`](video.vert) and [`video.frag`](video.frag). Their purpose and
+regeneration comments are emitted by [`scripts/generate_shaders.py`](scripts/generate_shaders.py).
+Follow [shader regeneration](BUILDING.md#shader-regeneration) when updating them;
+do not edit the words by hand. The local
 [`include/video_bridge.h`](include/video_bridge.h) is a maintained native bridge,
 not an upstream dependency to replace during a binding update.
