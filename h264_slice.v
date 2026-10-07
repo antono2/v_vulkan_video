@@ -1,3 +1,4 @@
+// Reads checked slice headers and resolves parameter sets by their H.264 IDs.
 module main
 
 import antono2.h264

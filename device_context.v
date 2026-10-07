@@ -1,3 +1,4 @@
+// Discovers Vulkan queues and H.264 decode capabilities and creates the selected device context.
 module main
 
 import antono2.vulkan as vk

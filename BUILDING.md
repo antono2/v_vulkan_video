@@ -157,3 +157,39 @@ Windows Server 2022 runner. Startup and clean unsupported-device handling were
 also tested on a GeForce GTX 765M. Playback testing on a Vulkan Video-capable
 GPU is currently deferred; the hardware-dependent checks are tracked in
 `PLATFORM_SUPPORT.md`.
+
+## Shader regeneration
+
+The checked-in V arrays are generated build inputs, so normal player builds do
+not need shader compilers. To change shaders, edit `video.vert` or `video.frag`
+and use Python 3 with `glslc`, `glslangValidator`, and `spirv-val` on `PATH`:
+
+```sh
+python3 scripts/generate_shaders.py
+python3 scripts/generate_shaders.py --check
+python3 -m unittest discover -s scripts -p 'test_generate_shaders.py'
+```
+
+The generator uses `glslc --target-env=vulkan1.0` for the vertex shader and
+`glslangValidator -V --target-env vulkan1.0` for the fragment shader, matching
+the original snapshots' compiler families. Both outputs are validated before
+either tracked file is replaced. `--check` reports drift without writing them.
+`--glslc`, `--glslang` and `--spirv-val` accept explicit executable paths.
+
+The recorded generation toolchain reports `shaderc v2026.1 v2026.1` from
+`glslc --version`, `Glslang Version: 11:16.2.0` from
+`glslangValidator --version`, and SPIRV-Tools v2026.1. Use those versions for
+byte-for-byte checks. Other compiler versions can change encoding or metadata;
+review their generated diff deliberately instead of treating it as formatting.
+The generator itself owns each V file's purpose and regeneration introduction.
+
+`video.frag` was recovered from the previously committed SPIR-V. The initial
+UV-color assignment and unused color input are retained to preserve correspondence
+with that snapshot. Regeneration reproduces the vertex words exactly; for the
+fragment, only the order of the independent binding and descriptor-set decoration
+records changes. Instruction bodies and decoration values are unchanged.
+
+CI exercises regeneration, drift detection and failed-build preservation using
+its distro shader tools; it does not enforce byte identity across compiler
+versions. GPU decode and presentation still require the hardware validation
+listed in [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md).

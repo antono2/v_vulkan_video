@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Prepares Linux player dependencies and module checkouts for subsequent builds.
 set -euo pipefail
 
 usage() {

@@ -1,3 +1,4 @@
+// Positions the video quad and forwards texture coordinates for presentation.
 #version 450
 
 layout(location = 0) out vec3 outColor;

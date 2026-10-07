@@ -1,3 +1,4 @@
+// Creates the Vulkan Video decode session, decoded-picture storage, and session parameters.
 module main
 
 import antono2.vulkan as vk

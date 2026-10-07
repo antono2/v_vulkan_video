@@ -1,3 +1,4 @@
+# Builds Windows player artifacts using configured output and module directories.
 param(
     [string]$OutputDirectory = "",
     [string]$ModulesDirectory = "",

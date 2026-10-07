@@ -1,3 +1,4 @@
+// Parses player options, selects input/device settings, and starts playback or diagnostics.
 module main
 
 import os

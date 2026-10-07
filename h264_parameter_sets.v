@@ -1,3 +1,4 @@
+// Bounds-checks H.264 parameter-set syntax before filling decoder metadata and scaling lists.
 module main
 
 import antono2.h264

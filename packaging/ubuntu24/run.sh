@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Launches the extracted Ubuntu player with its bundled runtime libraries.
 set -euo pipefail
 
 package_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)

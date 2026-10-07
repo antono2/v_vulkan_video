@@ -1,3 +1,4 @@
+// Checks frame timing, stalls, reordering, and loop restarts without hardware decoding.
 module main
 
 fn test_mock_timeline_fixed_rate() {

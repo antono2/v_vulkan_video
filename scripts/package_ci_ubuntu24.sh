@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Stages Ubuntu player artifacts and metadata from the CI build.
 set -euo pipefail
 
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)

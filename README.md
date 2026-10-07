@@ -95,3 +95,18 @@ resize, and presentation still require hardware with Vulkan Video support.
 
 The source is available under the MIT License. Test-media attribution and
 provenance are documented in [res/README.md](res/README.md).
+
+## Source navigation and generated data
+
+[`decoder_session.v`](decoder_session.v) owns the decode path; the player and presentation files
+coordinate frame timing and swapchain use. The purpose comments in each source
+identify parsing, GPU resources, readback and CPU-only tests. Build, package and
+validation scripts live under [`scripts/`](scripts/).
+
+`vertex_shader.v` and `fragment_shader.v` embed SPIR-V arrays generated from
+[`video.vert`](video.vert) and [`video.frag`](video.frag). Their purpose and
+regeneration comments are emitted by [`scripts/generate_shaders.py`](scripts/generate_shaders.py).
+Follow [shader regeneration](BUILDING.md#shader-regeneration) when updating them;
+do not edit the words by hand. The local
+[`include/video_bridge.h`](include/video_bridge.h) is a maintained native bridge,
+not an upstream dependency to replace during a binding update.

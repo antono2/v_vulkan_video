@@ -1,3 +1,4 @@
+# Verifies Windows package contents and the configured executable checks.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]

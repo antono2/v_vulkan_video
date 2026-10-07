@@ -1,3 +1,4 @@
+// C interoperability bridge for writing Vulkan Video H.264 structures with the required ABI layout.
 module main
 
 #flag -I @VMODROOT/include

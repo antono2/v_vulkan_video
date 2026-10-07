@@ -1,3 +1,4 @@
+// Tracks presentation deadlines in nanoseconds independently of decode completion.
 module main
 
 import math

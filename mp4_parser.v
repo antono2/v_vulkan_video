@@ -1,3 +1,5 @@
+// Reads MP4 samples and translates validated H.264 metadata into decoder input.
+// Handles NAL framing, parameter-set references, display dimensions, and picture ordering.
 module main
 
 import os

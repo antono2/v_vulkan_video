@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Checks extracted Ubuntu package contents and runtime behavior.
 set -euo pipefail
 
 archive=${1:?Usage: verify_ubuntu24_package.sh ARCHIVE.zip}
