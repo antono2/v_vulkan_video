@@ -1,4 +1,5 @@
 @echo off
+rem Runs the packaged player from its directory, using sample media when no arguments are given.
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
