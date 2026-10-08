@@ -1,4 +1,4 @@
-// Records Vulkan decode operations, reference-picture updates, and output-image transfers.
+// Records Vulkan decode operations, reference-picture updates and output-image transfers.
 module main
 
 import antono2.vulkan as vk

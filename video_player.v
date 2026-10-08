@@ -1,4 +1,4 @@
-// Defines player/decoder state, decoded-picture bookkeeping, and output-mode selection.
+// Defines player/decoder state, decoded-picture bookkeeping and output-mode selection.
 module main
 
 import antono2.vulkan as vk

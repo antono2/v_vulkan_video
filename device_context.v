@@ -438,7 +438,7 @@ fn (ctx DeviceContext) h264_decode_gpu_diagnostics_for_output_mode(requirements 
 			diagnostics << '${name}: requested ${decode_output_mode_name(output_mode)} DPB/output mode is unavailable; supports ${gpu_h264_output_mode_names(gpu,
 				requirements.profile_idc)}'
 		} else if !device_has_required_queues(ctx, gpu) {
-			diagnostics << '${name}: required extensions/profile exist, but no compatible graphics, presentation, and decode queue combination was found'
+			diagnostics << '${name}: required extensions/profile exist, but no compatible graphics, presentation and decode queue combination was found'
 		} else if gpu_h264_stream_issue(gpu, requirements, output_mode) != '' {
 			diagnostics << '${name}: ${gpu_h264_stream_issue(gpu, requirements, output_mode)}'
 		} else {

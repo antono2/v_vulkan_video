@@ -4,13 +4,13 @@
 
 An H.264/AVC MP4 video player written in V using Vulkan Video decode. It uses
 the video's display metadata for aspect ratio and rotation, selects a capable
-GPU by its advertised Vulkan Video profile, and loops by default.
+GPU by its advertised Vulkan Video profile and loops by default.
 
 The current release baseline supports progressive 8-bit 4:2:0 H.264 Baseline,
-Main, and High profiles, including streams with B-frames. Decoding remains in
+Main and High profiles, including streams with B-frames. Decoding remains in
 H.264 reference order while a bounded output-image queue presents pictures in
 display order. It has been exercised on Ubuntu 24.04 with an NVIDIA GeForce GTX
-1060, including repeated resizing, looping, and orderly shutdown.
+1060, including repeated resizing, looping and orderly shutdown.
 The Vulkan loader and installed GPU driver must expose H.264 Vulkan Video
 decode; an ordinary Vulkan graphics implementation is not sufficient.
 
@@ -28,7 +28,7 @@ v run . [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]
 
 The player is one V application. `main.v` handles command-line options;
 `app.v` owns the window and rendering loop; `device_context.v` selects the GPU.
-`mp4_parser.v`, `decoder_session.v`, `player_decode.v`, and
+`mp4_parser.v`, `decoder_session.v`, `player_decode.v` and
 `player_presentation.v` implement the media path. Shared player state and
 resource ownership are in `video_player.v`.
 
@@ -48,11 +48,10 @@ excerpt:
 v run . res/Elephants_Dream_720p30_8s_CC-BY.mp4
 ```
 
-This fixture is H.264 High Profile, 1280x720 at 30 fps, limited-range BT.709,
-and contains no B-frames. Its source and CC BY attribution are documented in
+This fixture uses H.264 High Profile at 1280x720 and 30 fps with limited-range BT.709 colour. It contains no B-frames. Its source and CC BY attribution are documented in
 [res/README.md](res/README.md).
 
-The bundled Big Buck Bunny fixtures exercise B-frame playback at 360p, 720p,
+The bundled Big Buck Bunny fixtures exercise B-frame playback at 360p, 720p
 and 1080p. For example:
 
 ```sh
@@ -62,21 +61,21 @@ v run . res/Big_Buck_Bunny_720_10s_1MB.mp4
 ## Build and packages
 
 For a first install, start with [QUICKSTART.md](QUICKSTART.md). It has short
-paths for Ubuntu/Debian, Fedora, and Windows, plus read-only prerequisite
+paths for Ubuntu/Debian, Fedora and Windows, plus read-only prerequisite
 checks and an opt-in Ubuntu dependency installer.
 
 See [BUILDING.md](BUILDING.md) for shared/static ImGui choices, system or
-bundled GLFW selection, Ubuntu 24 binary packaging, and the Windows x64 source
+bundled GLFW selection, Ubuntu 24 binary packaging and the Windows x64 source
 workflow.
 
 See [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) for tested hardware, known
-limitations, and the release-validation matrix.
+limitations and the release-validation matrix.
 
 ## Learn from the implementation
 
 The [design guide](docs/learning-path.md) traces an encoded picture through
-MP4 parsing, GPU capability selection, Vulkan Video decoding, synchronization,
-and presentation. It explains the underlying decisions, their tradeoffs, and
+MP4 parsing, GPU capability selection, Vulkan Video decoding, synchronization
+and presentation. It explains the underlying decisions, their tradeoffs and
 how to apply the same concepts in another project. Start with its system map
 and follow the chapters that match the problem you are solving.
 
@@ -88,8 +87,8 @@ v test .
 
 The software-only tests cover MP4 metadata and validation, H.264 parameter sets,
 multi-slice pictures, picture order, malformed and truncated inputs, playback
-timing, looping, and command-line parsing. Vulkan decode, synchronization,
-resize, and presentation still require hardware with Vulkan Video support.
+timing, looping and command-line parsing. Vulkan decode, synchronization,
+resize and presentation still require hardware with Vulkan Video support.
 
 ## License
 

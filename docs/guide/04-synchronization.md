@@ -9,7 +9,7 @@ chapter follows the synchronization path and the output-image reuse rule.
 [`update_decode_video`](../../player_decode.v#L90) waits on the fence for the
 bitstream upload slot it is about to reuse, then writes and flushes the encoded
 bytes. It records the video command buffer: prepare image layouts, begin and
-perform decode, copy the result to an output image, and restore the source
+perform decode, copy the result to an output image and restore the source
 for later decode use. The output image is tagged with display order and placed
 in the ready queue.
 

@@ -2,14 +2,14 @@
 
 “Supports Vulkan” is too broad a device test. A player needs a graphics queue
 that can present to its window, an H.264 decode queue, the Vulkan Video
-extensions, a compatible profile and picture layout, and usable image formats.
+extensions, a compatible profile and picture layout and usable image formats.
 The chosen MP4 may require a profile that another file does not.
 
 ## The selection path
 
 After parsing, [`VideoDecodeApp.initialize`](../../app.v#L147) obtains the stream's
 [decode requirements](../../video_player.v#L606): profile, level, coded extent,
-DPB slots, and active references. It asks
+DPB slots and active references. It asks
 [`h264_decode_gpu_diagnostics_for_output_mode`](../../device_context.v#L419)
 for diagnostics for every GPU. [`--list-gpus`](../../app.v#L187) exposes those
 diagnostics to the user. A forced [`--gpu` index](../../app.v#L202) is checked
@@ -18,7 +18,7 @@ compatible device is chosen. Errors name the missing capability instead of
 assuming that a graphics-capable GPU can decode.
 
 The [stream probe](../../device_context.v#L526) checks the queried H.264 level,
-coded extent, DPB and active reference limits, selected output mode, and output/DPB
+coded extent, DPB and active reference limits, selected output mode and output/DPB
 formats with the image usages the session will actually create. It runs before
 logical device creation, so a second GPU can be tried when the first one
 cannot satisfy the particular video.
@@ -70,7 +70,7 @@ creation is not proof that a video session or its images will work.
 ## Apply the selection pattern elsewhere
 
 Build a requirement record from the content first: codec, profile, bit depth,
-chroma, coded extent, and any presentation requirements. Probe candidates
+chroma, coded extent and any presentation requirements. Probe candidates
 against that record. For an editor handling many clips, the policy might be
 “choose one device that handles every clip” or “select a backend per clip.” For
 a game that uses video only for optional cutscenes, software decode could be
@@ -78,6 +78,6 @@ a fallback. Each policy changes when and how compatibility failures should
 be reported.
 
 The application has one window and chooses one GPU. Multi-GPU transfer,
-software fallback, and runtime format changes are outside its current design.
+software fallback and runtime format changes are outside its current design.
 See [platform support](../../PLATFORM_SUPPORT.md) before treating a successful
 build as playback support.

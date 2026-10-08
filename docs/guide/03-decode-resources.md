@@ -2,7 +2,7 @@
 
 Vulkan Video makes the application describe and own resources that a
 high-level media API might hide. The important design question is which
-resource belongs to the codec, which belongs to presentation, and what must
+resource belongs to the codec, which belongs to presentation and what must
 remain valid while commands are in flight.
 
 ## Build the session from parsed limits
@@ -12,7 +12,7 @@ capabilities and supported formats. Device selection has already
 [checked the stream's extent and reference limits](../../device_context.v#L526).
 Session setup confirms those values and allocates an aligned bitstream
 buffer, [creates a `VideoSessionKHR`](../../decoder_session.v#L125), queries its opaque memory requirements,
-binds that memory, and creates session parameters from SPS/PPS data. The
+binds that memory and creates session parameters from SPS/PPS data. The
 alignment used for each upload slot comes from the queried minimum bitstream
 offset and size alignments. [`write_video_frame`](../../player_decode.v#L562) fills
 one slot with the next access unit and its slice offsets.
@@ -34,7 +34,7 @@ renumbers the current picture. For a long-term reference, the
 [Vulkan slot information](../../player_decode.v#L476) carries its index in
 `FrameNum` and sets `used_for_long_term_reference`. The
 [software marking test](../../video_player_test.v#L239) covers removal,
-conversion, and long-term limits.
+conversion and long-term limits.
 
 Progressive H.264 pictures still have separate top and bottom order counts.
 The [decode command](../../player_decode.v#L107) passes both to Vulkan, and
@@ -68,11 +68,11 @@ Those rules are related but have different owners.
 | Choice | Where it can fit | Constraint |
 | --- | --- | --- |
 | Copy to a separate display pool, as here | A compact player that wants an explicit presentation queue and simple sampling ownership. | Extra image memory and a per-picture copy. |
-| Share decoded images directly with rendering | A pipeline whose decoder and renderer can coordinate image lifetime precisely. | Reference, display, queue, and descriptor lifetimes must all be tracked together. |
+| Share decoded images directly with rendering | A pipeline whose decoder and renderer can coordinate image lifetime precisely. | Reference, display, queue and descriptor lifetimes must all be tracked together. |
 | Use a higher-level decoder API | Broad codec support or faster integration. | Less direct control of Vulkan Video session setup and possibly an interop copy. |
 
 For another project, calculate the bound from reorder depth, concurrent
-uploads, and frames still sampled by graphics. A fixed pool is safe only if
+uploads and frames still sampled by graphics. A fixed pool is safe only if
 the producer pauses when no image is reusable. Here
 [the free-pool check](../../player_presentation.v#L128) pauses before
 starting another decode.

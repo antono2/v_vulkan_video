@@ -229,7 +229,7 @@ fn validate_sps_rbsp(payload []u8) ! {
 	}
 	profile := bits.read(8)!
 	if profile !in [u32(66), 77, 100] {
-		return error('H.264 profile_idc ${profile} is unsupported; supported profiles are Baseline, Main, and High 8-bit 4:2:0')
+		return error('H.264 profile_idc ${profile} is unsupported; supported profiles are Baseline, Main and High 8-bit 4:2:0')
 	}
 	_ = bits.read(8)! // constraint flags and reserved bits
 	_ = bits.read(8)! // level_idc

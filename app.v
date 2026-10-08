@@ -1,4 +1,4 @@
-// Owns application setup, frame submission, UI, and video presentation transforms.
+// Owns application setup, frame submission, UI and video presentation transforms.
 module main
 
 import antono2.vulkan as vk
@@ -198,7 +198,7 @@ fn (mut app VideoDecodeApp) initialize() bool {
 			} else {
 				'the requested ${decode_output_mode_name(app.decode_output_mode)} DPB/output mode'
 			}
-			eprintln('No Vulkan device provides presentation, graphics, H.264 ${h264_profile_name(h264_profile_idc)} Profile decode, and ${mode_requirement}.')
+			eprintln('No Vulkan device provides presentation, graphics, H.264 ${h264_profile_name(h264_profile_idc)} Profile decode and ${mode_requirement}.')
 			for diagnostic in diagnostics {
 				eprintln('  ${diagnostic}')
 			}
