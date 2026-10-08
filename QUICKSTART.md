@@ -12,7 +12,7 @@ Before building from source, check that the machine can run the player:
 ```
 
 The important result is not merely that Vulkan works. The selected driver must
-advertise `VK_KHR_video_queue`, `VK_KHR_video_decode_queue`, and
+advertise `VK_KHR_video_queue`, `VK_KHR_video_decode_queue` and
 `VK_KHR_video_decode_h264`.
 
 ## Ubuntu 24.04 and Debian-based Linux
@@ -43,8 +43,8 @@ for all choices.
 ## Fedora
 
 Install `@development-tools`, `cmake`, `git`, `luajit`, `glfw-devel`,
-`vulkan-loader-devel`, `vulkan-headers`, `volk-devel`, and `vulkan-tools`, then use the same
-`v install`, ImGui build, and player build commands shown above. Package names
+`vulkan-loader-devel`, `vulkan-headers`, `volk-devel` and `vulkan-tools`, then use the same
+`v install`, ImGui build and player build commands shown above. Package names
 can vary between Fedora releases, so `setup_linux.sh --install` currently
 limits automatic installation to Debian-family systems.
 
@@ -58,7 +58,7 @@ Install:
 - the LunarG Vulkan SDK; and
 - a current GPU driver with Vulkan Video H.264 decode support.
 
-Open **Developer PowerShell for VS 2022** configured for x64, ensure `v`, `cmake`, and
+Open **Developer PowerShell for VS 2022** configured for x64, ensure `v`, `cmake` and
 `VULKAN_SDK` are available, and run:
 
 ```powershell
@@ -82,7 +82,7 @@ for example from the default `C:` temporary directory to `VMODULES` on `D:`.
 
 Use the stable V compiler for release builds. A source-built V master at
 `b99970bd438a7bdcdfbe38f74d9364db801d5439` also passed the Windows V3/MSVC
-build, software tests, help, GPU enumeration, and package verification. To
+build, software tests, help, GPU enumeration and package verification. To
 exercise V3 with that compiler, run `./scripts/build_windows.ps1 -Compiler v3`
 from an x64 Visual Studio developer PowerShell in the source bundle. CI checks
 both stable and pinned V3 packages. Windows hardware decoding remains unverified.

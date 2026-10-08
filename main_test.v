@@ -1,4 +1,4 @@
-// Checks default options, device selection, decode-output modes, and invalid arguments.
+// Checks default options, device selection, decode-output modes and invalid arguments.
 module main
 
 fn test_parse_cli_defaults() {

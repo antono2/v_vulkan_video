@@ -1,7 +1,7 @@
 # 5. Turn decoded pictures into correctly displayed frames
 
 Correct decode is only part of playback. Pictures need a display-order gate,
-a media clock, color conversion, and a transform that respects pixel aspect
+a media clock, color conversion and a transform that respects pixel aspect
 ratio and rotation metadata.
 
 ## Display order and time
@@ -14,11 +14,11 @@ next loop's early pictures are decoded. It resets decoder reference state for
 the next cycle rather than showing pictures in decode order.
 
 [`PlaybackTimeline`](../../playback_timeline.v#L10) accumulates elapsed nanoseconds,
-subtracts a picture's duration when the picture is presented, and caps a long
+subtracts a picture's duration when the picture is presented and caps a long
 stall at 500 ms. Its tests cover [fixed](../../playback_timeline_test.v#L3)
 and [variable](../../playback_timeline_test.v#L15) rates,
 [missing next pictures](../../playback_timeline_test.v#L39),
-[stalls](../../playback_timeline_test.v#L28), and
+[stalls](../../playback_timeline_test.v#L28) and
 [reset](../../playback_timeline_test.v#L50). A project requiring
 audio sync would need an explicit master clock and a policy for late pictures;
 this player has no audio path.
@@ -41,10 +41,10 @@ not encoded as sRGB a second time.
 [`video_render_transform`](../../app.v#L91) applies quarter-turn rotation and
 letterboxing based on display dimensions. Those dimensions incorporate sample
 aspect ratio before rotation. The picture can therefore have a coded width,
-a display width, and a window width that differ. Tests cover
+a display width and a window width that differ. Tests cover
 [track matrices](../../video_player_test.v#L423),
 [sample aspect ratio](../../video_player_test.v#L378),
-[conversion choices](../../video_player_test.v#L395), and
+[conversion choices](../../video_player_test.v#L395) and
 [portrait letterboxing](../../video_player_test.v#L657).
 
 ```mermaid
@@ -63,6 +63,6 @@ looping automatically. For live video, decide whether latency or every
 picture matters more: a late picture might be dropped, but a referenced
 picture may still need decoding. For HDR or wide-gamut material, a simple
 UNORM output and the current matrix mapping are insufficient; the project
-needs an explicit transfer-function, gamut, and display pipeline. Those are
+needs an explicit transfer-function, gamut and display pipeline. Those are
 product decisions layered on top of the same separation between decode
-order, media time, and presentation.
+order, media time and presentation.

@@ -16,7 +16,7 @@ Inspect or select Vulkan devices:
     ./run.sh --decode-output-mode coincident /absolute/path/to/video.mp4
 
 No compilation or V installation is required. The package includes an Ubuntu
-24.04-built Dear ImGui shared library plus the GLFW, libstdc++, and libgcc
+24.04-built Dear ImGui shared library plus the GLFW, libstdc++ and libgcc
 runtimes. All bundled libraries are resolved relative to this directory, so
 the archive can be extracted under any user name or path.
 
@@ -25,7 +25,7 @@ the bundled application libraries without overriding dependencies used by the
 installed Vulkan driver.
 
 BUILD-INFO.txt records the source/compiler/module revisions. LICENSE,
-MEDIA.txt, and licenses/ retain the project, test-media, and dependency
+MEDIA.txt and licenses/ retain the project, test-media and dependency
 notices. Check the archive's accompanying .sha256 file before extraction.
 
 The test machine must have:

@@ -1,4 +1,4 @@
-// Parses player options, selects input/device settings, and starts playback or diagnostics.
+// Parses player options, selects input/device settings and starts playback or diagnostics.
 module main
 
 import os
@@ -37,14 +37,14 @@ fn parse_cli(args []string) !CliOptions {
 			'--decode-output-mode' {
 				i++
 				if i >= args.len {
-					return error('--decode-output-mode requires auto, coincident, or distinct')
+					return error('--decode-output-mode requires auto, coincident or distinct')
 				}
 				options.decode_output_mode = match args[i] {
 					'auto' { DecodeOutputMode.automatic }
 					'coincident' { DecodeOutputMode.coincident }
 					'distinct' { DecodeOutputMode.distinct }
 					else {
-						return error('invalid decode output mode: ${args[i]} (expected auto, coincident, or distinct)')
+						return error('invalid decode output mode: ${args[i]} (expected auto, coincident or distinct)')
 					}
 				}
 			}
@@ -65,7 +65,7 @@ fn parse_cli(args []string) !CliOptions {
 
 fn print_usage(program string) {
 	println('Usage: ${program} [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]')
-	println('MODE is auto (default), coincident, or distinct.')
+	println('MODE is auto (default), coincident or distinct.')
 	println('If omitted, the bundled sample video is used.')
 }
 

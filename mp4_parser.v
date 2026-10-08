@@ -1,5 +1,5 @@
 // Reads MP4 samples and translates validated H.264 metadata into decoder input.
-// Handles NAL framing, parameter-set references, display dimensions, and picture ordering.
+// Handles NAL framing, parameter-set references, display dimensions and picture ordering.
 module main
 
 import os
@@ -345,7 +345,7 @@ fn (mut d Decoder) parse_mp4_data(file_path string) ! {
 		}
 		d.video_data.h264_level_idc = math.max[u32](d.video_data.h264_level_idc, sps.level_idc)
 		if sps.profile_idc !in [u32(66), 77, 100] {
-			return error('H.264 profile_idc ${sps.profile_idc} is unsupported; supported profiles are Baseline, Main, and High 8-bit 4:2:0')
+			return error('H.264 profile_idc ${sps.profile_idc} is unsupported; supported profiles are Baseline, Main and High 8-bit 4:2:0')
 		}
 		if d.video_data.h264_profile_idc == 0 {
 			d.video_data.h264_profile_idc = sps.profile_idc

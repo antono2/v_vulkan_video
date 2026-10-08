@@ -69,4 +69,4 @@ v_flags=()
 [[ $compiler == v3 ]] && v_flags+=(-new-compiler)
 [[ $linkage == static ]] && v_flags+=(-d imgui_static)
 "$v_bin" "${v_flags[@]}" -cc "$c_compiler" -o v_vulkan_video .
-echo "Built $project_dir/v_vulkan_video with $compiler V compiler, $c_compiler C compiler, $linkage ImGui, and $glfw_provider GLFW."
+echo "Built $project_dir/v_vulkan_video with $compiler V compiler, $c_compiler C compiler, $linkage ImGui and $glfw_provider GLFW."

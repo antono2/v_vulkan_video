@@ -29,7 +29,7 @@ ffmpeg -f lavfi -i 'testsrc2=size=320x180:rate=24:duration=1' \
 for use as the player's default and regression fixture. The published copy is
 a metadata-stripped transcode containing only the video stream. It preserves
 the properties exercised by the player: H.264 High Profile, progressive 8-bit
-4:2:0, 1920x1080 coded dimensions, a -90 degree display matrix, square pixels,
+4:2:0, 1920x1080 coded dimensions, a -90 degree display matrix, square pixels
 and limited-range BT.709 colour metadata.
 
 The sanitized file has 737 frames at 30 frames per second and uses an average
@@ -49,7 +49,7 @@ its documented HD/SD YCbCr-matrix fallback for such streams.
 
 `Elephants_Dream_720p30_8s_CC-BY.mp4` is the known-supported landscape playback
 example. The 1280x720, 30 fps, H.264 High Profile stream is progressive 8-bit
-4:2:0 with no B-frames, no audio, and limited-range BT.709 colour metadata.
+4:2:0 with no B-frames, no audio and limited-range BT.709 colour metadata.
 720p was chosen as a useful landscape baseline that remains small enough for a
 source repository. The eight-second file contains 240 frames and has this
 SHA-256 digest:

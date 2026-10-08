@@ -7,13 +7,13 @@ The application supports either a shared or static Dear ImGui binding. The
 shared configuration is the distribution default because it keeps C++ and
 Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
 
-Release candidate CI uses V 0.5.2, `antono2.vulkan@v3.2.0`, and fixed
+Release candidate CI uses V 0.5.2, `antono2.vulkan@v3.2.0` and fixed
 revisions of the other graphics modules on Linux and Windows. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
 
 Developer `v install` and release CI use the published tags
-`antono2.minimp4@v2.0.0`, `antono2.h264@v2.0.0`, and
+`antono2.minimp4@v2.0.0`, `antono2.h264@v2.0.0` and
 `antono2.vkmemalloc@v2.6.1`. The allocator's corrected Vulkan requirement
 matches this player's `v3.2.0` pin, avoiding the fresh-install conflict in
 the old `v2.6.0` manifest. Older published tags are not changed.
@@ -48,7 +48,7 @@ symbol lookup. Without that visibility rule, the Vulkan loader can resolve a
 function name back to the application's same-named pointer slot.
 
 This option statically links Dear ImGui/ImPlot. It does not promise a fully
-static Linux executable: GLFW, libc, the Vulkan loader, and the GPU driver are
+static Linux executable: GLFW, libc, the Vulkan loader and the GPU driver are
 platform runtime components.
 
 ## GLFW provider and version
@@ -81,10 +81,10 @@ a platform-independent archive.
 ```
 
 GPU compatibility is evaluated against the input stream's H.264 profile,
-coded extent, DPB slots, active references, output mode, and image formats.
+coded extent, DPB slots, active references, output mode and image formats.
 Without `--gpu`, the first fully compatible presentation/decode device
 is selected. Unsupported codecs and profiles, missing slice parameter-set
-references, truncated MP4 samples, and incompatible or out-of-range devices
+references, truncated MP4 samples and incompatible or out-of-range devices
 return a non-zero exit status with a diagnostic. Arbitrarily corrupted SPS/PPS
 bitstreams are not fully validated by the pinned H.264 parser.
 `--decode-output-mode auto|coincident|distinct` selects an advertised DPB and
@@ -93,7 +93,7 @@ output-image mode; `auto` is the default.
 ## Ubuntu 24.04 binary package
 
 Linux and Windows binary archives retain `BUILD-INFO.txt` with source,
-compiler and module revisions, plus `LICENSE`, `MEDIA.txt`, and dependency
+compiler and module revisions, plus `LICENSE`, `MEDIA.txt` and dependency
 notices under `licenses/`. Linux also includes the distribution copyright
 files for its bundled libstdc++ and libgcc runtimes. Binary and Windows source
 archives have accompanying `.sha256` files; binary package verifiers require
@@ -101,22 +101,21 @@ a matching checksum and nonempty build/license records.
 
 The packaging script builds in the configured Ubuntu 24 root filesystem,
 sets relative runtime paths, bundles compatible C++/GLFW libraries, tests the
-ZIP, and prints its SHA-256 digest:
+ZIP and prints its SHA-256 digest:
 
 ```sh
 scripts/package_ubuntu24.sh ~/workspace/vkvideo_ubuntu24_amd64.zip
 ```
 
 Optional environment overrides are `V_BIN`, `UBUNTU24_ROOTFS`, `VIMGUI_DIR`,
-`VULKAN_SDK`, `VIMGUI_BUILD_TYPE`, `VIMGUI_GLFW_PROVIDER`, and
+`VULKAN_SDK`, `VIMGUI_BUILD_TYPE`, `VIMGUI_GLFW_PROVIDER` and
 `VIMGUI_GLFW_VERSION`.
 
 The Vulkan loader and GPU driver are deliberately not bundled; they must match
 the target machine and provide Vulkan Video H.264 decoding.
 
 The packaging command also runs `scripts/verify_ubuntu24_package.sh`. It checks
-the archive layout, x86-64 ELF type, relative RUNPATHs, bundled-library
-resolution, and rejects ELF loader metadata containing absolute `/home/USER`
+the archive layout, x86-64 ELF type, relative RUNPATHs and bundled-library resolution. It rejects ELF loader metadata containing absolute `/home/USER`
 build paths. Source filenames used only for diagnostics may remain embedded;
 they are not consulted by the dynamic loader and do not affect relocation.
 An existing archive can be checked independently:
@@ -141,18 +140,18 @@ When installing modules on a different Windows drive, set `VTMP` to a writable
 directory on the same drive as `VMODULES` before `v install`; see the Windows
 quickstart. This avoids released VPM's cross-drive directory-move limitation.
 
-Extract it, open `v_vulkan_video\packaging\windows\build.bat`, and run it. The
+Extract it, open `v_vulkan_video\packaging\windows\build.bat` and run it. The
 script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,
-compiles the player with MSVC, and creates
+compiles the player with MSVC and creates
 `dist\vkvideo-windows-x64.zip`. It requires V 0.5.2+, CMake, Visual Studio C++
-x64 tools, and a Vulkan SDK selected through `VULKAN_SDK`.
+x64 tools and a Vulkan SDK selected through `VULKAN_SDK`.
 
 To test the V3 compiler from current V master, run
 `./scripts/build_windows.ps1 -Compiler v3` from a Visual Studio x64 developer
 PowerShell. The MSVC build defines `WIN32_LEAN_AND_MEAN` so Windows headers do
 not introduce legacy Winsock declarations before V's Winsock2 headers.
 
-Windows unit tests, the MSVC build, and the archive layout run in CI on a
+Windows unit tests, the MSVC build and the archive layout run in CI on a
 Windows Server 2022 runner. Startup and clean unsupported-device handling were
 also tested on a GeForce GTX 765M. Playback testing on a Vulkan Video-capable
 GPU is currently deferred; the hardware-dependent checks are tracked in
@@ -162,7 +161,7 @@ GPU is currently deferred; the hardware-dependent checks are tracked in
 
 The checked-in V arrays are generated build inputs, so normal player builds do
 not need shader compilers. To change shaders, edit `video.vert` or `video.frag`
-and use Python 3 with `glslc`, `glslangValidator`, and `spirv-val` on `PATH`:
+and use Python 3 with `glslc`, `glslangValidator` and `spirv-val` on `PATH`:
 
 ```sh
 python3 scripts/generate_shaders.py
@@ -178,7 +177,7 @@ either tracked file is replaced. `--check` reports drift without writing them.
 
 The recorded generation toolchain reports `shaderc v2026.1 v2026.1` from
 `glslc --version`, `Glslang Version: 11:16.2.0` from
-`glslangValidator --version`, and SPIRV-Tools v2026.1. Use those versions for
+`glslangValidator --version` and SPIRV-Tools v2026.1. Use those versions for
 byte-for-byte checks. Other compiler versions can change encoding or metadata;
 review their generated diff deliberately instead of treating it as formatting.
 The generator itself owns each V file's purpose and regeneration introduction.
