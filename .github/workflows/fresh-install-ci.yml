@@ -2,6 +2,7 @@ name: Fresh installation CI
 
 on:
   push:
+    paths-ignore: ['**/*.md']
     branches: [master]
   pull_request:
     branches: [master]
@@ -37,6 +38,7 @@ jobs:
           test ! -e "$VMODULES"
           mkdir -p "$VMODULES"
           bash scripts/build_linux.sh --cc tcc
+          v run scripts/check_installed_deps.vsh
       - name: Test freshly installed modules and loader startup
         env:
           VMODULES: ${{ github.workspace }}-fresh-modules
@@ -75,6 +77,8 @@ jobs:
           $env:VTMP = Join-Path $env:VMODULES '.vtmp'
           v install
           if ($LASTEXITCODE -ne 0) { throw 'Fresh VPM installation failed' }
+          v run scripts/check_installed_deps.vsh
+          if ($LASTEXITCODE -ne 0) { throw 'Installed dependency revisions do not match v.mod' }
           git -C (Join-Path $env:VMODULES 'antono2\imgui') submodule update --init --recursive
           if ($LASTEXITCODE -ne 0) { throw 'ImGui submodule installation failed' }
           $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'

@@ -3,6 +3,7 @@ name: Release candidate CI
 on:
   workflow_dispatch:
   push:
+    paths-ignore: ['**/*.md']
     branches: [master]
   pull_request:
     branches: [master]
@@ -37,12 +38,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: v3.2.0
+          ref: v3.2.2
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
+          ref: v2.6.2
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -52,7 +53,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: 26c8b67748675255885f2c79e609369c76283305
+          ref: v0.3.1
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,7 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
+          ref: v2.0.1
           path: source/modules/antono2/h264
       - name: Set up released V compiler
         uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
@@ -178,12 +179,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: 17d20c1c9e7bf27dd166df0727c83ec35d79f3e2
+          ref: v3.2.2
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
+          ref: v2.6.2
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -193,7 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: 32bcb83f1967fa98a039230a0ae6e471afaf7d83
+          ref: v0.3.1
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -209,7 +210,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
+          ref: v2.0.1
           path: source/modules/antono2/h264
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -363,12 +364,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: ${{ matrix.compiler == 'v3' && '17d20c1c9e7bf27dd166df0727c83ec35d79f3e2' || 'v3.2.0' }}
+          ref: v3.2.2
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.1 # vkmemalloc: bc8213cddc906a2705451eff0055a0b7d39280d0
+          ref: v2.6.2
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -378,13 +379,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: ${{ matrix.compiler == 'v3' && '32bcb83f1967fa98a039230a0ae6e471afaf7d83' || '26c8b67748675255885f2c79e609369c76283305' }}
+          ref: v0.3.1
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: ${{ matrix.compiler == 'v3' && '0397fbafc005ebed250b3289d1c9fc13ef15ab97' || 'v2.0.0' }}
+          ref: v2.0.1
           path: source/modules/antono2/glfw
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -394,7 +395,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.0 # h264: 6cdc70a6c83344462da05a1b75010928a0f23439
+          ref: v2.0.1
           path: source/modules/antono2/h264
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: matrix.compiler == 'stable'
