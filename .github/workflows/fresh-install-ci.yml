@@ -2,6 +2,7 @@ name: Fresh installation CI
 
 on:
   push:
+    paths-ignore: ['**/*.md']
     branches: [master]
   pull_request:
     branches: [master]
