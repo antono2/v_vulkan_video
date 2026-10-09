@@ -31,6 +31,12 @@ passed the V3/MSVC package build, all three software test files, `--help`,
 V3 packages separately. The GTX 765M capability rejection confirms the
 unsupported-device path, not hardware decoding support.
 
+## Current validation
+
+See [the October 9 follow-up](docs/validation-2026-10-09.md) for the 0.3.0-rc2
+release dependency graph and hardware regression. The dated results below
+retain their original compiler, dependency and platform scope.
+
 ## Linux release-candidate regression (2026-10-02)
 
 On the GTX 1060 6GB with NVIDIA driver 580.178.04, the stable V 0.5.2/GCC

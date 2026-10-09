@@ -1,7 +1,7 @@
 Module {
 	name: 'v_vulkan_video'
 	description: 'H.264 MP4 player using Vulkan Video decode'
-	version: '0.3.0-rc1'
+	version: '0.3.0-rc2'
 	license: 'MIT'
 	dependencies: [
 		'antono2.glfw@v2.0.1',
