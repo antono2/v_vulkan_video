@@ -35,46 +35,55 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python source/v_vulkan_video/scripts/test_compatibility.py
+          python source/v_vulkan_video/scripts/test_doctor.py
+          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          python source/v_vulkan_video/scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: v3.2.2
+          ref: ${{ steps.compat.outputs.module_vulkan }}
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.2
+          ref: ${{ steps.compat.outputs.module_vkmemalloc }}
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
-          ref: v1.4.0
+          ref: ${{ steps.compat.outputs.module_memory }}
           path: source/modules/antono2/memory
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: v0.3.1
+          ref: ${{ steps.compat.outputs.module_imgui }}
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_glfw }}
           path: source/modules/antono2/glfw
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
+          ref: ${{ steps.compat.outputs.module_minimp4 }}
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_h264 }}
           path: source/modules/antono2/h264
       - name: Set up released V compiler
         uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         with:
-          version: 0.5.2
+          version: ${{ steps.compat.outputs.v_release }}
       - name: Verify the declared dependency graph
         shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
@@ -179,56 +188,65 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python source/v_vulkan_video/scripts/test_compatibility.py
+          python source/v_vulkan_video/scripts/test_doctor.py
+          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          python source/v_vulkan_video/scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: v3.2.2
+          ref: ${{ steps.compat.outputs.module_vulkan }}
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.2
+          ref: ${{ steps.compat.outputs.module_vkmemalloc }}
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
-          ref: v1.4.0
+          ref: ${{ steps.compat.outputs.module_memory }}
           path: source/modules/antono2/memory
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: v0.3.1
+          ref: ${{ steps.compat.outputs.module_imgui }}
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_glfw }}
           path: source/modules/antono2/glfw
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
+          ref: ${{ steps.compat.outputs.module_minimp4 }}
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_h264 }}
           path: source/modules/antono2/h264
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: vlang/v
-          ref: b99970bd438a7bdcdfbe38f74d9364db801d5439
+          ref: ${{ steps.compat.outputs.v3_v }}
           path: toolchain/v
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: vlang/vc
-          ref: 2cbaf6bc2367937cd5f0b4ef923d1ef9aad613b3
+          ref: ${{ steps.compat.outputs.v3_vc }}
           path: toolchain/v/vc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: vlang/tccbin
-          ref: d6e7ac1b1bcc98aed734a6ecbfa8509f24606c74
+          ref: ${{ steps.compat.outputs.v3_tcc }}
           path: toolchain/v/thirdparty/tcc
       - name: Build pinned V3 compiler
         run: |
@@ -280,6 +298,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python source/v_vulkan_video/scripts/test_compatibility.py
+          python source/v_vulkan_video/scripts/test_doctor.py
+          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          python source/v_vulkan_video/scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
@@ -293,7 +320,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
-          ref: v1.4.0
+          ref: ${{ steps.compat.outputs.module_memory }}
           path: source/modules/antono2/memory
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -367,63 +394,72 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: source/v_vulkan_video
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python source/v_vulkan_video/scripts/test_compatibility.py
+          python source/v_vulkan_video/scripts/test_doctor.py
+          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          python source/v_vulkan_video/scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
-          ref: v3.2.2
+          ref: ${{ steps.compat.outputs.module_vulkan }}
           path: source/modules/antono2/vulkan
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan_memory_allocator
-          ref: v2.6.2
+          ref: ${{ steps.compat.outputs.module_vkmemalloc }}
           path: source/modules/antono2/vkmemalloc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/memory
-          ref: v1.4.0
+          ref: ${{ steps.compat.outputs.module_memory }}
           path: source/modules/antono2/memory
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/imgui
-          ref: v0.3.1
+          ref: ${{ steps.compat.outputs.module_imgui }}
           path: source/modules/antono2/imgui
           submodules: recursive
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/glfw
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_glfw }}
           path: source/modules/antono2/glfw
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/minimp4
-          ref: v2.0.0 # minimp4: 9e3e3962e552a82d11284027c152112f5dc6cccf
+          ref: ${{ steps.compat.outputs.module_minimp4 }}
           path: source/modules/antono2/minimp4
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/h264
-          ref: v2.0.1
+          ref: ${{ steps.compat.outputs.module_h264 }}
           path: source/modules/antono2/h264
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: matrix.compiler == 'stable'
         with:
-          version: 0.5.2
+          version: ${{ steps.compat.outputs.v_release }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: matrix.compiler == 'v3'
         with:
           repository: vlang/v
-          ref: b99970bd438a7bdcdfbe38f74d9364db801d5439
+          ref: ${{ steps.compat.outputs.v3_v }}
           path: toolchain/v
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: matrix.compiler == 'v3'
         with:
           repository: vlang/vc
-          ref: 2cbaf6bc2367937cd5f0b4ef923d1ef9aad613b3
+          ref: ${{ steps.compat.outputs.v3_vc }}
           path: toolchain/v/vc
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: matrix.compiler == 'v3'
         with:
           repository: vlang/tccbin
-          ref: 86ae5844b8b56071b21ae3aa138b247d5eb9ddd9
+          ref: ${{ steps.compat.outputs.windows_v3_tcc }}
           path: toolchain/v/thirdparty/tcc
       - name: Build pinned V3 compiler
         if: matrix.compiler == 'v3'
@@ -441,14 +477,14 @@ jobs:
       - name: Install Vulkan SDK and SwiftShader test artifacts
         shell: bash
         working-directory: source/v_vulkan_video
-        run: bash .github/scripts/setup-vulkan-ci.sh 1.4.309.0 v1.2
+        run: bash .github/scripts/setup-vulkan-ci.sh ${{ steps.compat.outputs.ci_sdk }} ${{ steps.compat.outputs.ci_runtime }}
       - name: Install Volk headers
         shell: pwsh
         run: |
           $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
           New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/${{ steps.compat.outputs.volk }}/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/${{ steps.compat.outputs.volk }}/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
       - name: Install headers matching the pinned V3 Vulkan module
         if: matrix.compiler == 'v3'
         shell: pwsh

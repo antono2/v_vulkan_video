@@ -12,6 +12,11 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($Check -and $PrepareOnly) { throw 'Choose either -Check or -PrepareOnly.' }
 $ProjectDirectory = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
+$Pins = Get-Content (Join-Path $ProjectDirectory 'compatibility.json') -Raw | ConvertFrom-Json
+if ($Pins.schema_version -ne 1) { throw 'Unsupported compatibility manifest schema.' }
+foreach ($Match in [regex]::Matches((Get-Content (Join-Path $ProjectDirectory 'v.mod') -Raw), "'antono2\.([a-z0-9_]+)@([^']+)'")) {
+    if ($Pins.modules.($Match.Groups[1].Value) -ne $Match.Groups[2].Value) { throw 'v.mod and compatibility.json disagree.' }
+}
 . (Join-Path $PSScriptRoot 'windows_environment.ps1')
 Initialize-VkVideoWindowsEnvironment
 & (Join-Path $PSScriptRoot 'check_windows.ps1') -BuildOnly

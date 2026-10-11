@@ -26,9 +26,17 @@ jobs:
       GLFW_LIB: /usr/lib/x86_64-linux-gnu
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python ./scripts/test_compatibility.py
+          python ./scripts/test_doctor.py
+          python ./scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         with:
-          version: 0.5.2
+          version: ${{ steps.compat.outputs.v_release }}
       - name: Install native build and software Vulkan dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
       - name: Install from an empty module directory and build
@@ -53,19 +61,27 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Validate and resolve tested compatibility
+        id: compat
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          python ./scripts/test_compatibility.py
+          python ./scripts/test_doctor.py
+          python ./scripts/compatibility.py --github-output "$GITHUB_OUTPUT"
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         with:
-          version: 0.5.2
+          version: ${{ steps.compat.outputs.v_release }}
       - name: Install Vulkan SDK and software Vulkan device
         shell: bash
-        run: bash .github/scripts/setup-vulkan-ci.sh 1.4.309.0 v1.2
+        run: bash .github/scripts/setup-vulkan-ci.sh ${{ steps.compat.outputs.ci_sdk }} ${{ steps.compat.outputs.ci_runtime }}
       - name: Install Volk headers
         shell: pwsh
         run: |
           $VolkDirectory = Join-Path $env:VULKAN_SDK 'Include\volk'
           New-Item -ItemType Directory -Force $VolkDirectory | Out-Null
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
-          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/e640c6ea6420bdaf6248e85f736ab0b99491ae58/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/${{ steps.compat.outputs.volk }}/volk.h' -OutFile (Join-Path $VolkDirectory 'volk.h')
+          Invoke-WebRequest 'https://raw.githubusercontent.com/zeux/volk/${{ steps.compat.outputs.volk }}/volk.c' -OutFile (Join-Path $VolkDirectory 'volk.c')
       - name: Install from an empty module directory and build outside bundle layout
         shell: powershell
         env:
