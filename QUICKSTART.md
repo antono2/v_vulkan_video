@@ -56,29 +56,40 @@ Install:
 - Visual Studio 2022 Build Tools with **Desktop development with C++**;
 - CMake;
 - the LunarG Vulkan SDK; and
-- a current GPU driver with Vulkan Video H.264 decode support.
+- for playback, a current GPU driver with Vulkan Video H.264 decode support.
 
-Open **Developer PowerShell for VS 2022** configured for x64, ensure `v`, `cmake` and
-`VULKAN_SDK` are available, and run:
+From an ordinary **64-bit PowerShell** in the checkout, with `v`, `git` and
+`cmake` on PATH, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\check_windows.ps1
-$modules = if ($env:VMODULES) { ($env:VMODULES -split ';')[0] } else { "$env:USERPROFILE\.vmodules" }
-$env:VMODULES = $modules
-$env:VTMP = Join-Path $modules '.vtmp'
-v install
-$imgui = Join-Path $modules 'antono2\imgui'
-git -C $imgui submodule update --init --recursive
-powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -ModulesDirectory $modules
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 ```
 
-The build script produces `dist\vkvideo-windows-x64.zip`. Windows compilation
-and unsupported-device diagnostics are tested; playback validation on a
+Setup finds the installed Visual Studio x64 tools and Vulkan SDK, installs the
+dependencies declared in `v.mod`, verifies their revisions and initializes the
+ImGui submodules. It produces `dist\vkvideo-windows-x64.zip`. It configures the
+current process without changing persistent environment variables or installing
+system tools. Missing prerequisites are reported with next steps.
+
+Use `-Check` for build-tool diagnostics without downloads or build-directory
+changes, `-PrepareOnly` to install dependencies without compiling, or
+`-ModulesDirectory 'D:\V modules'` to choose a module directory. `-Compiler v3`
+selects the V3 build when the installed compiler supports it.
+
+Build-tool checks do not require a GPU capable of video decoding. After building,
+check the selected video's compatibility using the packaged player:
+
+```powershell
+.\dist\vkvideo-windows-x64\v_vulkan_video.exe --list-gpus
+```
+
+Windows compilation and unsupported-device diagnostics are tested; playback validation on a
 Vulkan-Video-capable Windows GPU remains a release TODO.
 
-The `VTMP` setting keeps VPM's temporary checkouts on the same drive as the
-module directory. Released VPM can fail to move directories across drives,
-for example from the default `C:` temporary directory to `VMODULES` on `D:`.
+Setup places VPM's temporary checkouts on the same drive as the module directory.
+This avoids released VPM's cross-drive move failure when Windows temporary files
+are on `C:` and modules are on `D:`. Rerunning setup rechecks the dependency graph
+and rebuilds; it does not reset existing dependency checkouts.
 
 Use the stable V compiler for release builds. A source-built V master at
 `b99970bd438a7bdcdfbe38f74d9364db801d5439` also passed the Windows V3/MSVC

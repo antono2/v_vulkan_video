@@ -69,26 +69,17 @@ jobs:
       - name: Install from an empty module directory and build outside bundle layout
         shell: powershell
         env:
-          VMODULES: ${{ github.workspace }}-fresh-modules
+          VMODULES: ${{ github.workspace }}-fresh modules
         run: |
           if (Test-Path $env:VMODULES) { throw 'Fresh module directory already exists' }
-          New-Item -ItemType Directory $env:VMODULES | Out-Null
-          # Released VPM cannot move its temporary checkout directories across drives.
-          $env:VTMP = Join-Path $env:VMODULES '.vtmp'
-          v install
-          if ($LASTEXITCODE -ne 0) { throw 'Fresh VPM installation failed' }
-          v run scripts/check_installed_deps.vsh
-          if ($LASTEXITCODE -ne 0) { throw 'Installed dependency revisions do not match v.mod' }
-          git -C (Join-Path $env:VMODULES 'antono2\imgui') submodule update --init --recursive
-          if ($LASTEXITCODE -ne 0) { throw 'ImGui submodule installation failed' }
-          $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $InstallPath = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $InstallPath) { throw 'Visual Studio C++ tools were not found' }
-          Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
-          Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          ./scripts/test_setup_windows.ps1
           # A normal SDK installation only defines VULKAN_SDK, not this CI helper variable.
           Remove-Item Env:VULKAN_SDK_VERSION
-          ./scripts/build_windows.ps1
+          # Exercise the documented entry point from an ordinary PowerShell.
+          ./scripts/setup_windows.ps1 -Check
+          if (Test-Path $env:VMODULES) { throw 'Read-only check created modules' }
+          ./scripts/setup_windows.ps1
+          ./scripts/setup_windows.ps1 -PrepareOnly
           $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
           v -cc msvc -cflags '/DWIN32_LEAN_AND_MEAN' test .
           if ($LASTEXITCODE -ne 0) { throw 'Fresh Windows player tests failed' }

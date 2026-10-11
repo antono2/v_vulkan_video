@@ -7,16 +7,15 @@ The application supports either a shared or static Dear ImGui binding. The
 shared configuration is the distribution default because it keeps C++ and
 Vulkan backend symbols isolated and can be relocated with `$ORIGIN`.
 
-Release candidate CI uses V 0.5.2, `antono2.vulkan@v3.2.0` and fixed
-revisions of the other graphics modules on Linux and Windows. Its separate
+Release candidate CI uses V 0.5.2 and fixed revisions of the graphics modules
+on Linux and Windows. See `v.mod` and `.github/workflows/release-ci.yml` for the
+current dependency pins. Its separate
 advisory job checks current V and dependency master branches; release packages
 are built only from the pinned lane.
 
-Developer `v install` and release CI use the published tags
-`antono2.minimp4@v2.0.0`, `antono2.h264@v2.0.0` and
-`antono2.vkmemalloc@v2.6.1`. The allocator's corrected Vulkan requirement
-matches this player's `v3.2.0` pin, avoiding the fresh-install conflict in
-the old `v2.6.0` manifest. Older published tags are not changed.
+Developer setup and release CI verify direct and transitive module revisions
+against the pins in `v.mod`, including the allocator's Vulkan requirement.
+Older published tags are not changed.
 
 `antono2.minimp4@v2.0.0` declares MP4 I/O callback results as `i32`, matching C's 32-bit
 status result. Refresh older module checkouts before building this player;
@@ -130,15 +129,21 @@ executable (the packaging script does this automatically from its rootfs).
 ## Windows x64 source bundle
 
 The Windows bundle contains the project and its exact V module dependencies.
-For an ordinary Git checkout, `v install` installs the developer dependencies;
+For an ordinary Git checkout, run `scripts\setup_windows.ps1` from 64-bit
+PowerShell. It discovers the installed x64 Visual Studio environment and SDK,
+installs and verifies the dependencies in `v.mod`, initializes ImGui submodules
+and calls the build script. Use `-Check` for read-only build-tool diagnostics or
+`-PrepareOnly` to prepare modules without compiling. It needs V, Git and CMake
+on PATH, plus installed Visual Studio C++ tools and the Vulkan SDK.
+
 `build_windows.ps1` resolves `-ModulesDirectory`, then `VMODULES`, then a sibling
 bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's
 `build.bat` explicitly selects its bundled modules so an unrelated `VMODULES`
 setting cannot override the packaged stack.
 
-When installing modules on a different Windows drive, set `VTMP` to a writable
-directory on the same drive as `VMODULES` before `v install`; see the Windows
-quickstart. This avoids released VPM's cross-drive directory-move limitation.
+Setup sets `VTMP` beside the selected modules to avoid released VPM's cross-drive
+directory-move limitation. When calling `v install` manually, use a writable
+`VTMP` directory on the same drive as `VMODULES`.
 
 Extract it, open `v_vulkan_video\packaging\windows\build.bat` and run it. The
 script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,

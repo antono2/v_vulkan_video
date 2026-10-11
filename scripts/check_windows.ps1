@@ -1,12 +1,24 @@
 # Reports missing Windows build prerequisites before compiling the player.
+param([switch]$BuildOnly)
+
 $ErrorActionPreference = "Stop"
 $Missing = $false
 
-foreach ($Command in @("v", "git", "cmake", "cl", "vulkaninfo")) {
+$Commands = @('v', 'git', 'cmake', 'cl')
+if (-not $BuildOnly) { $Commands += 'vulkaninfo' }
+foreach ($Command in $Commands) {
     if (Get-Command $Command -ErrorAction SilentlyContinue) {
         Write-Host "[ok]      $Command"
     } else {
         Write-Host "[missing] $Command"
+        $NextSteps = @{
+            v = 'Install the official V compiler and add it to PATH.'
+            git = 'Install Git: winget install --id Git.Git -e'
+            cmake = 'Install CMake: winget install --id Kitware.CMake -e'
+            cl = 'Run scripts\setup_windows.ps1 to discover installed Visual Studio C++ tools.'
+            vulkaninfo = 'Install the LunarG Vulkan SDK and add its Bin directory to PATH.'
+        }
+        Write-Host "          $($NextSteps[$Command])"
         $Missing = $true
     }
 }
@@ -21,7 +33,7 @@ if (-not $env:VULKAN_SDK) {
     Write-Host "[ok]      VULKAN_SDK=$env:VULKAN_SDK"
 }
 
-if (Get-Command vulkaninfo -ErrorAction SilentlyContinue) {
+if (-not $BuildOnly -and (Get-Command vulkaninfo -ErrorAction SilentlyContinue)) {
     $Info = (& vulkaninfo 2>&1 | Out-String)
     foreach ($Extension in @("VK_KHR_video_queue", "VK_KHR_video_decode_queue", "VK_KHR_video_decode_h264")) {
         if ($Info.Contains($Extension)) {
@@ -36,4 +48,8 @@ if (Get-Command vulkaninfo -ErrorAction SilentlyContinue) {
 if ($Missing) {
     Write-Error "One or more requirements are unavailable. See QUICKSTART.md."
 }
-Write-Host "Build and Vulkan Video prerequisites look usable."
+if ($BuildOnly) {
+    Write-Host 'Build prerequisites look usable. Hardware decoding is checked separately with the player --list-gpus.'
+} else {
+    Write-Host 'Build tools and video extensions were found. Use the player --list-gpus to check a specific GPU and video profile.'
+}
