@@ -88,7 +88,9 @@ Vulkan-Video-capable Windows GPU remains a release TODO.
 
 Setup places VPM's temporary checkouts on the same drive as the module directory.
 This avoids released VPM's cross-drive move failure when Windows temporary files
-are on `C:` and modules are on `D:`. Rerunning setup rechecks the dependency graph
+are on `C:` and modules are on `D:`. Dependency installation also enables Git's
+long-path handling for its subprocesses, preserving the existing Git configuration.
+Rerunning setup rechecks the dependency graph
 and rebuilds; it does not reset existing dependency checkouts.
 
 Use the stable V compiler for release builds. A source-built V master at

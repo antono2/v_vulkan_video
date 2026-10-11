@@ -45,3 +45,27 @@ function Get-VkVideoModulesDirectory([string]$Directory, [string]$ProjectDirecto
     }
     return [IO.Path]::GetFullPath($Directory)
 }
+
+function Invoke-VkVideoGitLongPaths([scriptblock]$Action) {
+    # Git subprocesses launched by VPM inherit this per-command configuration.
+    # Append to existing overrides and restore them after success or failure.
+    $Count = 0
+    $ConfiguredCount = $env:GIT_CONFIG_COUNT
+    if ($ConfiguredCount -and (-not [int]::TryParse($ConfiguredCount, [ref]$Count) -or $Count -lt 0)) {
+        throw 'GIT_CONFIG_COUNT must be a nonnegative integer.'
+    }
+    $Saved = @{}
+    foreach ($Name in @('GIT_CONFIG_COUNT', "GIT_CONFIG_KEY_$Count", "GIT_CONFIG_VALUE_$Count")) {
+        $Saved[$Name] = [Environment]::GetEnvironmentVariable($Name, 'Process')
+    }
+    try {
+        [Environment]::SetEnvironmentVariable("GIT_CONFIG_KEY_$Count", 'core.longpaths', 'Process')
+        [Environment]::SetEnvironmentVariable("GIT_CONFIG_VALUE_$Count", 'true', 'Process')
+        $env:GIT_CONFIG_COUNT = ($Count + 1).ToString()
+        & $Action
+    } finally {
+        foreach ($Name in $Saved.Keys) {
+            [Environment]::SetEnvironmentVariable($Name, $Saved[$Name], 'Process')
+        }
+    }
+}

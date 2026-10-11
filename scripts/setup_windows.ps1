@@ -26,13 +26,15 @@ New-Item -ItemType Directory -Force -Path $ModulesDirectory, $env:VTMP | Out-Nul
 Write-Host "Preparing pinned modules at $ModulesDirectory"
 Push-Location $ProjectDirectory
 try {
-    & v install
-    if ($LASTEXITCODE -ne 0) { throw 'VPM installation failed. Resolve the reported error and rerun setup.' }
-    & v run scripts/check_installed_deps.vsh
-    if ($LASTEXITCODE -ne 0) { throw 'Installed dependencies do not match v.mod. See the reported module revisions.' }
-    $ImguiDirectory = Join-Path $ModulesDirectory 'antono2\imgui'
-    & git -C $ImguiDirectory submodule update --init --recursive
-    if ($LASTEXITCODE -ne 0) { throw 'ImGui submodule preparation failed. Resolve the Git error and rerun setup.' }
+    Invoke-VkVideoGitLongPaths {
+        & v install
+        if ($LASTEXITCODE -ne 0) { throw 'VPM installation failed. Resolve the reported error and rerun setup.' }
+        & v run scripts/check_installed_deps.vsh
+        if ($LASTEXITCODE -ne 0) { throw 'Installed dependencies do not match v.mod. See the reported module revisions.' }
+        $ImguiDirectory = Join-Path $ModulesDirectory 'antono2\imgui'
+        & git -C $ImguiDirectory submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) { throw 'ImGui submodule preparation failed. Resolve the Git error and rerun setup.' }
+    }
 } finally {
     Pop-Location
 }
