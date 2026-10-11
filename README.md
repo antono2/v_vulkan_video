@@ -109,3 +109,9 @@ Follow [shader regeneration](BUILDING.md#shader-regeneration) when updating them
 do not edit the words by hand. The local
 [`include/video_bridge.h`](include/video_bridge.h) is a maintained native bridge,
 not an upstream dependency to replace during a binding update.
+
+
+## Compatibility and diagnostics
+
+See [tested profiles and read-only diagnostics](docs/compatibility.md) for
+compiler/dependency versions, setup recovery actions and upgrade checks.

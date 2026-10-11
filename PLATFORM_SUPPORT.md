@@ -147,6 +147,21 @@ synchronization and presentation still require a real Vulkan Video device.
 
 ## Hardware validation checklist
 
+Record a reproducible hardware report after collecting a first-loop NV12 dump:
+
+```sh
+python scripts/hardware_evidence.py --player ./v_vulkan_video --video VIDEO.mp4 --dump-dir CAPTURE_DIRECTORY --output new-hardware-report.json
+```
+
+The report records platform, GPU/driver diagnostics, player/media hashes,
+FFmpeg version and exact decoded-pixel comparison. Use `--reference STREAM.264`
+for the Sony remux case below. Without a real capture, the report says
+`capabilities_only` and exits 2; enumeration is not playback evidence. A successful
+comparison covers decoded pixels on this device. Complete the remaining rendered
+color/orientation, resize, looping and shutdown checks separately before changing
+the supported-hardware table. Run the same collector on Windows and Linux with
+a suitable Vulkan Video GPU; the audit machine's GTX 765M cannot perform this test.
+
 To repeat the H.264 reference-marking smoke check, download the
 [MR2 Tandberg stream](https://dev.gentoo.org/~lu_zero/fate/h264-conformance/MR2_TANDBERG_E.264)
 and the

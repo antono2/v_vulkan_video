@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "v_release": "0.5.2",
+  "ci_sdk": "1.4.309.0",
+  "ci_runtime": "v1.2",
+  "v3_v": "b99970bd438a7bdcdfbe38f74d9364db801d5439",
+  "v3_vc": "2cbaf6bc2367937cd5f0b4ef923d1ef9aad613b3",
+  "v3_tcc": "d6e7ac1b1bcc98aed734a6ecbfa8509f24606c74",
+  "windows_v3_tcc": "86ae5844b8b56071b21ae3aa138b247d5eb9ddd9",
+  "volk": "e640c6ea6420bdaf6248e85f736ab0b99491ae58",
+  "glfw": "3.4",
+  "modules": {
+    "memory": "v1.4.0",
+    "glfw": "v2.0.1",
+    "h264": "v2.0.1",
+    "imgui": "v0.3.1",
+    "minimp4": "v2.0.0",
+    "vulkan": "v3.2.2",
+    "vkmemalloc": "v2.6.2"
+  },
+  "build_tools": [
+    "git",
+    "cmake"
+  ]
+}
