@@ -33,7 +33,7 @@ $BuildDirectory = Join-Path $ProjectDirectory ".build\windows-imgui"
 $PackageDirectory = Join-Path $BuildDirectory "package\vkvideo-windows-x64"
 $ImguiDirectory = Join-Path $Antono2ModulesDirectory "imgui"
 $ImguiLibraryDirectory = Join-Path $ImguiDirectory "lib"
-$GlfwLibraryDirectory = Join-Path $Antono2ModulesDirectory "glfw\lib"
+$GlfwLibraryDirectory = Join-Path $BuildDirectory 'glfw-lib'
 if (Test-Path $BuildDirectory) {
     # This directory contains generated CMake state only. Starting clean also
     # prevents a failed dependency download from poisoning the next run.
