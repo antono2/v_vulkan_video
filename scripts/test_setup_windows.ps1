@@ -18,6 +18,9 @@ function v {
         $env:GIT_CONFIG_VALUE_1 -eq 'true') 'VPM did not inherit Git long-path handling.'
     $global:VkVideoSetupCalls += 'v ' + ($args -join ' ')
     $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'run' -and $global:VkVideoSetupCalls.Count -eq 1 -and -not $global:VkVideoSetupReady) {
+        $global:LASTEXITCODE = 1
+    }
     if (($args[0] -eq 'install' -and $global:VkVideoSetupFailure -eq 'install') -or
         ($args[0] -eq 'run' -and $global:VkVideoSetupFailure -eq 'revisions')) {
         $global:LASTEXITCODE = 7
@@ -26,6 +29,16 @@ function v {
 function git {
     $global:VkVideoSetupCalls += 'git'
     $global:VkVideoSetupGitDirectory = $args[1]
+    if ($args[2] -eq 'status') {
+        $global:LASTEXITCODE = 0
+        if ($global:VkVideoSetupFailure -eq 'dirty') { return ' M local-work.v' }
+        return
+    }
+    if ($args[2] -eq 'rev-list') {
+        $global:LASTEXITCODE = 0
+        if ($global:VkVideoSetupFailure -eq 'unpublished') { return 'local-commit' }
+        return
+    }
     $global:LASTEXITCODE = if ($global:VkVideoSetupFailure -eq 'submodules') { 8 } else { 0 }
 }
 function cmake {}
@@ -46,6 +59,7 @@ try {
     $env:VMODULES = $Modules
     $env:VTMP = Join-Path $TestRoot 'unrelated temp'
     $global:VkVideoSetupFailure = ''
+    $global:VkVideoSetupReady = $false
     $global:VkVideoSetupCalls = @()
 
     & $SetupScript -Check
@@ -54,20 +68,26 @@ try {
     Assert-Setup ($env:VTMP -eq (Join-Path $TestRoot 'unrelated temp')) '-Check changed dependency staging.'
 
     & $SetupScript -PrepareOnly
-    Assert-Setup (($global:VkVideoSetupCalls -join '|') -eq 'v install|v run scripts/check_installed_deps.vsh|git') 'Dependency commands ran in the wrong order.'
+    Assert-Setup (($global:VkVideoSetupCalls -join '|') -eq 'v run scripts/check_installed_deps.vsh|v install|v run scripts/check_installed_deps.vsh|git') 'Dependency commands ran in the wrong order.'
     Assert-Setup ($global:VkVideoSetupGitDirectory -eq (Join-Path $Modules 'antono2\imgui')) 'Git lost the module path containing spaces.'
-    Assert-Setup ($env:VTMP -eq (Join-Path $Modules '.vtmp')) 'VPM staging was not placed beside modules.'
+    Assert-Setup ((Split-Path -Parent $env:VTMP) -eq (Join-Path $Modules '.vtmp')) 'VPM staging was not placed beside modules.'
+    $FirstStagingDirectory = $env:VTMP
     Assert-Setup ((Get-Location).Path -eq $CallerDirectory) 'Successful setup changed the caller directory.'
     Assert-Setup ($env:GIT_CONFIG_COUNT -eq '1' -and $env:GIT_CONFIG_VALUE_0 -eq 'preserved') 'Setup changed existing Git configuration.'
+    $global:VkVideoSetupReady = $true
+    $global:VkVideoSetupCalls = @()
     & $SetupScript -PrepareOnly
+    Assert-Setup (($global:VkVideoSetupCalls -join '|') -eq 'v run scripts/check_installed_deps.vsh|git') 'Repeated setup reinstalled correct dependencies.'
+    Assert-Setup ($env:VTMP -ne $FirstStagingDirectory) 'Repeated setup reused potentially incomplete VPM staging.'
     Assert-Setup ((Get-Location).Path -eq $CallerDirectory) 'Repeated setup changed the caller directory.'
 
     foreach ($Case in @(
-        @{ Failure = 'install'; Message = 'VPM installation failed'; Calls = 1 },
-        @{ Failure = 'revisions'; Message = 'Installed dependencies do not match'; Calls = 2 },
-        @{ Failure = 'submodules'; Message = 'ImGui submodule preparation failed'; Calls = 3 }
+        @{ Failure = 'install'; Message = 'VPM installation failed'; Calls = 2 },
+        @{ Failure = 'revisions'; Message = 'Installed dependencies do not match'; Calls = 3 },
+        @{ Failure = 'submodules'; Message = 'ImGui submodule preparation failed'; Calls = 4 }
     )) {
         $global:VkVideoSetupFailure = $Case.Failure
+        $global:VkVideoSetupReady = $false
         $global:VkVideoSetupCalls = @()
         $Caught = ''
         try { & $SetupScript -PrepareOnly } catch { $Caught = $_.Exception.Message }
@@ -75,6 +95,18 @@ try {
         Assert-Setup ($global:VkVideoSetupCalls.Count -eq $Case.Calls) "Setup continued after $($Case.Failure) failure."
         Assert-Setup ((Get-Location).Path -eq $CallerDirectory) 'Failed setup changed the caller directory.'
         Assert-Setup ($env:GIT_CONFIG_COUNT -eq '1' -and -not $env:GIT_CONFIG_KEY_1) 'Failed setup leaked Git configuration.'
+    }
+
+    $ExistingModule = Join-Path $Modules 'antono2\example'
+    New-Item -ItemType Directory -Force -Path (Join-Path $ExistingModule '.git') | Out-Null
+    foreach ($Failure in @('dirty', 'unpublished')) {
+        $global:VkVideoSetupFailure = $Failure
+        $global:VkVideoSetupCalls = @()
+        $Caught = ''
+        try { & $SetupScript -PrepareOnly } catch { $Caught = $_.Exception.Message }
+        Assert-Setup ($Caught.StartsWith('Preserve ')) "Setup did not protect $Failure work."
+        Assert-Setup (($global:VkVideoSetupCalls -notcontains 'v install')) 'Setup installed over local work.'
+        Assert-Setup ((Get-Location).Path -eq $CallerDirectory) 'Local-work rejection changed the caller directory.'
     }
 
     . (Join-Path $PSScriptRoot 'windows_environment.ps1')

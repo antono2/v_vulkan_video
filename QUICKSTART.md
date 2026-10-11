@@ -91,7 +91,10 @@ This avoids released VPM's cross-drive move failure when Windows temporary files
 are on `C:` and modules are on `D:`. Dependency installation also enables Git's
 long-path handling for its subprocesses, preserving the existing Git configuration.
 Rerunning setup rechecks the dependency graph
-and rebuilds; it does not reset existing dependency checkouts.
+and rebuilds. It refuses to install over checkouts with local changes or
+unpublished commits; choose an empty module directory to keep those separately.
+Each run uses a separate temporary staging directory so a failed clone does not
+poison the next attempt.
 
 Use the stable V compiler for release builds. A source-built V master at
 `b99970bd438a7bdcdfbe38f74d9364db801d5439` also passed the Windows V3/MSVC
