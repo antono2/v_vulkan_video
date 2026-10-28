@@ -13,7 +13,7 @@
     "memory": "v1.4.0",
     "glfw": "v2.0.1",
     "h264": "v2.0.1",
-    "imgui": "v0.3.1",
+    "imgui": "v0.4.0-standard",
     "minimp4": "v2.0.0",
     "vulkan": "v3.2.2",
     "vkmemalloc": "v2.6.2"

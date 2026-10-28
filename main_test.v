@@ -7,6 +7,14 @@ fn test_parse_cli_defaults() {
 	assert options.gpu_index == -1
 	assert options.decode_output_mode == .automatic
 	assert !options.list_gpus
+	assert !options.show_imgui_demo
+}
+
+fn test_parse_cli_imgui_demo_is_opt_in() {
+	options := parse_cli(['--imgui-demo', '--gpu', '0', 'movie.mp4']) or { panic(err) }
+	assert options.show_imgui_demo
+	assert options.gpu_index == 0
+	assert options.video_path.ends_with('movie.mp4')
 }
 
 fn test_parse_cli_gpu_and_list() {
