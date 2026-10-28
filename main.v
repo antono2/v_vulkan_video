@@ -9,6 +9,7 @@ mut:
 	gpu_index          int = -1
 	decode_output_mode DecodeOutputMode
 	list_gpus          bool
+	show_imgui_demo    bool
 	show_help          bool
 }
 
@@ -23,6 +24,9 @@ fn parse_cli(args []string) !CliOptions {
 			}
 			'--list-gpus' {
 				options.list_gpus = true
+			}
+			'--imgui-demo' {
+				options.show_imgui_demo = true
 			}
 			'--gpu' {
 				i++
@@ -40,9 +44,15 @@ fn parse_cli(args []string) !CliOptions {
 					return error('--decode-output-mode requires auto, coincident or distinct')
 				}
 				options.decode_output_mode = match args[i] {
-					'auto' { DecodeOutputMode.automatic }
-					'coincident' { DecodeOutputMode.coincident }
-					'distinct' { DecodeOutputMode.distinct }
+					'auto' {
+						DecodeOutputMode.automatic
+					}
+					'coincident' {
+						DecodeOutputMode.coincident
+					}
+					'distinct' {
+						DecodeOutputMode.distinct
+					}
 					else {
 						return error('invalid decode output mode: ${args[i]} (expected auto, coincident or distinct)')
 					}
@@ -58,13 +68,15 @@ fn parse_cli(args []string) !CliOptions {
 				options.video_path = os.real_path(arg)
 			}
 		}
+
 		i++
 	}
 	return options
 }
 
 fn print_usage(program string) {
-	println('Usage: ${program} [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [video.mp4]')
+	println('Usage: ${program} [--list-gpus] [--gpu INDEX] [--decode-output-mode MODE] [--imgui-demo] [video.mp4]')
+	println('--imgui-demo overlays the Dear ImGui demo for rendering/input diagnostics.')
 	println('MODE is auto (default), coincident or distinct.')
 	println('If omitted, the bundled sample video is used.')
 }
@@ -90,6 +102,7 @@ fn main() {
 		preferred_gpu_index: options.gpu_index
 		decode_output_mode:  options.decode_output_mode
 		list_gpus:           options.list_gpus
+		show_imgui_demo:     options.show_imgui_demo
 	}
 	app.device_context.swapchain.app = &app
 	if !app.initialize() {

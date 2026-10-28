@@ -6,7 +6,7 @@ Module {
 	dependencies: [
 		'antono2.glfw@v2.0.1',
 		'antono2.h264@v2.0.1',
-		'antono2.imgui@v0.3.1',
+		'antono2.imgui@v0.4.0-standard',
 		'antono2.minimp4@v2.0.0',
 		'antono2.vulkan@v3.2.2',
 		'antono2.vkmemalloc@v2.6.2',

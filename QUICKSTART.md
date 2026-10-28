@@ -31,6 +31,10 @@ Install the [V compiler](https://github.com/vlang/v), then from this checkout:
 ./v_vulkan_video
 ```
 
+Use `./v_vulkan_video --imgui-demo` to overlay Dear ImGui's interactive demo
+during playback. This opt-in diagnostic exercises the UI renderer and input;
+close the demo window to return to unobstructed video. Normal playback is unchanged.
+
 Use `./scripts/build_linux.sh --compiler v3` to build the full player with V3.
 Current V master builds the complete player with V3 and TinyCC on Linux, and
 the ID-7 and multislice fixtures have passed decoded-frame comparisons with

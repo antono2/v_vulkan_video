@@ -24,6 +24,7 @@ mut:
 	sem_render_complete  vk.Semaphore
 	sem_present_complete vk.Semaphore
 	imgui_image_count    u32
+	show_imgui_demo      bool
 	ds_layout            vk.DescriptorSetLayout
 	video_player         VideoPlayer = VideoPlayer{}
 	render_pass          vk.RenderPass
@@ -381,6 +382,9 @@ fn (mut app VideoDecodeApp) run() {
 		impl_glfw.new_frame()
 		impl_vulkan.new_frame()
 		imgui.new_frame()
+		if app.show_imgui_demo {
+			imgui.show_demo_window(&app.show_imgui_demo)
+		}
 
 		mut frame := FrameInfo{}
 		app.begin_frame(mut frame)
