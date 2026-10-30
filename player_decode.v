@@ -643,9 +643,10 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 			return error('aligned access unit ${vp.current_frame} exceeds its ${frame.gpu_bitstream_capacity}-byte bitstream-buffer capacity')
 		}
 		if aligned_size > frame.gpu_bitstream_size {
+			padding_size := bitstream_padding_length(aligned_size - frame.gpu_bitstream_size)!
 			unsafe {
 				vmemset(frame.gpu_bitstream_slice_mapped_memory_address + frame.gpu_bitstream_size,
-					0, isize(aligned_size - frame.gpu_bitstream_size))
+					0, padding_size)
 			}
 		}
 		frame.gpu_bitstream_size = aligned_size
@@ -653,6 +654,14 @@ fn (mut vp VideoPlayer) write_video_frame(mut frame VideoPlayerDecodeStreamFrame
 }
 
 type File = os.File
+
+// Current V uses an int byte count for vmemset; reject narrowing overflow.
+fn bitstream_padding_length(size u64) !int {
+	if size > u64(max_int) {
+		return error('bitstream padding exceeds the supported ${max_int}-byte memory-fill length')
+	}
+	return int(size)
+}
 
 // Return next byte in file, but don't move the cursor position
 fn (mut f File) peek() !u8 {
