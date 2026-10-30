@@ -130,12 +130,12 @@ fn (mut d Decoder) initialize(mut app VideoDecodeApp) {
 	}
 
 	mut requirement_count := u32(0)
-	mut n := unsafe { nil }
+	mut n := unsafe { &vk.VideoSessionMemoryRequirementsKHR(nil) }
 	vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session,
 		&requirement_count, mut n)
 	mut requirements := []vk.VideoSessionMemoryRequirementsKHR{len: int(requirement_count), init: vk.VideoSessionMemoryRequirementsKHR{}}
 
-	mut requirements_data := requirements.data
+	mut requirements_data := unsafe { &vk.VideoSessionMemoryRequirementsKHR(requirements.data) }
 	res = vk.get_video_session_memory_requirements_khr(dev_ctx.vk_device, d.video_session,
 		&requirement_count, mut requirements_data)
 	if res != vk.Result.success {

@@ -37,7 +37,7 @@ fn (mut sc Swapchain) initialize_surface(window_p &glfw.Window) {
 
 fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format) bool {
 	sc.initialize_surface(window_p)
-	mut n := unsafe { nil }
+	mut n := unsafe { &vk.SurfaceFormatKHR(nil) }
 	device_context := sc.app.device_context
 	mut surface_caps := vk.SurfaceCapabilitiesKHR{}
 	vk.get_physical_device_surface_capabilities_khr(device_context.get_gpu_current(), sc.surface, mut &surface_caps)
@@ -61,7 +61,7 @@ fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format
 
 	// Find and store desired format
 	mut formats := []vk.SurfaceFormatKHR{len: int(surface_count)}
-	mut p_formats := formats.data
+	mut p_formats := unsafe { &vk.SurfaceFormatKHR(formats.data) }
 	formats_result := vk.get_physical_device_surface_formats_khr(device_context.get_gpu_current(), sc.surface, &surface_count, mut p_formats)
 	if formats_result != .success {
 		panic('Could not read Vulkan surface formats: ${formats_result}')
