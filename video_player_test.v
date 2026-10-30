@@ -7,6 +7,27 @@ import encoding.hex
 import os
 import antono2.vulkan as vk
 
+fn test_bitstream_padding_length_is_compatible_with_vmemset() {
+	assert bitstream_padding_length(0)! == 0
+	assert bitstream_padding_length(12)! == 12
+	assert bitstream_padding_length(u64(max_int))! == max_int
+	mut bytes := [u8(1), 2, 3, 0xff, 0xff, 6]
+	unsafe {
+		vmemset(byteptr(bytes.data) + 3, 0, bitstream_padding_length(2)!)
+	}
+	assert bytes == [u8(1), 2, 3, 0, 0, 6]
+}
+
+fn test_bitstream_padding_length_rejects_narrowing_overflow() {
+	for size in [u64(max_int) + 1, ~u64(0)] {
+		if _ := bitstream_padding_length(size) {
+			assert false, 'oversized memory-fill length was accepted'
+		} else {
+			assert err.msg().contains('bitstream padding exceeds')
+		}
+	}
+}
+
 fn test_dpb_acquire_uses_a_free_slot() {
 	mut dpb := DPB{
 		reference_usage: [u8(0), 2]
