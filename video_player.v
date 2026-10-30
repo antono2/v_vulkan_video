@@ -954,14 +954,14 @@ fn query_video_format(gpu vk.PhysicalDevice, profile_list &vk.VideoProfileListIn
 		imageUsage: usage
 	}
 	mut count := u32(0)
-	mut no_formats := unsafe { nil }
+	mut no_formats := unsafe { &vk.VideoFormatPropertiesKHR(nil) }
 	mut result := vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
 		no_formats)
 	if result != .success || count == 0 {
 		return none
 	}
 	mut formats := []vk.VideoFormatPropertiesKHR{len: int(count), init: vk.VideoFormatPropertiesKHR{}}
-	mut formats_data := formats.data
+	mut formats_data := unsafe { &vk.VideoFormatPropertiesKHR(formats.data) }
 	result = vk.get_physical_device_video_format_properties_khr(gpu, &format_info, &count, mut
 		formats_data)
 	if result != .success || count == 0 {

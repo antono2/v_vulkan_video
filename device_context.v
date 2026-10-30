@@ -154,7 +154,7 @@ fn (mut ctx DeviceContext) shutdown_instance_resources() {
 
 fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc u32,
 	metadata VideoMetadata) bool {
-	mut n := unsafe { nil }
+	mut n := unsafe { &vk.QueueFamilyProperties2(nil) }
 	mut family_props_count := u32(0)
 	ctx.use_gpu_index = int(use_gpu_index)
 	gpu := ctx.get_gpu_current()
@@ -171,7 +171,7 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 		mut video_prop := unsafe { &family_props_video[i] }
 		prop.pNext = video_prop
 	}
-	mut p_family_props := family_props.data
+	mut p_family_props := unsafe { &vk.QueueFamilyProperties2(family_props.data) }
 	vk.get_physical_device_queue_family_properties2(gpu, &family_props_count, mut p_family_props)
 	ctx.queue_families = []QueueFamilyProperties{len: int(family_props_count), init: QueueFamilyProperties{}}
 	for i in 0 .. family_props_count {
@@ -386,12 +386,12 @@ fn device_supports_extensions(gpu vk.PhysicalDevice, required_extensions []&u8) 
 
 fn missing_device_extensions(gpu vk.PhysicalDevice, required_extensions []&u8) []string {
 	mut count := u32(0)
-	mut no_extensions := unsafe { nil }
+	mut no_extensions := unsafe { &vk.ExtensionProperties(nil) }
 	if vk.enumerate_device_extension_properties(gpu, unsafe { nil }, &count, mut no_extensions) != .success {
 		return ['could not enumerate device extensions']
 	}
 	mut extensions := []vk.ExtensionProperties{len: int(count)}
-	mut extensions_data := extensions.data
+	mut extensions_data := unsafe { &vk.ExtensionProperties(extensions.data) }
 	if vk.enumerate_device_extension_properties(gpu, unsafe { nil }, &count, mut extensions_data) != .success {
 		return ['could not read device extensions']
 	}
@@ -475,7 +475,7 @@ fn (ctx DeviceContext) is_h264_decode_gpu_compatible_for_output_mode(gpu_index i
 
 fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 	mut family_count := u32(0)
-	mut no_properties := unsafe { nil }
+	mut no_properties := unsafe { &vk.QueueFamilyProperties2(nil) }
 	vk.get_physical_device_queue_family_properties2(gpu, &family_count, mut no_properties)
 	mut video_props := []vk.QueueFamilyVideoPropertiesKHR{len: int(family_count), init: vk.QueueFamilyVideoPropertiesKHR{}}
 	mut family_props := []vk.QueueFamilyProperties2{len: int(family_count), init: vk.QueueFamilyProperties2{}}
@@ -484,7 +484,7 @@ fn device_has_required_queues(ctx &DeviceContext, gpu vk.PhysicalDevice) bool {
 			family_props[i].pNext = &video_props[i]
 		}
 	}
-	mut props_data := family_props.data
+	mut props_data := unsafe { &vk.QueueFamilyProperties2(family_props.data) }
 	vk.get_physical_device_queue_family_properties2(gpu, &family_count, mut props_data)
 	mut has_graphics_and_present := false
 	mut has_h264_decode := false
@@ -682,12 +682,13 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	if vk.initialize_loader() != vk.Result.success {
 		panic('Could not initialize Vulkan loader')
 	}
-	mut n := unsafe { nil }
+	// Keep concrete pointer types: V3 otherwise copies mut voidptr arguments (vlang/v#31480).
+	mut n := unsafe { &vk.ExtensionProperties(nil) }
 	mut instance_extension_count := u32(0)
 	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut n)
 	mut instance_extensions := []vk.ExtensionProperties{len: int(instance_extension_count)}
 	// Temporary variable to make data mutable
-	mut instance_extensions_data := instance_extensions.data
+	mut instance_extensions_data := unsafe { &vk.ExtensionProperties(instance_extensions.data) }
 	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut
 		instance_extensions_data)
 
