@@ -37,7 +37,7 @@ fn (mut sc Swapchain) initialize_surface(window_p &glfw.Window) {
 
 fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format) bool {
 	sc.initialize_surface(window_p)
-	mut n := unsafe { &vk.SurfaceFormatKHR(nil) }
+	mut no_surface_formats := unsafe { &vk.SurfaceFormatKHR(nil) }
 	device_context := sc.app.device_context
 	mut surface_caps := vk.SurfaceCapabilitiesKHR{}
 	vk.get_physical_device_surface_capabilities_khr(device_context.get_gpu_current(), sc.surface, mut &surface_caps)
@@ -54,7 +54,8 @@ fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format
 	}
 
 	mut surface_count := u32(0)
-	result := vk.get_physical_device_surface_formats_khr(device_context.get_gpu_current(), sc.surface, &surface_count, mut n)
+	result := vk.get_physical_device_surface_formats_khr(device_context.get_gpu_current(),
+		sc.surface, &surface_count, mut no_surface_formats)
 	if result != .success || surface_count == 0 {
 		panic('Could not enumerate Vulkan surface formats: ${result}')
 	}
@@ -89,8 +90,8 @@ fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format
 	return sc.resize(swapchain_size)
 }
 
-// V3 can box an untyped nil passed to &Image as a non-null pointer to a null
-// handle. The count-only enumeration must receive a genuinely null pointer.
+// Use a typed null for the count-only query. Older V3 compilers could box an
+// untyped nil as a non-null pointer to a null handle (vlang/v#29306).
 fn swapchain_count_only_images() &vk.Image {
 	return unsafe { &vk.Image(nil) }
 }
