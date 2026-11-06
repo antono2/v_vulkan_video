@@ -154,7 +154,7 @@ fn (mut ctx DeviceContext) shutdown_instance_resources() {
 
 fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc u32,
 	metadata VideoMetadata) bool {
-	mut n := unsafe { &vk.QueueFamilyProperties2(nil) }
+	mut no_queue_family_properties := unsafe { &vk.QueueFamilyProperties2(nil) }
 	mut family_props_count := u32(0)
 	ctx.use_gpu_index = int(use_gpu_index)
 	gpu := ctx.get_gpu_current()
@@ -162,7 +162,8 @@ fn (mut ctx DeviceContext) initialize_device(use_gpu_index u32, h264_profile_idc
 	vk.get_physical_device_properties(gpu, mut &gpu_properties)
 	gpu_name := unsafe { cstring_to_vstring(&gpu_properties.deviceName[0]) }
 	println('Vulkan device: ${gpu_name}')
-	vk.get_physical_device_queue_family_properties2(gpu, &family_props_count, mut n)
+	vk.get_physical_device_queue_family_properties2(gpu, &family_props_count, mut
+		no_queue_family_properties)
 	mut family_props_video := []vk.QueueFamilyVideoPropertiesKHR{len: int(family_props_count), init: vk.QueueFamilyVideoPropertiesKHR{}}
 	mut family_props := []vk.QueueFamilyProperties2{len: int(family_props_count), init: vk.QueueFamilyProperties2{}}
 
@@ -682,10 +683,12 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	if vk.initialize_loader() != vk.Result.success {
 		panic('Could not initialize Vulkan loader')
 	}
-	// Keep concrete pointer types: V3 otherwise copies mut voidptr arguments (vlang/v#31480).
-	mut n := unsafe { &vk.ExtensionProperties(nil) }
+	// Keep concrete pointer types for older V3 compilers that copied mutable
+	// voidptr arguments instead of using the original storage (vlang/v#31480).
+	mut no_extension_properties := unsafe { &vk.ExtensionProperties(nil) }
 	mut instance_extension_count := u32(0)
-	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut n)
+	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut
+		no_extension_properties)
 	mut instance_extensions := []vk.ExtensionProperties{len: int(instance_extension_count)}
 	// Temporary variable to make data mutable
 	mut instance_extensions_data := unsafe { &vk.ExtensionProperties(instance_extensions.data) }
@@ -754,8 +757,8 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 
 fn (mut ctx DeviceContext) enumerate_gpus() {
 	mut gpu_count := u32(0)
-	// Keep the count-only output a typed null pointer. Current V3 wraps an
-	// untyped nil argument in a non-null pointer to a null handle instead.
+	// Use a typed null for the count-only query. Older V3 compilers could box
+	// an untyped nil as a non-null pointer to a null handle (vlang/v#29306).
 	devices_count_only := unsafe { &vk.PhysicalDevice(nil) }
 	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, devices_count_only)
 	int_gpu_count := int(gpu_count)
