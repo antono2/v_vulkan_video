@@ -683,8 +683,7 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 	if vk.initialize_loader() != vk.Result.success {
 		panic('Could not initialize Vulkan loader')
 	}
-	// Keep concrete pointer types for older V3 compilers that copied mutable
-	// voidptr arguments instead of using the original storage (vlang/v#31480).
+	// A null output pointer requests only the number of available extensions.
 	mut no_extension_properties := unsafe { &vk.ExtensionProperties(nil) }
 	mut instance_extension_count := u32(0)
 	vk.enumerate_instance_extension_properties(unsafe { nil }, &instance_extension_count, mut
@@ -757,8 +756,7 @@ fn (mut ctx DeviceContext) initialize_vk_instance() bool {
 
 fn (mut ctx DeviceContext) enumerate_gpus() {
 	mut gpu_count := u32(0)
-	// Use a typed null for the count-only query. Older V3 compilers could box
-	// an untyped nil as a non-null pointer to a null handle (vlang/v#29306).
+	// Request the device count before allocating the output storage.
 	devices_count_only := unsafe { &vk.PhysicalDevice(nil) }
 	vk.enumerate_physical_devices(ctx.vk_instance, &gpu_count, devices_count_only)
 	int_gpu_count := int(gpu_count)

@@ -24,11 +24,6 @@ the player reader uses that explicit type so strict V3 can safely forward it.
 `antono2.h264@v2.0.0` fixes custom scaling-list storage and the default-matrix flag's
 pointer handling, with stable and strict V3 regression coverage.
 
-Parameter-set and slice-header byte storage uses `sizeof` with the explicit
-struct type. Older V3 compilers could emit a pointer size for `sizeof(variable)`
-after heap promotion (vlang/v#29305). The explicit type preserves the full
-record size across supported compiler versions.
-
 ## Shared Dear ImGui (default)
 
 ```sh
