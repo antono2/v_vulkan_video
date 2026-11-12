@@ -90,8 +90,7 @@ fn (mut sc Swapchain) initialize(window_p &glfw.Window, desired_format vk.Format
 	return sc.resize(swapchain_size)
 }
 
-// Use a typed null for the count-only query. Older V3 compilers could box an
-// untyped nil as a non-null pointer to a null handle (vlang/v#29306).
+// A null image output pointer selects the count-only query.
 fn swapchain_count_only_images() &vk.Image {
 	return unsafe { &vk.Image(nil) }
 }
