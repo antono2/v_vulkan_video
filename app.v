@@ -3,6 +3,7 @@ module main
 
 import antono2.vulkan as vk
 import antono2.glfw
+import windowing
 import antono2.imgui
 import antono2.imgui.implot
 import antono2.imgui.impl_vulkan
@@ -141,8 +142,9 @@ fn (mut app VideoDecodeApp) initialize() bool {
 	glfw.window_hint(glfw.client_api, glfw.no_api)
 	glfw.window_hint(glfw.resizable, glfw._true)
 
-	app.window_p = glfw.create_windowed(1280, 720, 'Vulkan Video Player') or {
+	app.window_p = windowing.create_windowed(1280, 720, 'Vulkan Video Player') or {
 		println('Could not create GLFW window: ${err}')
+		glfw.terminate()
 		return false
 	}
 	glfw.set_window_user_pointer(app.window_p, &app)
