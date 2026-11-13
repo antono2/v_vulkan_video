@@ -15,6 +15,9 @@ concurrency:
   group: vkvideo-release-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  V_C_ERROR_BUG_REPORT_DISABLED: 1
+
 jobs:
   linux:
     name: Linux / stable / ${{ matrix.linkage }}
@@ -88,7 +91,7 @@ jobs:
         shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg python3 libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg python3 libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
       - name: Test coded-pixel readback comparison
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
@@ -119,6 +122,12 @@ jobs:
           if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
           v "${flags[@]}" -cc gcc test .
           v "${flags[@]}" -cc gcc -o v_vulkan_video .
+      - name: Test bounded Linux window startup without video hardware
+        working-directory: source/v_vulkan_video
+        run: |
+          v -cc tcc -o "$RUNNER_TEMP/window-startup-probe" windowing/probe
+          v -cc tcc -o "$RUNNER_TEMP/window-startup-check" tests/desktop/window_startup.v
+          "$RUNNER_TEMP/window-startup-check" "$RUNNER_TEMP/window-startup-probe" "$RUNNER_TEMP/window-startup-logs"
       - name: Package Ubuntu 24.04 release
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
