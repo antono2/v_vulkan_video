@@ -27,14 +27,22 @@ pointer handling, with stable and strict V3 regression coverage.
 ## Shared Dear ImGui (default)
 
 ```sh
-./scripts/build_linux.sh --linkage shared --glfw system
-v -cc gcc -o v_vulkan_video .
+v run scripts/build_linux.vsh
 ```
+
+| Option | Default | Use |
+| --- | --- | --- |
+| `--compiler stable\|v3` | `stable` | Select the V frontend. |
+| `--cc gcc\|tcc` | `gcc` for stable, `tcc` for V3 | Override the C compiler. |
+| `--linkage shared\|static` | `shared` | Select the Dear ImGui linkage. |
+| `--glfw system\|bundled` | `system` | Use the system GLFW or build it from source. |
+| `--glfw-version VERSION` | The pin in `compatibility.json` | Select the bundled GLFW release. |
+| `--skip-install` | Install V modules | Reuse prepared module checkouts. |
 
 ## Static Dear ImGui
 
 ```sh
-./scripts/build_linux.sh --linkage static --glfw system
+v run scripts/build_linux.vsh --linkage static
 ```
 
 `imgui_static` hides the executable's Volk dispatch variables from dynamic
@@ -50,13 +58,13 @@ platform runtime components.
 Use the distribution GLFW package:
 
 ```sh
-./scripts/build_linux.sh --glfw system
+v run scripts/build_linux.vsh --glfw system
 ```
 
 Or build a selected upstream release:
 
 ```sh
-./scripts/build_linux.sh --glfw bundled --glfw-version 3.4
+v run scripts/build_linux.vsh --glfw bundled --glfw-version 3.4
 ```
 
 The same `--glfw` and `--glfw-version` options work with either ImGui linkage.
