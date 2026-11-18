@@ -108,14 +108,13 @@ Optional environment overrides are `V_BIN`, `UBUNTU24_ROOTFS`, `VIMGUI_DIR`,
 The Vulkan loader and GPU driver are deliberately not bundled; they must match
 the target machine and provide Vulkan Video H.264 decoding.
 
-The packaging command also runs `scripts/verify_ubuntu24_package.sh`. It checks
-the archive layout, x86-64 ELF type, relative RUNPATHs and bundled-library resolution. It rejects ELF loader metadata containing absolute `/home/USER`
-build paths. Source filenames used only for diagnostics may remain embedded;
-they are not consulted by the dynamic loader and do not affect relocation.
-An existing archive can be checked independently:
+The package verifier checks its SHA-256 checksum, archive layout, x86-64 ELF
+type, relative RUNPATHs and bundled-library resolution. It rejects ELF loader
+metadata containing absolute build paths under `/home/USER`. To check an
+existing archive, run:
 
 ```sh
-scripts/verify_ubuntu24_package.sh ~/workspace/vkvideo_ubuntu24_amd64.zip
+v run scripts/verify_ubuntu24_package.vsh ~/workspace/vkvideo_ubuntu24_amd64.zip
 ```
 
 If `patchelf` is not installed on the host, set `PATCHELF` to a compatible
