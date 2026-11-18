@@ -7,9 +7,15 @@ import json
 import os
 from pathlib import Path
 import platform
+import subprocess
 import sys
 
-from doctor import probe
+def probe(command, timeout=15):
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, errors='replace', timeout=timeout)
+        return result.returncode == 0, (result.stdout + result.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return False, str(error)
 
 
 def file_hash(path):

@@ -1,6 +1,6 @@
 // Positions the video quad and transforms its texture coordinates.
 // Generated from video.vert; do not edit the embedded SPIR-V words.
-// Regenerate: python3 scripts/generate_shaders.py (toolchain: BUILDING.md).
+// Regenerate: v run scripts/generate_shaders.vsh (toolchain: BUILDING.md).
 module main
 
 const g_vertex_shader = [

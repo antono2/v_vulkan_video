@@ -161,12 +161,12 @@ GPU is currently deferred; the hardware-dependent checks are tracked in
 
 The checked-in V arrays are generated build inputs, so normal player builds do
 not need shader compilers. To change shaders, edit `video.vert` or `video.frag`
-and use Python 3 with `glslc`, `glslangValidator` and `spirv-val` on `PATH`:
+and use V with `glslc`, `glslangValidator` and `spirv-val` on `PATH`:
 
 ```sh
-python3 scripts/generate_shaders.py
-python3 scripts/generate_shaders.py --check
-python3 -m unittest discover -s scripts -p 'test_generate_shaders.py'
+v run scripts/generate_shaders.vsh
+v run scripts/generate_shaders.vsh --check
+v run scripts/generate_shaders.vsh --self-test
 ```
 
 The generator uses `glslc --target-env=vulkan1.0` for the vertex shader and

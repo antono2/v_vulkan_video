@@ -1,6 +1,6 @@
 // Samples the video texture through the YCbCr-conversion sampler.
 // Generated from video.frag; do not edit the embedded SPIR-V words.
-// Regenerate: python3 scripts/generate_shaders.py (toolchain: BUILDING.md).
+// Regenerate: v run scripts/generate_shaders.vsh (toolchain: BUILDING.md).
 module main
 
 const g_fragment_shader = [
