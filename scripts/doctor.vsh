@@ -2,13 +2,12 @@
 import flag
 import os
 import rand
-import strings
+import probeio { ProbeResult, find_executable, run_probe }
 import time
 import x.json2
 
 const command_timeout = 15 * time.second
 const runtime_timeout = 30 * time.second
-const probe_interval = 10 * time.millisecond
 const require_explicit_v3_pin = false
 
 struct Options {
@@ -35,69 +34,9 @@ struct Report {
 	hardware_note string
 }
 
-struct ProbeResult {
-	ok     bool
-	detail string
-}
-
 struct Probes {
 	find fn (string) string = find_executable
 	run  fn (string, []string, time.Duration) ProbeResult = run_probe
-}
-
-fn find_executable(name string) string {
-	if os.is_abs_path(name) && os.is_file(name) && os.is_executable(name) {
-		return name
-	}
-	path := os.find_abs_path_of_executable(name) or { return '' }
-	return if os.is_file(path) && os.is_executable(path) { path } else { '' }
-}
-
-fn run_probe(executable string, args []string, timeout time.Duration) ProbeResult {
-	path := find_executable(executable)
-	if path == '' {
-		return ProbeResult{
-			detail: 'Executable unavailable: ${executable}'
-		}
-	}
-	mut child := os.new_process(path)
-	child.set_args(args)
-	child.set_redirect_stdio()
-	child.run()
-	defer { child.close() }
-	mut stdout := strings.new_builder(256)
-	mut stderr := strings.new_builder(256)
-	timer := time.new_stopwatch()
-	for {
-		live := child.is_alive()
-		out := child.stdout_read()
-		err := child.stderr_read()
-		stdout.write_string(out)
-		stderr.write_string(err)
-		if !live && out == '' && err == '' {
-			child.wait()
-			break
-		}
-		if timer.elapsed() >= timeout {
-			if live {
-				child.signal_kill()
-				// wait() reaps a killed POSIX child only from a running status.
-				child.status = .running
-				child.wait()
-			}
-			return ProbeResult{
-				detail: 'Timed out after ${timeout}: ${executable}'
-			}
-		}
-		if out == '' && err == '' {
-			time.sleep(probe_interval)
-		}
-	}
-	detail := (stdout.str() + stderr.str()).replace('\r\n', '\n').trim_space()
-	return ProbeResult{
-		ok:     child.code == 0
-		detail: if detail == '' { child.err } else { detail }
-	}
 }
 
 fn make_check(name string, passed bool, detail string, action string, optional bool) Check {
@@ -256,20 +195,20 @@ fn diagnose(root string, options Options, probes Probes) Report {
 		}
 	}
 	if options.runtime && needs_vulkan {
-		mut executable := probes.find('vulkaninfo')
-		if executable == '' && options.sdk != '' {
+		mut vulkaninfo := probes.find('vulkaninfo')
+		if vulkaninfo == '' && options.sdk != '' {
 			$if windows {
-				executable = probes.find(os.join_path(options.sdk, 'Bin', 'vulkaninfo.exe'))
+				vulkaninfo = probes.find(os.join_path(options.sdk, 'Bin', 'vulkaninfo.exe'))
 			} $else {
-				executable = probes.find(os.join_path(options.sdk, 'bin', 'vulkaninfo'))
+				vulkaninfo = probes.find(os.join_path(options.sdk, 'bin', 'vulkaninfo'))
 			}
 		}
-		result := if executable == '' {
+		result := if vulkaninfo == '' {
 			ProbeResult{
 				detail: 'vulkaninfo is unavailable'
 			}
 		} else {
-			probes.run(executable, ['--summary'], runtime_timeout)
+			probes.run(vulkaninfo, ['--summary'], runtime_timeout)
 		}
 		checks << make_check('Vulkan devices', result.ok, result.detail,
 			'Install Vulkan runtime tools and a compatible graphics driver; rerun --runtime.', true)
@@ -388,7 +327,9 @@ fn run_cli() ! {
 		if report.project == '' {
 			println(json2.encode({
 				'checks': report.checks
-			}, prettify: true))
+			},
+				prettify: true
+			))
 		} else {
 			println(json2.encode(report, prettify: true))
 		}

@@ -5,10 +5,11 @@ release. Extract it and run `./v_vulkan_video`. The archive includes the player 
 ordinary user-space libraries; the Vulkan loader and GPU driver remain system
 components because they must match the machine.
 
-Before building from source, check that the machine can run the player:
+Before building from source, install the [V compiler](https://github.com/vlang/v),
+then check the build tools and GPU driver:
 
 ```sh
-./scripts/setup_linux.sh --check
+v run scripts/setup_linux.vsh --check
 ```
 
 The important result is not merely that Vulkan works. The selected driver must
@@ -21,10 +22,10 @@ Install the native build dependencies (the script prints the command before it
 uses `sudo`):
 
 ```sh
-./scripts/setup_linux.sh --install
+v run scripts/setup_linux.vsh --install
 ```
 
-Install the [V compiler](https://github.com/vlang/v), then from this checkout:
+Build and launch the player from this checkout:
 
 ```sh
 v run scripts/build_linux.vsh
@@ -48,7 +49,7 @@ for static ImGui linkage and bundled GLFW.
 Install `@development-tools`, `cmake`, `git`, `luajit`, `glfw-devel`,
 `vulkan-loader-devel`, `vulkan-headers`, `volk-devel` and `vulkan-tools`, then use the same
 `v install`, ImGui build and player build commands shown above. Package names
-can vary between Fedora releases, so `setup_linux.sh --install` currently
+can vary between Fedora releases, so `v run scripts/setup_linux.vsh --install` currently
 limits automatic installation to Debian-family systems.
 
 ## Windows 10/11 x64
