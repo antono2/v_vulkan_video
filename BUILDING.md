@@ -101,17 +101,22 @@ files for its bundled libstdc++ and libgcc runtimes. Binary and Windows source
 archives have accompanying `.sha256` files; binary package verifiers require
 a matching checksum and nonempty build/license records.
 
-The packaging script builds in the configured Ubuntu 24 root filesystem,
+The V packaging script uses Bubblewrap to build inside the configured Ubuntu 24 root filesystem,
 sets relative runtime paths, bundles compatible C++/GLFW libraries, tests the
 ZIP and prints its SHA-256 digest:
 
 ```sh
-scripts/package_ubuntu24.sh ~/workspace/vkvideo_ubuntu24_amd64.zip
+v run scripts/package_ubuntu24.vsh ~/workspace/vkvideo_ubuntu24_amd64.zip
 ```
 
-Optional environment overrides are `V_BIN`, `UBUNTU24_ROOTFS`, `VIMGUI_DIR`,
-`VULKAN_SDK`, `VIMGUI_BUILD_TYPE`, `VIMGUI_GLFW_PROVIDER` and
-`VIMGUI_GLFW_VERSION`.
+| Environment override | Purpose |
+| --- | --- |
+| `V_BIN` | V compiler for both the player and ImGui. Defaults to the compiler running the script. |
+| `UBUNTU24_ROOTFS` | Ubuntu root filesystem with the native build tools and runtime libraries. Defaults to `.buildroots/ubuntu-24.04` in the parent workspace. |
+| `VMODULES`, `VIMGUI_DIR` | Module installation and optional ImGui checkout. |
+| `VULKAN_SDK` | Vulkan SDK path inside the build environment. |
+| `VIMGUI_BUILD_TYPE` | CMake build type. Defaults to `Release`. |
+| `VIMGUI_GLFW_PROVIDER`, `VIMGUI_GLFW_VERSION` | GLFW provider and version settings. Default to `system` and `3.3`. |
 
 The Vulkan loader and GPU driver are deliberately not bundled; they must match
 the target machine and provide Vulkan Video H.264 decoding.

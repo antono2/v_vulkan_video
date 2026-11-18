@@ -147,7 +147,9 @@ jobs:
       - name: Package Ubuntu 24.04 release
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
-        run: v run scripts/package_ci_ubuntu24.vsh vkvideo-ubuntu24-amd64.zip
+        run: |
+          v run scripts/package_ubuntu24.vsh --help
+          v run scripts/package_ci_ubuntu24.vsh vkvideo-ubuntu24-amd64.zip
       - name: Upload Ubuntu release package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: matrix.linkage == 'shared'
