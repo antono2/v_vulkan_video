@@ -7,6 +7,15 @@ import time
 import x.json2
 import scripts.videoevidence
 
+$if windows {
+	#include <fcntl.h>
+	#include <io.h>
+	#include <sys/stat.h>
+}
+
+fn C._write(fd int, data voidptr, count u32) int
+fn C._close(fd int) int
+
 const hash_block_size = 1024 * 1024
 
 struct Evidence {
@@ -61,11 +70,25 @@ fn resolve_file(path string) !string {
 }
 
 fn write_new(path string, content string) ! {
-	// The exclusive mode also refuses a destination created between two runs.
-	file := os.vfopen(path, 'wbx')!
-	written := C.fwrite(content.str, 1, usize(content.len), file)
-	status := C.fclose(file)
-	if written != usize(content.len) || status != 0 {
+	// Reserve the destination exclusively before writing the evidence.
+	mut complete := false
+	$if windows {
+		// Older Windows CRTs reject the C11 fopen "x" flag.
+		flags := C._O_WRONLY | C._O_CREAT | C._O_EXCL | C._O_BINARY
+		fd := C._wopen(path.to_wide(), flags, int(C._S_IREAD | C._S_IWRITE))
+		if fd < 0 {
+			return error('could not create new evidence file ${path}')
+		}
+		written := C._write(fd, content.str, u32(content.len))
+		status := C._close(fd)
+		complete = written == content.len && status == 0
+	} $else {
+		file := os.vfopen(path, 'wbx')!
+		written := C.fwrite(content.str, 1, usize(content.len), file)
+		status := C.fclose(file)
+		complete = written == usize(content.len) && status == 0
+	}
+	if !complete {
 		os.rm(path) or {}
 		return error('could not write evidence to ${path}')
 	}
@@ -106,10 +129,10 @@ fn record(options Options, probe Probe, compare Compare) !Evidence {
 	} else {
 		'comparison_failed'
 	}
-	system := os.uname()
+	kernel := os.uname()
 	report := Evidence{
 		captured_at:               time.utc().format_rfc3339()
-		platform:                  '${system.sysname}-${system.release}-${system.machine}'
+		platform:                  '${kernel.sysname}-${kernel.release}-${kernel.machine}'
 		player_sha256:             file_hash(player)!
 		video_sha256:              file_hash(video)!
 		reference_sha256:          file_hash(reference)!
