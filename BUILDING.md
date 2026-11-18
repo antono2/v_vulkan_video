@@ -30,6 +30,9 @@ pointer handling, with stable and strict V3 regression coverage.
 v run scripts/build_linux.vsh
 ```
 
+With native dependencies installed, `v run run.vsh -- [player arguments]`
+builds and launches the Linux player in debug mode.
+
 | Option | Default | Use |
 | --- | --- | --- |
 | `--compiler stable\|v3` | `stable` | Select the V frontend. |

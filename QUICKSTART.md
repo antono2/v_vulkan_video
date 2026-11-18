@@ -1,7 +1,7 @@
 # Quick start
 
 The shortest route is the pre-built Ubuntu 24.04 x86-64 ZIP from the GitHub
-release. Extract it and run `./run.sh`. The archive includes the player and its
+release. Extract it and run `./v_vulkan_video`. The archive includes the player and its
 ordinary user-space libraries; the Vulkan loader and GPU driver remain system
 components because they must match the machine.
 
