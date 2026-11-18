@@ -81,8 +81,8 @@ jobs:
         with:
           version: ${{ steps.compat.outputs.v_release }}
       - name: Install Vulkan SDK and software Vulkan device
-        shell: bash
-        run: bash .github/scripts/setup-vulkan-ci.sh ${{ steps.compat.outputs.ci_sdk }} ${{ steps.compat.outputs.ci_runtime }}
+        shell: pwsh
+        run: v run .github/scripts/setup-vulkan-ci.vsh '${{ steps.compat.outputs.ci_sdk }}' '${{ steps.compat.outputs.ci_runtime }}'
       - name: Install Volk headers
         shell: pwsh
         run: |
