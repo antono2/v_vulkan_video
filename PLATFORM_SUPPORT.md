@@ -6,7 +6,7 @@ A normal Vulkan graphics driver does not necessarily provide Vulkan Video.
 
 | Platform | Status | Notes |
 | --- | --- | --- |
-| Ubuntu 24.04 LTS, x86-64, X11 | Tested | Playback, metadata rotation, colour conversion, looping, resize and shutdown tested on an NVIDIA GeForce GTX 1060. The same system's Intel HD Graphics 530 is enumerated by ANV but exposes no Vulkan Video extensions with Mesa 25.2.8. A relocatable binary ZIP is produced by `scripts/package_ubuntu24.sh`. |
+| Ubuntu 24.04 LTS, x86-64, X11 | Tested | Playback, metadata rotation, colour conversion, looping, resize and shutdown tested on an NVIDIA GeForce GTX 1060. The same system's Intel HD Graphics 530 is enumerated by ANV but exposes no Vulkan Video extensions with Mesa 25.2.8. A relocatable binary ZIP is produced by `v run scripts/package_ubuntu24.vsh`. |
 | Other Linux distributions | Source-build target | Requires a Vulkan loader/driver with H.264 video decode, GLFW development files, a C/C++ toolchain and the V compiler. Wayland-native behavior has not yet been validated; XWayland may be used by GLFW depending on its build. |
 | Windows 10, x86-64 | Native build and unsupported-device startup tested | MSVC 19.50, Vulkan SDK 1.4.357, shared ImGui and bundled GLFW 3.4 build successfully. Startup and clean capability rejection were tested on a GeForce GTX 765M; that Kepler GPU exposes no Vulkan Video extensions. Playback still requires validation on supported Windows hardware before publishing a general binary. |
 | macOS | Unsupported for video decode | The UI bindings can be built for macOS, but this application requires Vulkan Video H.264 decode. Do not treat a MoltenVK graphics-capable system as proof of Vulkan Video support. |
