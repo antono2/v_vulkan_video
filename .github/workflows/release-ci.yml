@@ -171,6 +171,7 @@ jobs:
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: |
+          LD_LIBRARY_PATH="$VMODULES/antono2/imgui/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" v run run.vsh -- --help
           v -d debug -cc gcc -o v_vulkan_video .
           v run scripts/package_ci_ubuntu24.vsh vkvideo-ubuntu24-amd64-debug.zip
       - name: Upload Ubuntu diagnostic package

@@ -89,11 +89,8 @@ pub fn package(input Inputs, output string) ! {
 			0o755)!
 	}
 	copy_file(os.join_path(input.project, demo_video), os.join_path(destination, demo_video), 0o644)!
-	for name in ['run.sh', 'README.txt'] {
-		mode := if name == 'run.sh' { 0o755 } else { 0o644 }
-		copy_file(os.join_path(input.project, 'packaging', 'ubuntu24', name),
-			os.join_path(destination, name), mode)!
-	}
+	copy_file(os.join_path(input.project, 'packaging', 'ubuntu24', 'README.txt'),
+		os.join_path(destination, 'README.txt'), 0o644)!
 	command(['env', 'PACKAGE_COMPILER_MODE=${input.compiler_mode}', 'VMODULES=${input.modules}',
 		'VIMGUI_DIR=${input.imgui}', 'V_BIN=${input.compiler}',
 		'PACKAGE_RUNTIME_ROOT=${input.runtime_root}', input.compiler, 'run',

@@ -1,6 +1,5 @@
-#!/usr/bin/env bash
-# Launches the development player using the repository's configured build and input options.
-set -euo pipefail
-
-project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec v -d debug -cc gcc run "${project_dir}" -- "$@"
+#!/bin/sh
+# Compatibility entry point for the V development launcher.
+set -eu
+dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "${V_BIN:-v}" run "$dir/run.vsh" -- "$@"

@@ -32,7 +32,7 @@ fn verify_checksum(archive string) ! {
 
 fn verify_contents(directory string) ! {
 	root := os.dir(@DIR)
-	mut paths := ['BUILD-INFO.txt', 'LICENSE', 'MEDIA.txt', 'run.sh', 'v_vulkan_video',
+	mut paths := ['BUILD-INFO.txt', 'LICENSE', 'MEDIA.txt', 'README.txt', 'v_vulkan_video',
 		'res/20240917_095400.mp4', 'licenses/libstdc++6.txt', 'licenses/libgcc-s1.txt']
 	paths << bundled_libraries.map('lib/' + it)
 	for index, line in os.read_lines(os.join_path(root, 'packaging', 'licenses.manifest'))! {
@@ -75,7 +75,7 @@ fn verify_runtime(directory string, patchelf string) ! {
 		return error('Unexpected libvimgui RUNPATH: ${library_rpath}')
 	}
 	// Rely on the package RUNPATHs without setting LD_LIBRARY_PATH.
-	loader := command(['ldd', player])!
+	loader := command(['env', '-u', 'LD_LIBRARY_PATH', 'ldd', player])!
 	if loader.contains('not found') {
 		return error('Package has unresolved shared-library dependencies:\n${loader}')
 	}
@@ -87,6 +87,10 @@ fn verify_runtime(directory string, patchelf string) ! {
 	dynamic := command(['readelf', '-d', player, imgui])!
 	if dynamic.split_into_lines().any(it.contains('/home/') && it.all_after('/home/').contains('/')) {
 		return error('Package contains an absolute build-user ELF loader path')
+	}
+	help := command(['env', '-u', 'LD_LIBRARY_PATH', player, '--help'])!
+	if !help.contains('Usage:') {
+		return error('The packaged executable did not print its usage')
 	}
 }
 
