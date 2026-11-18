@@ -310,7 +310,7 @@ jobs:
         run: |
           v -new-compiler -cc tcc test .
           v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
-          bash .github/scripts/smoke-vulkan-loader.sh "$RUNNER_TEMP/v_vulkan_video"
+          v run scripts/smoke_vulkan_loader.vsh "$RUNNER_TEMP/v_vulkan_video"
 
   linux-v-master:
     name: Advisory current V master and dependency masters
@@ -409,7 +409,7 @@ jobs:
           cd "$GITHUB_WORKSPACE/source/v_vulkan_video"
           v -new-compiler -cc tcc test .
           v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
-          bash .github/scripts/smoke-vulkan-loader.sh "$RUNNER_TEMP/v_vulkan_video"
+          v run scripts/smoke_vulkan_loader.vsh "$RUNNER_TEMP/v_vulkan_video"
 
   windows:
     name: Windows / ${{ matrix.compiler }}

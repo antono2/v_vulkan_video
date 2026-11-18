@@ -12,7 +12,12 @@ pub fn probe(command []string, timeout time.Duration) os.Result {
 			output:    'missing command'
 		}
 	}
-	executable := os.find_abs_path_of_executable(command[0]) or {
+	executable := if os.is_abs_path(command[0]) {
+		command[0]
+	} else {
+		os.find_abs_path_of_executable(command[0]) or { '' }
+	}
+	if !os.is_file(executable) || !os.is_executable(executable) {
 		return os.Result{
 			exit_code: -1
 			output:    '${command[0]} was not found'
@@ -21,10 +26,19 @@ pub fn probe(command []string, timeout time.Duration) os.Result {
 	mut process := os.new_process(executable)
 	process.set_args(command[1..])
 	process.set_redirect_stdio()
+	$if !windows {
+		// Programs such as xvfb-run launch helper processes in the same group.
+		process.use_pgroup = true
+	}
 	process.run()
 	defer {
 		if process.is_alive() {
-			process.signal_kill()
+			$if windows {
+				process.signal_kill()
+				process.status = .running
+			} $else {
+				process.signal_pgkill()
+			}
 		}
 		process.wait()
 		process.close()

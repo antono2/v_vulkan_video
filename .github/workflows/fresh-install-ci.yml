@@ -49,7 +49,7 @@ jobs:
         run: |
           test ! -e "$VMODULES"
           mkdir -p "$VMODULES"
-          bash scripts/build_linux.sh --cc tcc
+          v run scripts/build_linux.vsh --cc tcc
           v run scripts/check_installed_deps.vsh
       - name: Test freshly installed modules and loader startup
         env:
@@ -57,7 +57,7 @@ jobs:
         run: |
           export LD_LIBRARY_PATH="$VMODULES/antono2/imgui/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           v -cc tcc test .
-          bash .github/scripts/smoke-vulkan-loader.sh "$GITHUB_WORKSPACE/v_vulkan_video"
+          v run scripts/smoke_vulkan_loader.vsh "$GITHUB_WORKSPACE/v_vulkan_video"
 
   windows:
     name: Fresh VPM / Windows / stable
