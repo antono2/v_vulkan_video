@@ -147,17 +147,27 @@ synchronization and presentation still require a real Vulkan Video device.
 
 ## Hardware validation checklist
 
-Record a reproducible hardware report after collecting a first-loop NV12 dump:
+Collect a first-loop NV12 dump, then run the V report command. Install
+`ffmpeg` and `ffprobe` for the comparison.
 
 ```sh
-python scripts/hardware_evidence.py --player ./v_vulkan_video --video VIDEO.mp4 --dump-dir CAPTURE_DIRECTORY --output new-hardware-report.json
+v run scripts/hardware_evidence.vsh --player ./v_vulkan_video --video VIDEO.mp4 \
+  --dump-dir CAPTURE_DIRECTORY --output new-hardware-report.json
 ```
 
-The report records platform, GPU/driver diagnostics, player/media hashes,
-FFmpeg version and exact decoded-pixel comparison. Use `--reference STREAM.264`
-for the Sony remux case below. Without a real capture, the report says
-`capabilities_only` and exits 2; enumeration is not playback evidence. A successful
-comparison covers decoded pixels on this device. Complete the remaining rendered
+| Option | Value |
+| --- | --- |
+| `--player` | Path to the built Vulkan Video player. |
+| `--video` | File used for playback. |
+| `--dump-dir` | Directory written by `VV_DUMP_NV12_DIR` during the first loop. |
+| `--reference` | Optional alternate software decode input, such as the original Sony H.264 stream. |
+| `--output` | Path for a new JSON report. |
+
+The report records platform, GPU and driver diagnostics, player and media
+hashes, the FFmpeg version, and the pixel comparison. A matching capture
+exits 0 with `decoded_pixels_match`. Omitting the capture records
+`capabilities_only` and exits 2. An unsuccessful comparison also exits 2.
+A matching capture covers decoded NV12 pixels on this device. Complete the remaining rendered
 color/orientation, resize, looping and shutdown checks separately before changing
 the supported-hardware table. Run the same collector on Windows and Linux with
 a suitable Vulkan Video GPU; the audit machine's GTX 765M cannot perform this test.
@@ -182,7 +192,7 @@ bitstream filter to confirm which operations each stream contains.
 To compare decoded pixels, set `VV_DUMP_NV12_DIR` to an empty directory before
 running the player. The [readback path](frame_readback.v#L48) copies the first
 playback loop's decoded images to display-order `N.nv12` files. Run the
-[comparison script](scripts/compare_nv12.py#L25) against the original H.264
+[comparison script](scripts/compare_nv12.vsh) against the original H.264
 elementary stream for the Sony case: FFmpeg's MP4 remux has nonmonotonic
 timestamps and drops frames when exporting raw video.
 
@@ -193,7 +203,7 @@ with a decode mismatch.
 
 ```sh
 VV_DUMP_NV12_DIR=/tmp/sony-nv12 ./v_vulkan_video FRExt_MMCO4_Sony_B.mp4
-python3 scripts/compare_nv12.py FRExt_MMCO4_Sony_B.264 /tmp/sony-nv12
+v run scripts/compare_nv12.vsh FRExt_MMCO4_Sony_B.264 /tmp/sony-nv12
 ```
 
 The readback waits for decode fences, invalidates mapped memory and writes

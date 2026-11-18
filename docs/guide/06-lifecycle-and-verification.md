@@ -54,7 +54,7 @@ assembly and picture-consistency checks; its
 The [reference-marking conformance streams](../../PLATFORM_SUPPORT.md#hardware-validation-checklist)
 exercise MMCO 5 and long-term operations on real hardware after remuxing to
 MP4. The optional [NV12 readback](../../frame_readback.v#L48) and
-[comparison script](../../scripts/compare_nv12.py#L25) test decoded bytes
+[comparison script](../../scripts/compare_nv12.vsh) test decoded bytes
 against FFmpeg in display order. This exposed custom H.264 scaling lists
 whose values were lost by the pinned parser; the player now
 [populates those lists](../../h264_parameter_sets.v#L77), and a

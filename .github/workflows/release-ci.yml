@@ -48,7 +48,7 @@ jobs:
         run: |
           v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
           v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
           v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -95,11 +95,11 @@ jobs:
         shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg python3 libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
       - name: Test coded-pixel readback comparison
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
-        run: python3 -m unittest discover -s scripts -p 'test_compare_nv12.py'
+        run: v run scripts/compare_nv12.vsh --self-test
       - name: Check shader regeneration and failure preservation
         working-directory: source/v_vulkan_video
         run: v run scripts/generate_shaders.vsh --self-test
@@ -211,7 +211,7 @@ jobs:
         run: |
           v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
           v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
           v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -324,7 +324,7 @@ jobs:
         run: |
           v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
           v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
           v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -423,7 +423,7 @@ jobs:
         run: |
           v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
           v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          python source/v_vulkan_video/scripts/test_hardware_evidence.py
+          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
           v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
