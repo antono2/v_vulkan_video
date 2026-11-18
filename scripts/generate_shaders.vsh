@@ -35,8 +35,12 @@ const fragment = Stage{
 }
 
 fn run_tool(executable string, args []string) ! {
-	path := os.find_abs_path_of_executable(executable) or {
-		return error('Shader tool unavailable: ${executable}')
+	path := if os.is_abs_path(executable) && os.is_file(executable) {
+		executable
+	} else {
+		os.find_abs_path_of_executable(executable) or {
+			return error('Shader tool unavailable: ${executable}')
+		}
 	}
 	if !os.is_file(path) || !os.is_executable(path) {
 		return error('Shader tool unavailable: ${executable}')
