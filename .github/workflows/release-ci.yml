@@ -509,9 +509,9 @@ jobs:
         shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install Vulkan SDK and SwiftShader test artifacts
-        shell: bash
+        shell: pwsh
         working-directory: source/v_vulkan_video
-        run: bash .github/scripts/setup-vulkan-ci.sh ${{ steps.compat.outputs.ci_sdk }} ${{ steps.compat.outputs.ci_runtime }}
+        run: v run .github/scripts/setup-vulkan-ci.vsh '${{ steps.compat.outputs.ci_sdk }}' '${{ steps.compat.outputs.ci_runtime }}'
       - name: Install Volk headers
         shell: pwsh
         run: |
