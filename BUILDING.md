@@ -123,6 +123,11 @@ executable (the packaging script does this automatically from its rootfs).
 ## Windows x64 source bundle
 
 The Windows bundle contains the project and its exact V module dependencies.
+From a checkout with the dependencies installed, build it with
+`v run scripts/package_windows_source.vsh [OUTPUT.zip]`. The command reads
+the checkout's committed files and includes initialized submodules at their
+recorded revisions. It writes a ZIP and an accompanying SHA-256 file.
+
 For an ordinary Git checkout, run `scripts\setup_windows.ps1` from 64-bit
 PowerShell. It discovers the installed x64 Visual Studio environment and SDK,
 installs and verifies the dependencies in `v.mod`, initializes ImGui submodules

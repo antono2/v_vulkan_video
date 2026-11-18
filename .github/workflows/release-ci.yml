@@ -100,6 +100,18 @@ jobs:
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: v run scripts/compare_nv12.vsh --self-test
+      - name: Check the Windows source archive
+        if: matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/vkvideo-windows-source.zip"
+          v run scripts/package_windows_source.vsh "$archive"
+          (cd "$RUNNER_TEMP" && sha256sum --check vkvideo-windows-source.zip.sha256)
+          path=vkvideo-windows-source
+          test "$(unzip -p "$archive" "$path/v_vulkan_video/SOURCE_REVISION")" = "$(git rev-parse HEAD)"
+          unzip -p "$archive" "$path/modules/antono2/imgui/cimgui/cimgui.h" > "$RUNNER_TEMP/cimgui.h"
+          test -s "$RUNNER_TEMP/cimgui.h"
       - name: Check shader regeneration and failure preservation
         working-directory: source/v_vulkan_video
         run: v run scripts/generate_shaders.vsh --self-test
