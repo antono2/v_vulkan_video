@@ -104,7 +104,7 @@ validation scripts live under [`scripts/`](scripts/).
 
 `vertex_shader.v` and `fragment_shader.v` embed SPIR-V arrays generated from
 [`video.vert`](video.vert) and [`video.frag`](video.frag). Their purpose and
-regeneration comments are emitted by [`scripts/generate_shaders.py`](scripts/generate_shaders.py).
+regeneration comments are emitted by [`scripts/generate_shaders.vsh`](scripts/generate_shaders.vsh).
 Follow [shader regeneration](BUILDING.md#shader-regeneration) when updating them;
 do not edit the words by hand. The local
 [`include/video_bridge.h`](include/video_bridge.h) is a maintained native bridge,

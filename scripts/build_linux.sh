@@ -48,9 +48,8 @@ v_bin=${V_BIN:-v}
 command -v "$v_bin" >/dev/null 2>&1 || { echo "V compiler not found: $v_bin" >&2; exit 1; }
 
 cd "$project_dir"
-command -v python3 >/dev/null 2>&1 || { echo 'Install Python 3 to validate the compatibility manifest.' >&2; exit 1; }
-python3 scripts/compatibility.py >/dev/null
-if [[ -z $glfw_version ]]; then glfw_version=$(python3 scripts/compatibility.py --get glfw); fi
+"$v_bin" run scripts/compatibility.vsh >/dev/null
+if [[ -z $glfw_version ]]; then glfw_version=$("$v_bin" run scripts/compatibility.vsh --get glfw); fi
 if ((install_modules)); then
 	"$v_bin" install
 fi
