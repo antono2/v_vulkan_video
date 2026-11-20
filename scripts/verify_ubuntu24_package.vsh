@@ -59,10 +59,10 @@ fn verify_runtime(directory string, patchelf string) ! {
 	if library_rpath != r'$ORIGIN' {
 		return error('Unexpected libvimgui RUNPATH: ${library_rpath}')
 	}
-	// Rely on the package RUNPATHs without setting LD_LIBRARY_PATH.
-	loader := command(['env', '-u', 'LD_LIBRARY_PATH', 'ldd', player])!
-	if loader.contains('not found') {
-		return error('Package has unresolved shared-library dependencies:\n${loader}')
+	// Resolve function relocations as well as SONAMEs through the package RUNPATHs.
+	loader := command(['env', '-u', 'LD_LIBRARY_PATH', 'LC_ALL=C', 'ldd', '-r', player])!
+	if loader.contains('not found') || loader.contains('undefined symbol') {
+		return error('Package has unresolved shared-library dependencies or symbols:\n${loader}')
 	}
 	for library in bundled_libraries {
 		if !loader.contains(os.join_path(directory, 'lib', library)) {
