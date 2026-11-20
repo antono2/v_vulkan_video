@@ -142,7 +142,9 @@ The Windows bundle contains the project and its exact V module dependencies.
 From a checkout with the dependencies installed, build it with
 `v run scripts/package_windows_source.vsh [OUTPUT.zip]`. The command reads
 the checkout's committed files and includes initialized submodules at their
-recorded revisions. It writes a ZIP and an accompanying SHA-256 file.
+recorded revisions. The script verifies the ZIP, its SHA-256 checksum,
+the recorded source revisions and the bundled cimgui header before publication.
+Source export uses Git and tar. V handles the ZIP and checksum.
 
 For an ordinary Git checkout, run `scripts\setup_windows.ps1` from 64-bit
 PowerShell. It discovers the installed x64 Visual Studio environment and SDK,

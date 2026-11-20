@@ -1,8 +1,8 @@
 // Stage and verify the relocatable Ubuntu 24.04 player archive.
 module ubuntupackage
 
-import crypto.sha256
 import os
+import packagezip
 import rand
 
 pub const package_name = 'vkvideo-ubuntu24-amd64'
@@ -62,13 +62,6 @@ fn (input Inputs) configure_elf(stage string, program string, args []string) ! {
 	command(invocation)!
 }
 
-fn zip_archive(stage string, archive string) ! {
-	previous_directory := os.getwd()
-	os.chdir(stage)!
-	defer { os.chdir(previous_directory) or {} }
-	command(['zip', '-qr', archive, package_name])!
-}
-
 pub fn package(input Inputs, output string) ! {
 	stage := os.join_path(os.dir(output), '.vkvideo-package-' + rand.uuid_v4())
 	os.mkdir(stage)!
@@ -99,8 +92,8 @@ pub fn package(input Inputs, output string) ! {
 	input.configure_elf(stage, 'patchelf', ['--set-rpath', r'$ORIGIN/lib', player])!
 	input.configure_elf(stage, 'patchelf', ['--set-rpath', r'$ORIGIN', library])!
 	archive := os.join_path(stage, 'package.zip')
-	zip_archive(stage, archive)!
-	digest := sha256.sum(os.read_bytes(archive)!).hex()
+	packagezip.write_tree(archive, package_name, destination)!
+	digest := packagezip.file_hash(archive)!
 	checksum := '${digest}  ${os.file_name(output)}\n'
 	os.write_file(archive + '.sha256', checksum)!
 	mut verifier := []string{}

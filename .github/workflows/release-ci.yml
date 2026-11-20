@@ -95,28 +95,20 @@ jobs:
         shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config zip glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
       - name: Test coded-pixel readback comparison
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: v run scripts/compare_nv12.vsh --self-test
-      - name: Exercise Windows archive assembly and rejection checks
+      - name: Exercise package archive assembly and rejection checks
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
-        run: v test scripts/windowspackage
+        run: v test scripts/packagezip scripts/windowspackage
 
       - name: Check the Windows source archive
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/vkvideo-windows-source.zip"
-          v run scripts/package_windows_source.vsh "$archive"
-          (cd "$RUNNER_TEMP" && sha256sum --check vkvideo-windows-source.zip.sha256)
-          path=vkvideo-windows-source
-          test "$(unzip -p "$archive" "$path/v_vulkan_video/SOURCE_REVISION")" = "$(git rev-parse HEAD)"
-          unzip -p "$archive" "$path/modules/antono2/imgui/cimgui/cimgui.h" > "$RUNNER_TEMP/cimgui.h"
-          test -s "$RUNNER_TEMP/cimgui.h"
+        run: v run scripts/package_windows_source.vsh "$RUNNER_TEMP/vkvideo-windows-source.zip"
       - name: Check shader regeneration and failure preservation
         working-directory: source/v_vulkan_video
         run: v run scripts/generate_shaders.vsh --self-test

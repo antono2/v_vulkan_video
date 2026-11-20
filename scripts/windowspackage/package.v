@@ -2,8 +2,8 @@
 module windowspackage
 
 import compress.szip
-import crypto.sha256
 import os
+import packagezip
 import rand
 
 pub const name = 'vkvideo-windows-x64'
@@ -112,20 +112,6 @@ fn stage_files(input Inputs, directory string, entries []License) ! {
 	os.write_file(os.join_path(directory, build_record), records.join('\n') + '\n')!
 }
 
-fn write_archive(files []string, directory string, archive string) ! {
-	mut zip := szip.open(archive, .default_level, .write)!
-	defer { zip.close() }
-	for relative in files {
-		zip.open_entry(name + '/' + relative)!
-		zip.create_entry(os.join_path(directory, relative))!
-		zip.close_entry()
-	}
-}
-
-fn digest(archive string) !string {
-	return sha256.sum(os.read_bytes(archive)!).hex()
-}
-
 pub fn package(input Inputs, output string) ! {
 	if input.compiler !in ['stable', 'v3'] || input.sdk == '' {
 		return error('Supply the Windows compiler mode and Vulkan SDK version.')
@@ -139,9 +125,9 @@ pub fn package(input Inputs, output string) ! {
 	directory := os.join_path(stage, 'unpacked')
 	archive := os.join_path(stage, os.file_name(output) + '.zip')
 	stage_files(input, directory, entries)!
-	write_archive(paths, directory, archive)!
+	packagezip.write_entries(archive, name, directory, paths)!
 	sum := archive + '.sha256'
-	os.write_file(sum, '${digest(archive)!}  ${os.file_name(archive)}\n')!
+	os.write_file(sum, '${packagezip.file_hash(archive)!}  ${os.file_name(archive)}\n')!
 	verify(input.project, archive)!
 	// Update the local unpacked view from the same clean inputs as the archive.
 	for relative in paths {
@@ -210,17 +196,7 @@ fn verify_contents(paths []string, archive string, scratch string) ! {
 }
 
 pub fn verify(project string, archive string) ! {
-	if !os.is_file(archive) {
-		return error('Windows package does not exist: ${archive}')
-	}
-	sum := archive + '.sha256'
-	if !os.is_file(sum) {
-		return error('Package checksum is missing: ${sum}')
-	}
-	fields := os.read_file(sum)!.fields()
-	if fields.len == 0 || fields[0].to_lower() != digest(archive)! {
-		return error('Windows package checksum mismatch')
-	}
+	packagezip.verify_checksum(archive)!
 	stage := os.join_path(os.temp_dir(), 'vkvideo-verify-' + rand.uuid_v4())
 	os.mkdir(stage, mode: 0o700)!
 	defer { os.rmdir_all(stage) or {} }

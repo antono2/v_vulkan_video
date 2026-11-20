@@ -1,9 +1,10 @@
 // Bundle the player's tracked sources and the exact revisions of its V modules.
-import crypto.sha256
 import os
+import packagezip
 import rand
 
 const bundle_name = 'vkvideo-windows-source'
+const imgui_header = 'modules/antono2/imgui/cimgui/cimgui.h'
 const source_modules = ['glfw', 'h264', 'imgui', 'memory', 'minimp4', 'vkmemalloc', 'vulkan']
 
 fn command(args []string) !string {
@@ -43,10 +44,11 @@ fn export_checkout(source string, revision string, destination string, work stri
 	}
 }
 
-fn snapshot(source string, destination string, work string, project bool) ! {
+fn snapshot(source string, destination string, work string, project bool) !string {
 	revision := command(['git', '-C', source, 'rev-parse', 'HEAD'])!
 	export_checkout(source, revision, destination, work, project)!
 	os.write_file(os.join_path(destination, 'SOURCE_REVISION'), revision + '\n')!
+	return revision
 }
 
 fn locate_modules() !string {
@@ -64,10 +66,12 @@ fn package(output string) ! {
 	root := os.dir(@DIR)
 	modules := locate_modules()!
 	staging := os.join_path(os.dir(output), '.vkvideo-windows-source-' + rand.uuid_v4())
-	os.mkdir(staging)!
+	os.mkdir(staging, mode: 0o700)!
 	defer { os.rmdir_all(staging) or {} }
 	bundle := os.join_path(staging, bundle_name)
-	snapshot(root, os.join_path(bundle, 'v_vulkan_video'), staging, true)!
+	mut revisions := {
+		'v_vulkan_video': snapshot(root, os.join_path(bundle, 'v_vulkan_video'), staging, true)!
+	}
 	for name in source_modules {
 		mut path := os.join_path(modules, 'antono2', name)
 		if !os.is_dir(path) && name != 'vkmemalloc' {
@@ -76,20 +80,29 @@ fn package(output string) ! {
 		if !os.is_dir(path) {
 			return error('Missing V module: antono2/${name}')
 		}
-		snapshot(path, os.join_path(bundle, 'modules', 'antono2', name), staging, false)!
+		relative := 'modules/antono2/' + name
+		revisions[relative] = snapshot(path, os.join_path(bundle, relative), staging, false)!
 	}
 	archive := os.join_path(staging, 'source.zip')
-	previous := os.getwd()
-	os.chdir(staging)!
-	command(['zip', '-qr', archive, bundle_name]) or {
-		os.chdir(previous) or {}
-		return err
-	}
-	os.chdir(previous)!
-	command(['unzip', '-t', archive])!
-	digest := sha256.sum(os.read_bytes(archive)!).hex()
+	packagezip.write_tree(archive, bundle_name, bundle)!
+	digest := packagezip.file_hash(archive)!
 	sum := archive + '.sha256'
 	os.write_file(sum, '${digest}  ${os.file_name(output)}\n')!
+	packagezip.verify_checksum(archive)!
+	verification := os.join_path(staging, 'verification')
+	os.mkdir(verification)!
+	packagezip.extract(archive, bundle_name, verification)!
+	unpacked := os.join_path(verification, bundle_name)
+	for relative, revision in revisions {
+		record := os.join_path(unpacked, relative, 'SOURCE_REVISION')
+		if os.read_file(record)! != revision + '\n' {
+			return error('Incorrect source revision for ${relative}')
+		}
+	}
+	header := os.join_path(unpacked, imgui_header)
+	if !os.is_file(header) || os.file_size(header) == 0 {
+		return error('Missing ${imgui_header}; initialize the ImGui submodules before packaging')
+	}
 	for from, to in {
 		archive: output
 		sum:     output + '.sha256'

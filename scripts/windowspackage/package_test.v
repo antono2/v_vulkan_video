@@ -2,6 +2,7 @@
 module windowspackage
 
 import os
+import packagezip
 import rand
 
 fn fixture_file(path string, text string) ! {
@@ -38,7 +39,7 @@ fn expect_invalid(project string, archive string, diagnostic string) ! {
 }
 
 fn write_sum(archive string) ! {
-	os.write_file(archive + '.sha256', '${digest(archive)!}  ${os.file_name(archive)}\n')!
+	os.write_file(archive + '.sha256', '${packagezip.file_hash(archive)!}  ${os.file_name(archive)}\n')!
 }
 
 fn test_package_preserves_archive_contents_on_a_rebuild() {
@@ -62,12 +63,12 @@ fn test_package_preserves_archive_contents_on_a_rebuild() {
 	verify(input.project, archive)!
 	assert os.read_file(os.join_path(output, 'v_vulkan_video.exe'))! == 'replacement player'
 
-	previous := digest(archive)!
+	previous := packagezip.file_hash(archive)!
 	os.rm(input.glfw)!
 	if _ := package(input, output) {
 		assert false, 'A package with a missing GLFW library was accepted'
 	}
-	assert digest(archive)! == previous
+	assert packagezip.file_hash(archive)! == previous
 	verify(input.project, archive)!
 	os.write_file(archive + '.sha256', 'invalid\n')!
 	expect_invalid(input.project, archive, 'checksum mismatch')!
@@ -88,31 +89,31 @@ fn test_verifier_rejects_missing_extra_and_empty_entries() {
 	records := os.read_file(info)!.replace('\n', '\r\n')
 	os.write_file(info, '\xef\xbb\xbf' + records)!
 	legacy := os.join_path(root, 'legacy.zip')
-	write_archive(paths, output, legacy)!
+	packagezip.write_entries(legacy, name, output, paths)!
 	write_sum(legacy)!
 	verify(input.project, legacy)!
 
 	missing := os.join_path(root, 'missing.zip')
-	write_archive(paths.filter(it != 'glfw3.dll'), output, missing)!
+	packagezip.write_entries(missing, name, output, paths.filter(it != 'glfw3.dll'))!
 	write_sum(missing)!
 	expect_invalid(input.project, missing, 'missing: glfw3.dll')!
 
 	extra := os.join_path(root, 'extra.zip')
 	fixture_file(os.join_path(output, 'unlisted.txt'), 'unlisted')!
-	write_archive([...paths, 'unlisted.txt'], output, extra)!
+	packagezip.write_entries(extra, name, output, [...paths, 'unlisted.txt'])!
 	write_sum(extra)!
 	expect_invalid(input.project, extra, 'Unexpected or duplicate Windows archive file')!
 
 	empty := os.join_path(root, 'empty.zip')
 	os.write_file(os.join_path(output, 'glfw3.dll'), '')!
-	write_archive(paths, output, empty)!
+	packagezip.write_entries(empty, name, output, paths)!
 	write_sum(empty)!
 	expect_invalid(input.project, empty, 'Packaged file is empty: glfw3.dll')!
 
 	os.write_file(os.join_path(output, 'glfw3.dll'), 'fixture DLL')!
 	os.write_file(info, records.replace('Compiler mode: stable', 'Compiler mode: '))!
 	missing_record := os.join_path(root, 'missing-record.zip')
-	write_archive(paths, output, missing_record)!
+	packagezip.write_entries(missing_record, name, output, paths)!
 	write_sum(missing_record)!
 	expect_invalid(input.project, missing_record, 'Missing Windows build record: Compiler mode')!
 }
