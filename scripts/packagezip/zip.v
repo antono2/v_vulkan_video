@@ -65,6 +65,13 @@ pub fn write_tree(archive string, root string, directory string) ! {
 	mut paths := ['']
 	collect(directory, '', mut paths)!
 	write_entries(archive, root, directory, paths)!
+	$if !windows {
+		mut modes := map[string]u32{}
+		for path in paths {
+			modes[root + '/' + path] = os.stat(os.join_path(directory, path))!.mode & permission_bits
+		}
+		write_modes(archive, modes)!
+	}
 }
 
 pub fn write_entries(archive string, root string, directory string, paths []string) ! {
@@ -74,11 +81,6 @@ pub fn write_entries(archive string, root string, directory string, paths []stri
 		zip.open_entry(root + '/' + path)!
 		if path != '' && !path.ends_with('/') {
 			zip.create_entry(os.join_path(directory, path))!
-		} else {
-			$if !windows {
-				// Read directory metadata too, so external extractors restore search permissions.
-				zip.create_entry(os.join_path(directory, path))!
-			}
 		}
 		zip.close_entry()
 	}
@@ -91,6 +93,7 @@ fn safe_entry(path string) bool {
 // Extract a package into an existing private scratch directory. Each entry
 // must remain within the package's named top-level directory.
 pub fn extract(archive string, root string, destination string) ! {
+	modes := read_modes(archive)!
 	mut zip := szip.open(archive, .no_compression, .read_only)!
 	defer { zip.close() }
 	mut seen := map[string]bool{}
@@ -111,7 +114,9 @@ pub fn extract(archive string, root string, destination string) ! {
 			os.mkdir_all(os.dir(target))!
 			zip.extract_entry(target)!
 			$if !windows {
-				os.chmod(target, int(os.stat(target)!.mode & 0o777))!
+				if mode := modes[name] {
+					os.chmod(target, int(mode))!
+				}
 			}
 			if os.file_size(target) != zip.size() {
 				return error('Invalid package entry size: ${name}')
