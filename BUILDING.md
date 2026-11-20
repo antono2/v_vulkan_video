@@ -152,6 +152,9 @@ installs and verifies the dependencies in `v.mod`, initializes ImGui submodules
 and calls the build script. Use `-Check` for read-only build-tool diagnostics or
 `-PrepareOnly` to prepare modules without compiling. It needs V, Git and CMake
 on PATH, plus installed Visual Studio C++ tools and the Vulkan SDK.
+Use `-Verify` to build and then run the player tests, help and device probes, and
+archive verification. From a configured toolchain, pass `--verify` directly to
+`v run scripts/build_windows.vsh`.
 
 `v run scripts/build_windows.vsh` resolves `--modules`, then `VMODULES`, then a sibling
 bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's

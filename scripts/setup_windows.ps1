@@ -6,7 +6,8 @@ param(
     [ValidateSet('stable', 'v3')]
     [string]$Compiler = 'stable',
     [switch]$Check,
-    [switch]$PrepareOnly
+    [switch]$PrepareOnly,
+    [switch]$Verify
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,5 +79,5 @@ if ($PrepareOnly) {
     Write-Host 'Dependencies are ready. Run scripts\build_windows.ps1 to build the player.'
     return
 }
-& (Join-Path $PSScriptRoot 'build_windows.ps1') -ModulesDirectory $ModulesDirectory -OutputDirectory $OutputDirectory -Compiler $Compiler
+& (Join-Path $PSScriptRoot 'build_windows.ps1') -ModulesDirectory $ModulesDirectory -OutputDirectory $OutputDirectory -Compiler $Compiler -Verify:$Verify
 Write-Host 'Use the packaged player with --list-gpus to check playback support for your video.'

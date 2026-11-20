@@ -81,13 +81,5 @@ jobs:
           # Exercise the documented entry point from an ordinary PowerShell.
           ./scripts/setup_windows.ps1 -Check
           if (Test-Path $env:VMODULES) { throw 'Read-only check created modules' }
-          ./scripts/setup_windows.ps1
+          ./scripts/setup_windows.ps1 -Verify
           ./scripts/setup_windows.ps1 -PrepareOnly
-          $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
-          v -cc msvc -cflags '/DWIN32_LEAN_AND_MEAN' test .
-          if ($LASTEXITCODE -ne 0) { throw 'Fresh Windows player tests failed' }
-          $HelpText = (& ./dist/vkvideo-windows-x64/v_vulkan_video.exe --help | Out-String)
-          if ($LASTEXITCODE -ne 0 -or $HelpText -notmatch 'Usage:') { throw 'Player help failed' }
-          $GpuText = (& ./dist/vkvideo-windows-x64/v_vulkan_video.exe --list-gpus ./dist/vkvideo-windows-x64/res/20240917_095400.mp4 | Out-String)
-          if ($LASTEXITCODE -ne 0 -or $GpuText -notmatch 'Vulkan devices for H.264') { throw 'Device enumeration failed' }
-          ./scripts/verify_windows_package.ps1

@@ -3,13 +3,15 @@ param(
     [string]$OutputDirectory = "",
     [string]$ModulesDirectory = "",
     [ValidateSet("stable", "v3")]
-    [string]$Compiler = "stable"
+    [string]$Compiler = "stable",
+    [switch]$Verify
 )
 
 $ErrorActionPreference = "Stop"
 $BuildArguments = @('--compiler', $Compiler)
 if ($OutputDirectory) { $BuildArguments += @('--output', [IO.Path]::GetFullPath($OutputDirectory)) }
 if ($ModulesDirectory) { $BuildArguments += @('--modules', [IO.Path]::GetFullPath($ModulesDirectory)) }
+if ($Verify) { $BuildArguments += '--verify' }
 Push-Location (Split-Path -Parent $PSScriptRoot)
 try {
     & v run (Join-Path $PSScriptRoot 'build_windows.vsh') @BuildArguments
