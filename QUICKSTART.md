@@ -103,7 +103,7 @@ poison the next attempt.
 Use the stable V compiler for release builds. A source-built V master at
 `b99970bd438a7bdcdfbe38f74d9364db801d5439` also passed the Windows V3/MSVC
 build, software tests, help, GPU enumeration and package verification. To
-exercise V3 with that compiler, run `./scripts/build_windows.ps1 -Compiler v3`
+exercise V3 with that compiler, run `v run scripts/build_windows.vsh --compiler v3`
 from an x64 Visual Studio developer PowerShell in the source bundle. CI checks
 both stable and pinned V3 packages. Windows hardware decoding remains unverified.
 
