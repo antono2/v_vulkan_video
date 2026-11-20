@@ -166,6 +166,10 @@ compiles the player with MSVC and creates
 `dist\vkvideo-windows-x64.zip`. It requires V 0.5.2+, CMake, Visual Studio C++
 x64 tools and a Vulkan SDK selected through `VULKAN_SDK`.
 
+The archive and its SHA-256 file can be checked from any host with V. Run
+`v run scripts/package_windows.vsh verify` from the project directory, or pass
+an archive path after `verify`.
+
 To test the V3 compiler from current V master, run
 `./scripts/build_windows.ps1 -Compiler v3` from a Visual Studio x64 developer
 PowerShell. The MSVC build defines `WIN32_LEAN_AND_MEAN` so Windows headers do

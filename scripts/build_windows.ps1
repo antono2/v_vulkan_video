@@ -7,7 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Write-Host "vkvideo Windows build script revision 8"
+Write-Host "vkvideo Windows build script revision 9"
 $ProjectDirectory = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 . (Join-Path $PSScriptRoot 'windows_environment.ps1')
 $ModulesDirectory = Get-VkVideoModulesDirectory $ModulesDirectory $ProjectDirectory
@@ -99,59 +99,6 @@ try {
     Pop-Location
 }
 
-Copy-Item $VimguiDll.FullName $PackageDirectory -Force
-Copy-Item $GlfwDll.FullName $PackageDirectory -Force
-New-Item -ItemType Directory -Force (Join-Path $PackageDirectory "res") | Out-Null
-Copy-Item (Join-Path $ProjectDirectory "res\20240917_095400.mp4") (Join-Path $PackageDirectory "res\20240917_095400.mp4") -Force
-Copy-Item (Join-Path $ProjectDirectory "packaging\windows\run.bat") $PackageDirectory -Force
-Copy-Item (Join-Path $ProjectDirectory "packaging\windows\README.txt") $PackageDirectory -Force
-Copy-Item (Join-Path $ProjectDirectory 'LICENSE') $PackageDirectory -Force
-Copy-Item (Join-Path $ProjectDirectory 'res\README.md') (Join-Path $PackageDirectory 'MEDIA.txt') -Force
-$LicenseDirectory = Join-Path $PackageDirectory 'licenses'
-New-Item -ItemType Directory -Force $LicenseDirectory | Out-Null
-foreach ($Entry in Get-Content (Join-Path $ProjectDirectory 'packaging\licenses.manifest')) {
-    $Parts = $Entry -split '\s+'
-    if ($Parts.Count -ne 3) { throw "Invalid license entry: $Entry" }
-    $ModuleDirectory = Join-Path $Antono2ModulesDirectory $Parts[0]
-    Copy-Item (Join-Path $ModuleDirectory $Parts[1]) (Join-Path $LicenseDirectory $Parts[2]) -Force
-}
-
-function Get-SourceRevision([string]$Directory) {
-    if (Test-Path (Join-Path $Directory '.git')) {
-        $Revision = git -C $Directory rev-parse HEAD
-        if ($LASTEXITCODE -ne 0) { throw "Could not record source revision: $Directory" }
-        return $Revision
-    }
-    $RevisionFile = Join-Path $Directory 'SOURCE_REVISION'
-    if (Test-Path $RevisionFile) { return (Get-Content $RevisionFile -Raw).Trim() }
-    return 'unrecorded source checkout'
-}
-$SdkVersion = $env:VULKAN_SDK_VERSION
-if (-not $SdkVersion) {
-    $SdkVersion = Split-Path -Leaf ($env:VULKAN_SDK.TrimEnd([char[]]'\/'))
-}
-$BuildInfo = @(
-    "Source revision: $(Get-SourceRevision $ProjectDirectory)"
-    "V compiler: $(& v version)"
-    "Compiler mode: $Compiler"
-    'C compiler: MSVC'
-    "Vulkan SDK: $SdkVersion"
-)
-foreach ($Module in @('vulkan', 'vkmemalloc', 'memory', 'imgui', 'glfw', 'minimp4', 'h264')) {
-    $ModulePath = Join-Path $Antono2ModulesDirectory $Module
-    $Revision = Get-SourceRevision $ModulePath
-    $BuildInfo += "Module ${Module}: $Revision"
-}
-$BuildInfo | Set-Content (Join-Path $PackageDirectory 'BUILD-INFO.txt') -Encoding utf8
-
-# Keep the unpacked output convenient for local testing, but always create the
-# release archive from the clean staging directory above. Files from an older
-# local build can therefore never leak into the ZIP.
-Copy-Item (Join-Path $PackageDirectory "*") $OutputDirectory -Recurse -Force
-
-$ZipPath = "$OutputDirectory.zip"
-if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
-Compress-Archive -Path $PackageDirectory -DestinationPath $ZipPath
-$Hash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-"$Hash  $([IO.Path]::GetFileName($ZipPath))" | Set-Content "$ZipPath.sha256" -Encoding ascii
-Write-Host "Built Windows package with the $Compiler V compiler: $ZipPath"
+$PackageScript = Join-Path $PSScriptRoot 'package_windows.vsh'
+& v run $PackageScript build $OutputDirectory $ModulesDirectory $Compiler $Executable $VimguiDll.FullName $GlfwDll.FullName
+if ($LASTEXITCODE -ne 0) { throw 'Windows package assembly failed.' }
