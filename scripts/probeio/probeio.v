@@ -21,7 +21,14 @@ pub fn find_executable(name string) string {
 	return if os.is_file(path) && os.is_executable(path) { path } else { '' }
 }
 
-pub fn run_probe(executable string, args []string, timeout time.Duration) ProbeResult {
+@[params]
+pub struct ProbeOptions {
+pub:
+	directory   string
+	environment map[string]string
+}
+
+pub fn run_probe(executable string, args []string, timeout time.Duration, options ProbeOptions) ProbeResult {
 	path := find_executable(executable)
 	if path == '' {
 		return ProbeResult{
@@ -30,6 +37,12 @@ pub fn run_probe(executable string, args []string, timeout time.Duration) ProbeR
 	}
 	mut child := os.new_process(path)
 	child.set_args(args)
+	if options.directory != '' {
+		child.set_work_folder(options.directory)
+	}
+	if options.environment.len > 0 {
+		child.set_environment(options.environment)
+	}
 	child.set_redirect_stdio()
 	child.run()
 	defer { child.close() }

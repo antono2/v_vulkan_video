@@ -69,13 +69,14 @@ jobs:
           sdk-version: ${{ steps.compat.outputs.ci_sdk }}
           artifact-tag: ${{ steps.compat.outputs.ci_runtime }}
           volk-revision: ${{ steps.compat.outputs.volk }}
+      - name: Test the V setup script
+        run: v test scripts/windowssetup
       - name: Install from an empty module directory and build outside bundle layout
         shell: powershell
         env:
           VMODULES: ${{ github.workspace }}-fresh modules
         run: |
           if (Test-Path $env:VMODULES) { throw 'Fresh module directory already exists' }
-          ./scripts/test_setup_windows.ps1
           # A normal SDK installation only defines VULKAN_SDK, not this CI helper variable.
           Remove-Item Env:VULKAN_SDK_VERSION
           # Exercise the documented entry point from an ordinary PowerShell.
