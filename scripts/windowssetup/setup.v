@@ -27,7 +27,10 @@ mut:
 pub struct NativeRunner {}
 
 pub fn (mut runner NativeRunner) invoke(program string, args []string, project string, env map[string]string) probeio.ProbeResult {
-	return probeio.run_probe(program, args, command_timeout, directory: project, environment: env)
+	return probeio.run_probe_with_options(program, args, command_timeout,
+		directory:   project
+		environment: env
+	)
 }
 
 pub fn modules_directory(requested string, project string, configured string) string {

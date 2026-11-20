@@ -28,7 +28,11 @@ pub:
 	environment map[string]string
 }
 
-pub fn run_probe(executable string, args []string, timeout time.Duration, options ProbeOptions) ProbeResult {
+pub fn run_probe(executable string, args []string, timeout time.Duration) ProbeResult {
+	return run_probe_with_options(executable, args, timeout)
+}
+
+pub fn run_probe_with_options(executable string, args []string, timeout time.Duration, options ProbeOptions) ProbeResult {
 	path := find_executable(executable)
 	if path == '' {
 		return ProbeResult{
