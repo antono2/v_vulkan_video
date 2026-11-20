@@ -439,23 +439,7 @@ jobs:
           if (-not $InstallPath) { throw 'Visual Studio C++ tools were not found' }
           Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
           Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          $Compiler = '${{ matrix.compiler }}'
-          ./scripts/build_windows.ps1 -Compiler $Compiler
-          $env:Path = "$(Resolve-Path dist\vkvideo-windows-x64);$env:Path"
-          $HelpText = (& .\dist\vkvideo-windows-x64\v_vulkan_video.exe --help | Out-String)
-          if ($LASTEXITCODE -ne 0 -or $HelpText -notmatch 'Usage:') {
-            throw 'The Windows player did not print its command-line help.'
-          }
-          $GpuText = (& .\dist\vkvideo-windows-x64\v_vulkan_video.exe --list-gpus .\dist\vkvideo-windows-x64\res\20240917_095400.mp4 | Out-String)
-          if ($LASTEXITCODE -ne 0 -or $GpuText -notmatch 'Vulkan devices for H.264') {
-            throw 'The Windows player could not enumerate Vulkan devices.'
-          }
-          $Flags = @('-cc', 'msvc', '-cflags', '/DWIN32_LEAN_AND_MEAN')
-          if ($Compiler -eq 'v3') { $Flags += '-new-compiler' }
-          v @Flags test .
-          if ($LASTEXITCODE -ne 0) { throw 'Windows player tests failed' }
-          v run scripts/package_windows.vsh verify
-          if ($LASTEXITCODE -ne 0) { throw 'Windows package verification failed' }
+          v run scripts/build_windows.vsh --compiler ${{ matrix.compiler }} --verify
       - name: Upload Windows package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

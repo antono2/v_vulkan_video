@@ -153,7 +153,7 @@ and calls the build script. Use `-Check` for read-only build-tool diagnostics or
 `-PrepareOnly` to prepare modules without compiling. It needs V, Git and CMake
 on PATH, plus installed Visual Studio C++ tools and the Vulkan SDK.
 
-`build_windows.ps1` resolves `-ModulesDirectory`, then `VMODULES`, then a sibling
+`v run scripts/build_windows.vsh` resolves `--modules`, then `VMODULES`, then a sibling
 bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's
 `build.bat` explicitly selects its bundled modules so an unrelated `VMODULES`
 setting cannot override the packaged stack.
@@ -173,7 +173,7 @@ The archive and its SHA-256 file can be checked from any host with V. Run
 an archive path after `verify`.
 
 To test the V3 compiler from current V master, run
-`./scripts/build_windows.ps1 -Compiler v3` from a Visual Studio x64 developer
+`v run scripts/build_windows.vsh --compiler v3` from a Visual Studio x64 developer
 PowerShell. The MSVC build defines `WIN32_LEAN_AND_MEAN` so Windows headers do
 not introduce legacy Winsock declarations before V's Winsock2 headers.
 
