@@ -43,13 +43,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
-          v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
-          v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh compatibility release
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
@@ -92,7 +86,6 @@ jobs:
         with:
           version: ${{ steps.compat.outputs.v_release }}
       - name: Verify the declared dependency graph
-        shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake ffmpeg libglfw3-dev libvulkan-dev libvulkan-volk-dev luajit patchelf pkg-config glslc glslang-tools spirv-tools libx11-dev openbox xauth xvfb mesa-vulkan-drivers vulkan-validationlayers
@@ -113,13 +106,7 @@ jobs:
         working-directory: source/v_vulkan_video
         run: v run scripts/generate_shaders.vsh --self-test
       - name: Verify generated binding ownership
-        working-directory: source/modules/antono2/imgui
-        run: |
-          set -euo pipefail
-          duplicates=$(comm -12 \
-            <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' imgui.v | sort -u) \
-            <(sed -n 's/^pub struct C\.\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' implot/implot.v | sort -u))
-          test -z "$duplicates" || { printf 'Duplicate C declarations:\n%s\n' "$duplicates"; exit 1; }
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh binding-ownership source/modules/antono2/imgui
       - name: Test pinned Vulkan memory allocator
         if: matrix.linkage == 'shared'
         working-directory: source/modules/antono2/vkmemalloc
@@ -128,25 +115,14 @@ jobs:
         working-directory: source/modules/antono2/imgui
         run: v run build_vimgui.vsh --linkage '${{ matrix.linkage }}' --glfw system
       - name: Test and build player
-        working-directory: source/v_vulkan_video
-        run: |
-          set -euo pipefail
-          flags=()
-          if [[ '${{ matrix.linkage }}' == static ]]; then flags+=(-d imgui_static); fi
-          v "${flags[@]}" -cc gcc test .
-          v "${flags[@]}" -cc gcc -o v_vulkan_video .
+        env:
+          PLAYER_LINKAGE: ${{ matrix.linkage }}
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh test-player "$PLAYER_LINKAGE"
       - name: Test bounded Linux window startup without video hardware
-        working-directory: source/v_vulkan_video
-        run: |
-          v -cc tcc -o "$RUNNER_TEMP/window-startup-probe" windowing/probe
-          v -cc tcc -o "$RUNNER_TEMP/window-startup-check" tests/desktop/window_startup.v
-          "$RUNNER_TEMP/window-startup-check" "$RUNNER_TEMP/window-startup-probe" "$RUNNER_TEMP/window-startup-logs"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh window-startup
       - name: Package Ubuntu 24.04 release
         if: matrix.linkage == 'shared'
-        working-directory: source/v_vulkan_video
-        run: |
-          v run scripts/package_ubuntu24.vsh --help
-          v run scripts/package_ci_ubuntu24.vsh vkvideo-ubuntu24-amd64.zip
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh package regular
       - name: Upload Ubuntu release package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: matrix.linkage == 'shared'
@@ -166,11 +142,7 @@ jobs:
           if-no-files-found: error
       - name: Build diagnostic Ubuntu player
         if: matrix.linkage == 'shared'
-        working-directory: source/v_vulkan_video
-        run: |
-          LD_LIBRARY_PATH="$VMODULES/antono2/imgui/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" v run run.vsh -- --help
-          v -d debug -cc gcc -o v_vulkan_video .
-          v run scripts/package_ci_ubuntu24.vsh vkvideo-ubuntu24-amd64-debug.zip
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh package debug
       - name: Upload Ubuntu diagnostic package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: matrix.linkage == 'shared'
@@ -218,13 +190,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
-          v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
-          v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh compatibility release
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
@@ -277,11 +243,8 @@ jobs:
           ref: ${{ steps.compat.outputs.v3_tcc }}
           path: toolchain/v/thirdparty/tcc
       - name: Build pinned V3 compiler
-        run: |
-          make -C toolchain/v local=1
-          echo "$GITHUB_WORKSPACE/toolchain/v" >> "$GITHUB_PATH"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh build-compiler toolchain/v pinned
       - name: Verify the declared dependency graph
-        shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
@@ -293,11 +256,7 @@ jobs:
         working-directory: source/modules/antono2/imgui
         run: v run build_vimgui.vsh --linkage shared --glfw system
       - name: Build and test player with pinned V3 and TinyCC
-        working-directory: source/v_vulkan_video
-        run: |
-          v -new-compiler -cc tcc test .
-          v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
-          v run scripts/smoke_vulkan_loader.vsh "$RUNNER_TEMP/v_vulkan_video"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh test-player v3
 
   linux-v-master:
     name: Advisory current V master and dependency masters
@@ -318,13 +277,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
-          v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
-          v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh compatibility release
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
@@ -367,23 +320,18 @@ jobs:
           ref: master
           path: toolchain/v
       - name: Build current V master
-        run: |
-          make -C toolchain/v
-          echo "$GITHUB_WORKSPACE/toolchain/v" >> "$GITHUB_PATH"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh build-compiler toolchain/v master
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
       - name: Stage headers matching Vulkan master
         uses: antono2/vulkan/.github/actions/stage-vulkan-headers@0c2a5f832ea6792df3f34a6e1ef7390743162bd1
         with:
           bindings-path: source/modules/antono2/vulkan
+      - name: Build native ImGui
+        working-directory: source/modules/antono2/imgui
+        run: v run build_vimgui.vsh --linkage shared --glfw system
       - name: Build and test player with V3
-        run: |
-          cd source/modules/antono2/imgui
-          v run build_vimgui.vsh --linkage shared --glfw system
-          cd "$GITHUB_WORKSPACE/source/v_vulkan_video"
-          v -new-compiler -cc tcc test .
-          v -new-compiler -cc tcc -o "$RUNNER_TEMP/v_vulkan_video" .
-          v run scripts/smoke_vulkan_loader.vsh "$RUNNER_TEMP/v_vulkan_video"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh test-player v3
 
   windows:
     name: Windows / ${{ matrix.compiler }}
@@ -404,13 +352,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run source/v_vulkan_video/scripts/compatibility.vsh --self-test
-          v run source/v_vulkan_video/scripts/doctor.vsh --self-test
-          v run source/v_vulkan_video/scripts/hardware_evidence.vsh --self-test
-          v run source/v_vulkan_video/scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh compatibility release
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ github.repository_owner }}/vulkan
@@ -480,7 +422,6 @@ jobs:
         run: |
           "$env:GITHUB_WORKSPACE\toolchain\v" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Verify the declared dependency graph
-        shell: bash
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install Vulkan SDK and SwiftShader test artifacts
         uses: antono2/vulkan/.github/actions/setup-vulkan-ci@0c2a5f832ea6792df3f34a6e1ef7390743162bd1

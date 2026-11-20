@@ -31,14 +31,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run ./scripts/compatibility.vsh --self-test
-          v run ./scripts/doctor.vsh --self-test
-          v run ./scripts/setup_linux.vsh --self-test
-          sh scripts/setup_linux.sh --help
-          v run ./scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run scripts/ci_linux.vsh compatibility fresh-linux
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: steps.compat.outputs.v_release != '0.5.2'
         with:
@@ -47,19 +40,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake libglfw3-dev libvulkan-dev libvulkan-volk-dev pkg-config mesa-vulkan-drivers xvfb
       - name: Install from an empty module directory and build
         env:
-          VMODULES: ${{ github.workspace }}-fresh-modules
-        run: |
-          test ! -e "$VMODULES"
-          mkdir -p "$VMODULES"
-          v run scripts/build_linux.vsh --cc tcc
-          v run scripts/check_installed_deps.vsh
+          VKVIDEO_FRESH_MODULES: ${{ github.workspace }}-fresh-modules
+        run: v run scripts/ci_linux.vsh fresh-build
       - name: Test freshly installed modules and loader startup
         env:
-          VMODULES: ${{ github.workspace }}-fresh-modules
-        run: |
-          export LD_LIBRARY_PATH="$VMODULES/antono2/imgui/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          v -cc tcc test .
-          v run scripts/smoke_vulkan_loader.vsh "$GITHUB_WORKSPACE/v_vulkan_video"
+          VKVIDEO_FRESH_MODULES: ${{ github.workspace }}-fresh-modules
+        run: v run scripts/ci_linux.vsh fresh-test
 
   windows:
     name: Fresh VPM / Windows / stable
@@ -72,12 +58,7 @@ jobs:
           version: 0.5.2
       - name: Validate and resolve tested compatibility
         id: compat
-        shell: bash
-        working-directory: ${{ github.workspace }}
-        run: |
-          v run ./scripts/compatibility.vsh --self-test
-          v run ./scripts/doctor.vsh --self-test
-          v run ./scripts/compatibility.vsh --github-output "$GITHUB_OUTPUT"
+        run: v run scripts/ci_linux.vsh compatibility fresh-windows
       - uses: prantlf/setup-v-action@92f20bea50d2c9931a28c96bb4997a3c7357baf0 # v4
         if: steps.compat.outputs.v_release != '0.5.2'
         with:
