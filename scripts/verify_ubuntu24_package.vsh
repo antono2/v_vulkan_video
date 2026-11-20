@@ -1,6 +1,6 @@
 // Verify the checksum, redistribution notices, and loader paths in an Ubuntu package.
-import crypto.sha256
 import os
+import packagezip
 import rand
 
 const package_name = 'vkvideo-ubuntu24-amd64'
@@ -13,21 +13,6 @@ fn command(args []string) !string {
 		return error('${args[0]} exited with status ${result.exit_code}\n${result.output}')
 	}
 	return result.output.trim_right('\r\n')
-}
-
-fn verify_checksum(archive string) ! {
-	if !os.is_file(archive) {
-		return error('Package does not exist: ${archive}')
-	}
-	checksum := archive + '.sha256'
-	if !os.is_file(checksum) {
-		return error('Package checksum is missing: ${checksum}')
-	}
-	fields := os.read_file(checksum)!.all_before('\n').fields()
-	actual := sha256.sum(os.read_bytes(archive)!).hex()
-	if fields.len == 0 || fields[0].to_lower() != actual {
-		return error('Ubuntu package checksum mismatch')
-	}
 }
 
 fn verify_contents(directory string) ! {
@@ -95,15 +80,15 @@ fn verify_runtime(directory string, patchelf string) ! {
 }
 
 fn verify(archive string) ! {
-	verify_checksum(archive)!
+	packagezip.verify_checksum(archive)!
 	tool := os.getenv_opt('PATCHELF') or { os.find_abs_path_of_executable('patchelf') or { '' } }
 	if tool == '' || !os.is_executable(tool) {
 		return error('patchelf is required (or set PATCHELF to its executable path)')
 	}
 	stage := os.join_path(os.temp_dir(), 'vkvideo-verify-' + rand.uuid_v4())
-	os.mkdir(stage)!
+	os.mkdir(stage, mode: 0o700)!
 	defer { os.rmdir_all(stage) or {} }
-	command(['unzip', '-q', archive, '-d', stage])!
+	packagezip.extract(archive, package_name, stage)!
 	directory := os.join_path(stage, package_name)
 	verify_contents(directory)!
 	verify_runtime(directory, tool)!
