@@ -100,6 +100,11 @@ jobs:
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
         run: v run scripts/compare_nv12.vsh --self-test
+      - name: Exercise Windows archive assembly and rejection checks
+        if: matrix.linkage == 'shared'
+        working-directory: source/v_vulkan_video
+        run: v test scripts/windowspackage
+
       - name: Check the Windows source archive
         if: matrix.linkage == 'shared'
         working-directory: source/v_vulkan_video
@@ -561,7 +566,8 @@ jobs:
           if ($Compiler -eq 'v3') { $Flags += '-new-compiler' }
           v @Flags test .
           if ($LASTEXITCODE -ne 0) { throw 'Windows player tests failed' }
-          ./scripts/verify_windows_package.ps1
+          v run scripts/package_windows.vsh verify
+          if ($LASTEXITCODE -ne 0) { throw 'Windows package verification failed' }
       - name: Upload Windows package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
