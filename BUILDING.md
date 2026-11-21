@@ -156,13 +156,19 @@ Use `-Verify` to build and then run the player tests, help and device probes, an
 archive verification. From a configured toolchain, pass `--verify` directly to
 `v run scripts/build_windows.vsh`.
 
+From an x64 Visual Studio developer shell with `VULKAN_SDK` set, you can run
+`v run scripts/setup_windows.vsh --verify` to prepare the pinned modules and
+build. Pass `--prepare-only` to stop after module preparation, or `--modules`
+with a directory to select a separate module tree.
+
 `v run scripts/build_windows.vsh` resolves `--modules`, then `VMODULES`, then a sibling
 bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's
 `build.bat` explicitly selects its bundled modules so an unrelated `VMODULES`
 setting cannot override the packaged stack.
 
-Setup sets `VTMP` beside the selected modules to avoid released VPM's cross-drive
-directory-move limitation. When calling `v install` manually, use a writable
+Setup gives VPM a temporary `VTMP` directory beside the selected modules to avoid
+released VPM's cross-drive directory-move limitation. It removes the staging
+directory when setup ends. When calling `v install` manually, use a writable
 `VTMP` directory on the same drive as `VMODULES`.
 
 Extract it, open `v_vulkan_video\packaging\windows\build.bat` and run it. The

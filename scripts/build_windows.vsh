@@ -5,6 +5,7 @@ import probeio
 import rand
 import time
 import windowspackage
+import windowssetup
 
 const glfw_version = '3.4'
 const executable_name = 'v_vulkan_video.exe'
@@ -37,21 +38,6 @@ fn command(executable string, args []string, cwd string) ! {
 	if child.code != 0 {
 		return error('${os.file_name(executable)} exited with status ${child.code}: ${args.join(' ')}')
 	}
-}
-
-fn module_directory(requested string, project string) string {
-	if requested != '' {
-		return os.abs_path(requested)
-	}
-	configured := os.getenv('VMODULES')
-	if configured != '' {
-		return os.abs_path(configured.all_before(os.path_delimiter))
-	}
-	bundled := os.join_path(os.dir(project), 'modules')
-	if os.is_file(os.join_path(bundled, 'antono2', 'imgui', 'CMakeLists.txt')) {
-		return bundled
-	}
-	return os.join_path(os.home_dir(), '.vmodules')
 }
 
 fn native_artifact(files []string, name string, bundled_header bool) !string {
@@ -174,7 +160,7 @@ fn run(args []string) ! {
 	}
 	build(BuildOptions{
 		project:       project
-		modules:       module_directory(modules, project)
+		modules:       windowssetup.modules_directory(modules, project, os.getenv('VMODULES'))
 		output:        os.abs_path(output)
 		compiler_mode: mode
 		verify:        verify
