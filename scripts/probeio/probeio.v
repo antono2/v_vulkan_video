@@ -26,6 +26,7 @@ pub struct ProbeOptions {
 pub:
 	directory   string
 	environment map[string]string
+	stdout_only bool
 }
 
 pub fn run_probe(executable string, args []string, timeout time.Duration) ProbeResult {
@@ -78,7 +79,11 @@ pub fn run_probe_with_options(executable string, args []string, timeout time.Dur
 			time.sleep(probe_interval)
 		}
 	}
-	detail := (stdout.str() + stderr.str()).replace('\r\n', '\n').trim_space()
+	detail := if options.stdout_only {
+		stdout.str()
+	} else {
+		(stdout.str() + stderr.str()).replace('\r\n', '\n').trim_space()
+	}
 	return ProbeResult{
 		ok:     child.code == 0
 		detail: if detail == '' { child.err } else { detail }

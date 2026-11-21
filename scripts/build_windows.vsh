@@ -1,4 +1,4 @@
-// Build Windows player artifacts with the Visual Studio environment already active.
+// Discover the x64 toolchain, then build and package Windows player artifacts.
 import flag
 import os
 import probeio
@@ -33,6 +33,7 @@ fn command(executable string, args []string, cwd string) ! {
 	defer { child.close() }
 	child.set_args(args)
 	child.set_work_folder(cwd)
+	child.set_environment(windowssetup.current_environment())
 	child.run()
 	child.wait()
 	if child.code != 0 {
@@ -60,12 +61,17 @@ fn verify_release(options BuildOptions, compiler string, flags []string) ! {
 	old_path := os.getenv('PATH')
 	os.setenv('PATH', options.output + os.path_delimiter + old_path, true)
 	defer { os.setenv('PATH', old_path, true) }
-	help := probeio.run_probe(player, ['--help'], player_probe_timeout)
+	env := windowssetup.current_environment()
+	help := probeio.run_probe_with_options(player, ['--help'], player_probe_timeout,
+		environment: env
+	)
 	if !help.ok || !help.detail.contains('Usage:') {
 		return error('The Windows player did not print its command-line help.\n${help.detail}')
 	}
-	gpus := probeio.run_probe(player, ['--list-gpus', os.join_path(options.output, sample_media)],
-		player_probe_timeout)
+	gpus := probeio.run_probe_with_options(player,
+		['--list-gpus', os.join_path(options.output, sample_media)], player_probe_timeout,
+		environment: env
+	)
 	if !gpus.ok || !gpus.detail.contains('Vulkan devices for H.264') {
 		return error('The Windows player could not enumerate Vulkan devices.\n${gpus.detail}')
 	}
@@ -77,18 +83,15 @@ fn verify_release(options BuildOptions, compiler string, flags []string) ! {
 }
 
 fn build(options BuildOptions) ! {
+	windowssetup.activate_environment()!
 	imgui := os.join_path(options.modules, 'antono2', 'imgui')
 	if !os.is_file(os.join_path(imgui, 'CMakeLists.txt')) {
 		return error('ImGui module not found at ${options.modules}; run v install or pass --modules.')
 	}
 	println('Using V modules at ${options.modules}')
 	sdk := os.getenv('VULKAN_SDK')
-	if sdk == '' || !os.is_file(os.join_path(sdk, 'Include', 'vulkan', 'vulkan.h')) {
-		return error('Set VULKAN_SDK to the installed Vulkan SDK before building.')
-	}
 	compiler := tool('v')!
 	cmake := tool('cmake')!
-	tool('cl')!
 	// Every build owns a fresh CMake cache. A failed download cannot poison
 	// the next build, and an existing .build directory is never deleted.
 	stage := os.join_path(os.temp_dir(), 'vkvideo-imgui-' + rand.uuid_v4())
@@ -102,10 +105,9 @@ fn build(options BuildOptions) ! {
 	os.setenv('VMODULES', options.modules, true)
 	command(cmake, ['-S', imgui, '-B', build_dir, '-A', 'x64', '-DSTATIC_BUILD=OFF',
 		'-DVIMGUI_GLFW_PROVIDER=bundled', '-DVIMGUI_GLFW_VERSION=${glfw_version}',
-		'-DVIMGUI_OUTPUT_DIR=${os.join_path(build_dir,
-			'output')}',
-		r'-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>',
-		'-DCIMGUI_NO_EXPORT=OFF', '-DIMGUI_FREETYPE=OFF'], options.project)!
+		'-DVIMGUI_OUTPUT_DIR=${os.join_path(build_dir, 'output')}',
+		r'-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>', '-DCIMGUI_NO_EXPORT=OFF',
+		'-DIMGUI_FREETYPE=OFF'], options.project)!
 	command(cmake, ['--build', build_dir, '--config', 'Release', '--parallel'], options.project)!
 	files := os.walk_ext(build_dir, '').sorted()
 	imgui_dll := native_artifact(files, 'vimgui.dll', false)!
@@ -134,7 +136,11 @@ fn build(options BuildOptions) ! {
 		executable: player
 		imgui:      imgui_dll
 		glfw:       glfw_dll
-		sdk:        if sdk_version == '' { os.file_name(sdk.trim_right('/\\')) } else { sdk_version }
+		sdk:        if sdk_version == '' {
+			os.file_name(sdk.trim_right('/\\'))
+		} else {
+			sdk_version
+		}
 	}, options.output)!
 	if options.verify {
 		verify_release(options, compiler, flags)!

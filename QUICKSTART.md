@@ -62,23 +62,22 @@ Install:
 - the LunarG Vulkan SDK; and
 - for playback, a current GPU driver with Vulkan Video H.264 decode support.
 
-From an ordinary **64-bit PowerShell** in the checkout, with `v`, `git` and
-`cmake` on PATH, run:
+From a 64-bit Windows shell with `v`, `git` and `cmake` on PATH, run:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
+```text
+v run scripts/setup_windows.vsh
 ```
 
 Setup finds the installed Visual Studio x64 tools and Vulkan SDK, installs the
 dependencies declared in `v.mod`, verifies their revisions and initializes the
 ImGui submodules. It produces `dist\vkvideo-windows-x64.zip`. It configures the
 current process without changing persistent environment variables or installing
-system tools. Missing prerequisites are reported with next steps.
+system tools.
 
-Use `-Check` for build-tool diagnostics without downloads or build-directory
-changes, `-PrepareOnly` to install dependencies without compiling, or
-`-ModulesDirectory 'D:\V modules'` to choose a module directory. `-Compiler v3`
-selects the V3 build when the installed compiler supports it.
+Pass `--check` for build-tool diagnostics, `--prepare-only` to install dependencies
+without compiling, or `--modules "D:\V modules"` to choose a separate module
+directory. Use `--compiler v3` with a compatible V3 compiler. The original
+`setup_windows.ps1` command still accepts its PowerShell flags.
 
 Build-tool checks do not require a GPU capable of video decoding. After building,
 check the selected video's compatibility using the packaged player:

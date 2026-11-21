@@ -418,9 +418,7 @@ jobs:
         run: makev.bat -msvc --local
       - name: Add pinned V3 compiler to PATH
         if: matrix.compiler == 'v3'
-        shell: pwsh
-        run: |
-          "$env:GITHUB_WORKSPACE\toolchain\v" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run: v run source/v_vulkan_video/scripts/windows_ci.vsh compiler-path toolchain/v
       - name: Verify the declared dependency graph
         run: v run source/v_vulkan_video/scripts/check_installed_deps.vsh
       - name: Install Vulkan SDK and SwiftShader test artifacts
@@ -431,15 +429,8 @@ jobs:
           bindings-path: ${{ matrix.compiler == 'v3' && 'source/modules/antono2/vulkan' || '' }}
           volk-revision: ${{ steps.compat.outputs.volk }}
       - name: Build Windows package
-        shell: pwsh
         working-directory: source/v_vulkan_video
-        run: |
-          $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $InstallPath = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $InstallPath) { throw 'Visual Studio C++ tools were not found' }
-          Import-Module (Join-Path $InstallPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
-          Enter-VsDevShell -VsInstallPath $InstallPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-          v run scripts/build_windows.vsh --compiler ${{ matrix.compiler }} --verify
+        run: v run scripts/build_windows.vsh --compiler ${{ matrix.compiler }} --verify
       - name: Upload Windows package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
