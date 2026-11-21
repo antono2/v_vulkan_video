@@ -72,15 +72,6 @@ jobs:
       - name: Test the V setup script
         run: v test scripts/windowssetup
       - name: Install from an empty module directory and build outside bundle layout
-        shell: powershell
         env:
-          VMODULES: ${{ github.workspace }}-fresh modules
-        run: |
-          if (Test-Path $env:VMODULES) { throw 'Fresh module directory already exists' }
-          # A normal SDK installation only defines VULKAN_SDK, not this CI helper variable.
-          Remove-Item Env:VULKAN_SDK_VERSION
-          # Exercise the documented entry point from an ordinary PowerShell.
-          ./scripts/setup_windows.ps1 -Check
-          if (Test-Path $env:VMODULES) { throw 'Read-only check created modules' }
-          ./scripts/setup_windows.ps1 -Verify
-          ./scripts/setup_windows.ps1 -PrepareOnly
+          VKVIDEO_FRESH_MODULES: ${{ github.workspace }}-fresh modules
+        run: v run scripts/windows_ci.vsh fresh

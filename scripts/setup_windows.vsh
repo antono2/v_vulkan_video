@@ -1,14 +1,13 @@
-// Prepare the player once the x64 Visual Studio environment has been activated.
+// Discover Windows build prerequisites and prepare the pinned player dependencies.
 import flag
 import os
-import probeio
 import windowssetup
 
 fn run(args []string) ! {
 	project := os.dir(@DIR)
 	mut parser := flag.new_flag_parser(args)
 	parser.application('setup_windows')
-	parser.description('Prepare the pinned player dependencies and build with the configured x64 toolchain.')
+	parser.description('Prepare the pinned player dependencies and build with the installed x64 toolchain.')
 	modules := parser.string('modules', 0, '', 'override the V module directory')
 	output := parser.string('output', 0, '', 'override the output directory')
 	mode := parser.string('compiler', 0, 'stable', 'stable or v3')
@@ -22,20 +21,10 @@ fn run(args []string) ! {
 	if parser.finalize()!.len != 0 || mode !in ['stable', 'v3'] || (check && prepare_only) {
 		return error(parser.usage())
 	}
-	for tool in ['v', 'git', 'cmake', 'cl'] {
-		if probeio.find_executable(tool) == '' {
-			return error('Required command is unavailable: ${tool}. Run scripts/setup_windows.ps1 to discover the Windows build environment.')
-		}
-		println('[ok]      ${tool}')
-	}
-	sdk := os.getenv('VULKAN_SDK')
-	if sdk == '' || !os.is_file(os.join_path(sdk, 'Include', 'vulkan', 'vulkan.h')) {
-		return error('VULKAN_SDK must point to a Vulkan SDK containing the development headers.')
-	}
-	println('[ok]      VULKAN_SDK=${sdk}')
-	compiler := probeio.find_executable('v')
+	windowssetup.check_prerequisites()!
+	compiler := @VEXE
 	mut runner := windowssetup.NativeRunner{}
-	env := os.environ()
+	env := windowssetup.current_environment()
 	pins := runner.invoke(compiler, ['run', 'scripts/compatibility.vsh'], project, env)
 	if !pins.ok {
 		return error(pins.detail)

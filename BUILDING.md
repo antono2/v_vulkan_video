@@ -146,20 +146,16 @@ recorded revisions. The script verifies the ZIP, its SHA-256 checksum,
 the recorded source revisions and the bundled cimgui header before publication.
 Source export uses Git and tar. V handles the ZIP and checksum.
 
-For an ordinary Git checkout, run `scripts\setup_windows.ps1` from 64-bit
-PowerShell. It discovers the installed x64 Visual Studio environment and SDK,
-installs and verifies the dependencies in `v.mod`, initializes ImGui submodules
-and calls the build script. Use `-Check` for read-only build-tool diagnostics or
-`-PrepareOnly` to prepare modules without compiling. It needs V, Git and CMake
-on PATH, plus installed Visual Studio C++ tools and the Vulkan SDK.
-Use `-Verify` to build and then run the player tests, help and device probes, and
-archive verification. From a configured toolchain, pass `--verify` directly to
-`v run scripts/build_windows.vsh`.
-
-From an x64 Visual Studio developer shell with `VULKAN_SDK` set, you can run
-`v run scripts/setup_windows.vsh --verify` to prepare the pinned modules and
-build. Pass `--prepare-only` to stop after module preparation, or `--modules`
-with a directory to select a separate module tree.
+For an ordinary Windows checkout, run `v run scripts/setup_windows.vsh` from a
+64-bit shell. The script discovers the installed x64 Visual Studio environment
+and Vulkan SDK, prepares the dependencies in `v.mod`, and calls the V build
+script. Set `VULKAN_SDK` explicitly to select a different installed SDK.
+Use `--check` for read-only build-tool diagnostics and `--prepare-only` to
+install modules without building. Pass `--verify` to build and then run
+the player tests, help and device probes, and archive verification.
+The original PowerShell setup command forwards its existing flags to V.
+If the pinned modules are already available, run
+`v run scripts/build_windows.vsh --verify` directly.
 
 `v run scripts/build_windows.vsh` resolves `--modules`, then `VMODULES`, then a sibling
 bundle directory, then the default `%USERPROFILE%\.vmodules`. The source bundle's
@@ -175,7 +171,7 @@ Extract it, open `v_vulkan_video\packaging\windows\build.bat` and run it. The
 script locates Visual Studio automatically, builds shared ImGui and GLFW 3.4,
 compiles the player with MSVC and creates
 `dist\vkvideo-windows-x64.zip`. It requires V 0.5.2+, CMake, Visual Studio C++
-x64 tools and a Vulkan SDK selected through `VULKAN_SDK`.
+x64 tools and the Vulkan SDK.
 
 The archive and its SHA-256 file can be checked from any host with V. Run
 `v run scripts/package_windows.vsh verify` from the project directory, or pass
