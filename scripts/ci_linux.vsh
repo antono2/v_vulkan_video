@@ -92,20 +92,22 @@ fn test_player(profile string) ! {
 		'shared' { ['-cc', 'gcc'] }
 		'static' { ['-d', 'imgui_static', '-cc', 'gcc'] }
 		'v3' { ['-new-compiler', '-cc', 'tcc'] }
+		// Moving V uses V3 by default; the pinned snapshot still requires its flag.
+		'master' { ['-cc', 'tcc'] }
 		else { return error('Unknown Linux player profile: ${profile}.') }
 	}
 
 	mut tests := flags.clone()
 	tests << ['test', '.']
 	compiler(tests)!
-	destination := if profile == 'v3' {
+	destination := if profile in ['v3', 'master'] {
 		os.join_path(required_env('RUNNER_TEMP')!, player_name)
 	} else {
 		player_name
 	}
 	flags << ['-o', destination, '.']
 	compiler(flags)!
-	if profile == 'v3' {
+	if profile in ['v3', 'master'] {
 		compiler(['run', loader_smoke, destination])!
 	}
 }

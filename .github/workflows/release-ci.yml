@@ -331,7 +331,7 @@ jobs:
         working-directory: source/modules/antono2/imgui
         run: v run build_vimgui.vsh --linkage shared --glfw system
       - name: Build and test player with V3
-        run: v run source/v_vulkan_video/scripts/ci_linux.vsh test-player v3
+        run: v run source/v_vulkan_video/scripts/ci_linux.vsh test-player master
 
   windows:
     name: Windows / ${{ matrix.compiler }}
